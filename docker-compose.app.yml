@@ -1,23 +1,4 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: brainbook-db
-    environment:
-      POSTGRES_DB: brainbook
-      POSTGRES_USER: brainbook
-      POSTGRES_PASSWORD: brainbook
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U brainbook"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build: ./backend
     container_name: brainbook-backend
@@ -28,11 +9,14 @@ services:
       SPRING_DATASOURCE_USERNAME: brainbook
       SPRING_DATASOURCE_PASSWORD: brainbook
       SPRING_FLYWAY_ENABLED: "true"
-      ATTACHMENT_STORAGE_PATH: /data/attachments
-    volumes:
-      - attachments:/data/attachments
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: brainbook-attachments
+      MINIO_ACCESS_KEY: brainbook
+      MINIO_SECRET_KEY: brainbook123
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   frontend:
@@ -44,7 +28,3 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8080
     depends_on:
       - backend
-
-volumes:
-  pgdata:
-  attachments:

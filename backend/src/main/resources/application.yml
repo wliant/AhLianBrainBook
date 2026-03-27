@@ -23,8 +23,11 @@ spring:
       max-file-size: 50MB
       max-request-size: 50MB
 
-attachment:
-  storage-path: ${ATTACHMENT_STORAGE_PATH:./data/attachments}
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  bucket: ${MINIO_BUCKET:brainbook-attachments}
+  access-key: ${MINIO_ACCESS_KEY:brainbook}
+  secret-key: ${MINIO_SECRET_KEY:brainbook123}
 
 logging:
   level:

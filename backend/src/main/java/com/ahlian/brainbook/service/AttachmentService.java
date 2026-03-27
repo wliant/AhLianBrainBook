@@ -6,19 +6,18 @@ import com.ahlian.brainbook.model.Attachment;
 import com.ahlian.brainbook.model.Neuron;
 import com.ahlian.brainbook.repository.AttachmentRepository;
 import com.ahlian.brainbook.repository.NeuronRepository;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -29,14 +28,17 @@ public class AttachmentService {
 
     private final AttachmentRepository attachmentRepository;
     private final NeuronRepository neuronRepository;
-    private final Path storagePath;
+    private final MinioClient minioClient;
+    private final String bucket;
 
     public AttachmentService(AttachmentRepository attachmentRepository,
                              NeuronRepository neuronRepository,
-                             @Value("${attachment.storage-path}") String storagePath) {
+                             MinioClient minioClient,
+                             @Value("${minio.bucket}") String bucket) {
         this.attachmentRepository = attachmentRepository;
         this.neuronRepository = neuronRepository;
-        this.storagePath = Paths.get(storagePath).toAbsolutePath().normalize();
+        this.minioClient = minioClient;
+        this.bucket = bucket;
     }
 
     public List<AttachmentResponse> getByNeuronId(UUID neuronId) {
@@ -50,23 +52,26 @@ public class AttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
 
         try {
-            Files.createDirectories(storagePath);
+            String objectKey = UUID.randomUUID() + "_" + file.getOriginalFilename();
 
-            String storedFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path targetPath = storagePath.resolve(storedFileName);
-            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectKey)
+                    .stream(file.getInputStream(), file.getSize(), -1)
+                    .contentType(file.getContentType())
+                    .build());
 
             Attachment attachment = new Attachment();
             attachment.setNeuron(neuron);
             attachment.setFileName(file.getOriginalFilename());
-            attachment.setFilePath(storedFileName);
+            attachment.setFilePath(objectKey);
             attachment.setFileSize(file.getSize());
             attachment.setContentType(file.getContentType());
 
             Attachment saved = attachmentRepository.save(attachment);
             return toResponse(saved);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to store file in MinIO", e);
         }
     }
 
@@ -75,14 +80,13 @@ public class AttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment not found: " + id));
 
         try {
-            Path filePath = storagePath.resolve(attachment.getFilePath()).normalize();
-            Resource resource = new UrlResource(filePath.toUri());
-            if (!resource.exists()) {
-                throw new ResourceNotFoundException("File not found on disk: " + id);
-            }
-            return resource;
-        } catch (MalformedURLException e) {
-            throw new RuntimeException("Failed to read file", e);
+            InputStream stream = minioClient.getObject(GetObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(attachment.getFilePath())
+                    .build());
+            return new InputStreamResource(stream);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to read file from MinIO", e);
         }
     }
 
@@ -91,9 +95,11 @@ public class AttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment not found: " + id));
 
         try {
-            Path filePath = storagePath.resolve(attachment.getFilePath()).normalize();
-            Files.deleteIfExists(filePath);
-        } catch (IOException e) {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(attachment.getFilePath())
+                    .build());
+        } catch (Exception e) {
             // Log but don't fail -- DB record removal is more important
         }
 
@@ -101,13 +107,14 @@ public class AttachmentService {
     }
 
     private AttachmentResponse toResponse(Attachment attachment) {
-        AttachmentResponse resp = new AttachmentResponse();
-        resp.setId(attachment.getId());
-        resp.setNeuronId(attachment.getNeuronId());
-        resp.setFilename(attachment.getFileName());
-        resp.setMimeType(attachment.getContentType());
-        resp.setSizeBytes(attachment.getFileSize());
-        resp.setCreatedAt(attachment.getCreatedAt());
-        return resp;
+        return new AttachmentResponse(
+                attachment.getId(),
+                attachment.getNeuronId(),
+                attachment.getFileName(),
+                attachment.getFilePath(),
+                attachment.getFileSize(),
+                attachment.getContentType(),
+                attachment.getCreatedAt()
+        );
     }
 }
