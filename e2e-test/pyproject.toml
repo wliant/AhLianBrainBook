@@ -1,0 +1,21 @@
+[project]
+name = "brainbook-e2e"
+version = "0.1.0"
+description = "End-to-end tests for BrainBook"
+requires-python = ">=3.12"
+dependencies = [
+    "pytest>=8.0",
+    "pytest-playwright>=0.6",
+    "playwright>=1.50",
+    "python-dotenv>=1.0",
+    "httpx>=0.28",
+    "minio>=7.2",
+    "psycopg2-binary>=2.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "browser: tests that interact with the browser UI",
+    "api: tests that interact with the backend API directly",
+]

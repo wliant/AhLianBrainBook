@@ -1,0 +1,76 @@
+"""Shared fixtures for BrainBook E2E tests."""
+
+import os
+
+import pytest
+from dotenv import load_dotenv
+from playwright.sync_api import Page
+
+from helpers.api_client import BrainBookAPI
+from helpers.minio_client import MinIOHelper
+
+load_dotenv()
+
+BASE_URL = os.environ["BASE_URL"]
+API_URL = os.environ["API_URL"]
+MINIO_ENDPOINT = os.environ["MINIO_ENDPOINT"]
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+MINIO_BUCKET = os.environ["MINIO_BUCKET"]
+MINIO_SECURE = os.environ.get("MINIO_SECURE", "false").lower() == "true"
+
+
+@pytest.fixture(scope="session")
+def api() -> BrainBookAPI:
+    client = BrainBookAPI(API_URL)
+    yield client
+    client.close()
+
+
+@pytest.fixture(scope="session")
+def minio() -> MinIOHelper:
+    return MinIOHelper(
+        endpoint=MINIO_ENDPOINT,
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
+        bucket=MINIO_BUCKET,
+        secure=MINIO_SECURE,
+    )
+
+
+@pytest.fixture
+def home(page: Page) -> Page:
+    """Navigate to the dashboard and return the page."""
+    page.goto(BASE_URL)
+    page.wait_for_load_state("networkidle")
+    return page
+
+
+@pytest.fixture
+def brain_with_cluster(api: BrainBookAPI):
+    """Create a brain and cluster for testing, clean up after."""
+    brain = api.create_brain(f"E2E Brain {os.urandom(4).hex()}")
+    cluster = api.create_cluster(f"E2E Cluster {os.urandom(4).hex()}", brain["id"])
+    yield brain, cluster
+    # Cleanup: delete all neurons in cluster, then cluster, then brain
+    try:
+        neurons = api.list_neurons(cluster["id"])
+        for n in neurons:
+            api.permanent_delete_neuron(n["id"])
+        # Also clean trash
+        trash = api.get_trash()
+        for n in trash:
+            if n["brainId"] == brain["id"]:
+                api.permanent_delete_neuron(n["id"])
+        api.delete_cluster(cluster["id"])
+        api.delete_brain(brain["id"])
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def neuron_in_cluster(api: BrainBookAPI, brain_with_cluster):
+    """Create a neuron inside the test brain/cluster."""
+    brain, cluster = brain_with_cluster
+    neuron = api.create_neuron("E2E Test Neuron", brain["id"], cluster["id"])
+    return brain, cluster, neuron
