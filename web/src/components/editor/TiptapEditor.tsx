@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -23,9 +24,10 @@ const lowlight = createLowlight(common);
 interface TiptapEditorProps {
   content: Record<string, unknown> | null;
   onUpdate: (json: Record<string, unknown>, text: string) => void;
+  editable?: boolean;
 }
 
-export function TiptapEditor({ content, onUpdate }: TiptapEditorProps) {
+export function TiptapEditor({ content, onUpdate, editable = true }: TiptapEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -53,6 +55,7 @@ export function TiptapEditor({ content, onUpdate }: TiptapEditorProps) {
       Typography,
     ],
     content: content || undefined,
+    editable,
     onUpdate: ({ editor }) => {
       const json = editor.getJSON() as Record<string, unknown>;
       const text = editor.getText();
@@ -61,15 +64,19 @@ export function TiptapEditor({ content, onUpdate }: TiptapEditorProps) {
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-none min-h-[60vh] px-0",
+          "prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-none px-0",
       },
     },
     immediatelyRender: false,
   });
 
+  useEffect(() => {
+    if (editor) editor.setEditable(editable);
+  }, [editor, editable]);
+
   return (
-    <div>
-      <Toolbar editor={editor} />
+    <div className={editable ? "min-h-[60vh]" : ""}>
+      {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} />
     </div>
   );

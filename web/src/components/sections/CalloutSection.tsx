@@ -16,9 +16,10 @@ type CalloutVariant = keyof typeof VARIANTS;
 interface CalloutSectionProps {
   section: Section;
   onUpdate: (content: Record<string, unknown>) => void;
+  editing?: boolean;
 }
 
-export function CalloutSection({ section, onUpdate }: CalloutSectionProps) {
+export function CalloutSection({ section, onUpdate, editing = true }: CalloutSectionProps) {
   const variant = (section.content.variant as CalloutVariant) || "info";
   const text = (section.content.text as string) || "";
   const config = VARIANTS[variant];
@@ -28,26 +29,34 @@ export function CalloutSection({ section, onUpdate }: CalloutSectionProps) {
     <div className={cn("border rounded-lg overflow-hidden", config.border, config.bg)}>
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-inherit">
         <Icon className="h-4 w-4" />
-        <select
-          value={variant}
-          onChange={(e) =>
-            onUpdate({ variant: e.target.value, text })
-          }
-          className="text-xs bg-transparent border rounded px-1.5 py-0.5 outline-none"
-        >
-          {Object.entries(VARIANTS).map(([key, val]) => (
-            <option key={key} value={key}>
-              {val.label}
-            </option>
-          ))}
-        </select>
+        {editing ? (
+          <select
+            value={variant}
+            onChange={(e) =>
+              onUpdate({ variant: e.target.value, text })
+            }
+            className="text-xs bg-transparent border rounded px-1.5 py-0.5 outline-none"
+          >
+            {Object.entries(VARIANTS).map(([key, val]) => (
+              <option key={key} value={key}>
+                {val.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-xs font-medium">{config.label}</span>
+        )}
       </div>
-      <textarea
-        value={text}
-        onChange={(e) => onUpdate({ variant, text: e.target.value })}
-        placeholder={`${config.label}...`}
-        className="w-full p-3 text-sm bg-transparent border-none outline-none resize-y min-h-[40px]"
-      />
+      {editing ? (
+        <textarea
+          value={text}
+          onChange={(e) => onUpdate({ variant, text: e.target.value })}
+          placeholder={`${config.label}...`}
+          className="w-full p-3 text-sm bg-transparent border-none outline-none resize-y min-h-[40px]"
+        />
+      ) : (
+        <p className="p-3 text-sm whitespace-pre-wrap">{text || <span className="text-muted-foreground italic">Empty callout</span>}</p>
+      )}
     </div>
   );
 }

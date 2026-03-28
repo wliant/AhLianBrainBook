@@ -25,16 +25,19 @@ interface SectionListProps {
   document: SectionsDocument;
   onDocumentChange: (doc: SectionsDocument) => void;
   richTextTextsRef: React.MutableRefObject<Map<string, string>>;
+  presentationMode?: boolean;
 }
 
 export function SectionList({
   document,
   onDocumentChange,
   richTextTextsRef,
+  presentationMode = false,
 }: SectionListProps) {
   const sections = document.sections;
   const sectionsRef = useRef(sections);
   sectionsRef.current = sections;
+
 
   const updateSections = useCallback(
     (newSections: Section[]) => {
@@ -99,7 +102,7 @@ export function SectionList({
     [updateSections]
   );
 
-  const renderSection = (section: Section) => {
+  const renderSection = (section: Section, isEditing: boolean) => {
     switch (section.type) {
       case "rich-text":
         return (
@@ -109,6 +112,7 @@ export function SectionList({
               richTextTextsRef.current.set(section.id, text);
               updateSection(section.id, json);
             }}
+            editing={isEditing}
           />
         );
       case "code":
@@ -117,6 +121,7 @@ export function SectionList({
             <CodeSection
               section={section}
               onUpdate={(content) => updateSection(section.id, content)}
+              editing={isEditing}
             />
           </Suspense>
         );
@@ -126,6 +131,7 @@ export function SectionList({
             <MathSection
               section={section}
               onUpdate={(content) => updateSection(section.id, content)}
+              editing={isEditing}
             />
           </Suspense>
         );
@@ -135,6 +141,7 @@ export function SectionList({
             <DiagramSection
               section={section}
               onUpdate={(content) => updateSection(section.id, content)}
+              editing={isEditing}
             />
           </Suspense>
         );
@@ -143,6 +150,7 @@ export function SectionList({
           <CalloutSection
             section={section}
             onUpdate={(content) => updateSection(section.id, content)}
+            editing={isEditing}
           />
         );
       case "divider":
@@ -152,6 +160,7 @@ export function SectionList({
           <ImageSection
             section={section}
             onUpdate={(content) => updateSection(section.id, content)}
+            editing={isEditing}
           />
         );
       case "table":
@@ -159,6 +168,7 @@ export function SectionList({
           <TableSection
             section={section}
             onUpdate={(content) => updateSection(section.id, content)}
+            editing={isEditing}
           />
         );
       default:
@@ -167,29 +177,35 @@ export function SectionList({
   };
 
   return (
-    <div className="space-y-2 pl-10">
-      {sections.length === 0 && (
+    <div className={presentationMode ? "space-y-2" : "space-y-2 pl-10"}>
+      {sections.length === 0 && !presentationMode && (
         <div className="flex justify-center py-8">
           <AddSectionButton onAdd={(type) => addSection(type, -1)} />
         </div>
       )}
-      {sections.map((section, idx) => (
-        <div key={section.id}>
-          <SectionWrapper
-            section={section}
-            isFirst={idx === 0}
-            isLast={idx === sections.length - 1}
-            onMoveUp={() => moveSection(section.id, "up")}
-            onMoveDown={() => moveSection(section.id, "down")}
-            onDelete={() => deleteSection(section.id)}
-          >
-            {renderSection(section)}
-          </SectionWrapper>
-          <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
-            <AddSectionButton onAdd={(type) => addSection(type, idx)} />
+      {sections.map((section, idx) => {
+        const isEditing = !presentationMode;
+        return (
+          <div key={section.id}>
+            <SectionWrapper
+              section={section}
+              isFirst={idx === 0}
+              isLast={idx === sections.length - 1}
+              onMoveUp={() => moveSection(section.id, "up")}
+              onMoveDown={() => moveSection(section.id, "down")}
+              onDelete={() => deleteSection(section.id)}
+              presentationMode={presentationMode}
+            >
+              {renderSection(section, isEditing)}
+            </SectionWrapper>
+            {!presentationMode && (
+              <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
+                <AddSectionButton onAdd={(type) => addSection(type, idx)} />
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

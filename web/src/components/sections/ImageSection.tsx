@@ -7,14 +7,15 @@ import { ImageIcon } from "lucide-react";
 interface ImageSectionProps {
   section: Section;
   onUpdate: (content: Record<string, unknown>) => void;
+  editing?: boolean;
 }
 
-export function ImageSection({ section, onUpdate }: ImageSectionProps) {
+export function ImageSection({ section, onUpdate, editing = true }: ImageSectionProps) {
   const src = (section.content.src as string) || "";
   const caption = (section.content.caption as string) || "";
   const [showUrlInput, setShowUrlInput] = useState(!src);
 
-  if (!src || showUrlInput) {
+  if (editing && (!src || showUrlInput)) {
     return (
       <div className="border rounded-lg p-4">
         <div className="flex flex-col items-center gap-3">
@@ -33,6 +34,14 @@ export function ImageSection({ section, onUpdate }: ImageSectionProps) {
     );
   }
 
+  if (!src) {
+    return (
+      <div className="border rounded-lg p-4 text-center text-sm text-muted-foreground italic">
+        No image
+      </div>
+    );
+  }
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="relative group">
@@ -41,22 +50,28 @@ export function ImageSection({ section, onUpdate }: ImageSectionProps) {
           src={src}
           alt={caption || "Image"}
           className="max-w-full mx-auto"
-          onError={() => setShowUrlInput(true)}
+          onError={() => editing && setShowUrlInput(true)}
         />
-        <button
-          onClick={() => setShowUrlInput(true)}
-          className="absolute top-2 right-2 text-xs bg-black/50 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          Change
-        </button>
+        {editing && (
+          <button
+            onClick={() => setShowUrlInput(true)}
+            className="absolute top-2 right-2 text-xs bg-black/50 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            Change
+          </button>
+        )}
       </div>
-      <input
-        type="text"
-        value={caption}
-        onChange={(e) => onUpdate({ src, caption: e.target.value })}
-        placeholder="Add a caption..."
-        className="w-full px-3 py-2 text-sm text-center bg-transparent border-t outline-none text-muted-foreground"
-      />
+      {editing ? (
+        <input
+          type="text"
+          value={caption}
+          onChange={(e) => onUpdate({ src, caption: e.target.value })}
+          placeholder="Add a caption..."
+          className="w-full px-3 py-2 text-sm text-center bg-transparent border-t outline-none text-muted-foreground"
+        />
+      ) : (
+        caption && <p className="px-3 py-2 text-sm text-center text-muted-foreground border-t">{caption}</p>
+      )}
     </div>
   );
 }

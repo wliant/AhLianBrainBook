@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import type { Neuron, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export default function NeuronPage({
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
+  const [presentationMode, setPresentationMode] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
@@ -122,6 +123,15 @@ export default function NeuronPage({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
+          onClick={() => setPresentationMode((prev) => !prev)}
+          title={presentationMode ? "Switch to Edit Mode" : "Switch to Presentation Mode"}
+        >
+          {presentationMode ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
           onClick={toggleFavorite}
           title="Toggle Favorite"
         >
@@ -148,17 +158,22 @@ export default function NeuronPage({
         </Button>
       </div>
       <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          placeholder="Untitled"
-          className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
-        />
+        {presentationMode ? (
+          <h1 className="w-full text-3xl font-bold mb-4">{title || "Untitled"}</h1>
+        ) : (
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="Untitled"
+            className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
+          />
+        )}
         <SectionList
           document={sectionsDoc}
           onDocumentChange={handleDocumentChange}
           richTextTextsRef={richTextTextsRef}
+          presentationMode={presentationMode}
         />
       </div>
     </div>
