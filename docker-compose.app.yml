@@ -1,6 +1,6 @@
 services:
   backend:
-    build: ./backend
+    build: ./app
     container_name: brainbook-backend
     ports:
       - "8080:8080"
@@ -20,7 +20,7 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build: ./web
     container_name: brainbook-frontend
     ports:
       - "3000:3000"
