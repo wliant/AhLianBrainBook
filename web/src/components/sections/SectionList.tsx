@@ -26,7 +26,6 @@ interface SectionListProps {
   document: SectionsDocument;
   onDocumentChange: (doc: SectionsDocument) => void;
   richTextTextsRef: React.MutableRefObject<Map<string, string>>;
-  presentationMode?: boolean;
   neuronId?: string;
 }
 
@@ -34,7 +33,6 @@ export function SectionList({
   document,
   onDocumentChange,
   richTextTextsRef,
-  presentationMode = false,
   neuronId,
 }: SectionListProps) {
   const sections = document.sections;
@@ -195,14 +193,14 @@ export function SectionList({
   };
 
   return (
-    <div className={presentationMode ? "space-y-2" : "space-y-2 pl-10"}>
-      {sections.length === 0 && !presentationMode && (
+    <div className="space-y-2 pl-10">
+      {sections.length === 0 && (
         <div className="flex justify-center py-8">
           <AddSectionButton onAdd={(type) => addSection(type, -1)} />
         </div>
       )}
       {sections.map((section, idx) => {
-        const isEditing = !presentationMode && !section.meta?.preview;
+        const isEditing = !section.meta?.preview;
         return (
           <div key={section.id}>
             <SectionWrapper
@@ -213,15 +211,12 @@ export function SectionList({
               onMoveDown={() => moveSection(section.id, "down")}
               onDelete={() => deleteSection(section.id)}
               onTogglePreview={() => togglePreview(section.id)}
-              presentationMode={presentationMode}
             >
               {renderSection(section, isEditing)}
             </SectionWrapper>
-            {!presentationMode && (
-              <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
-                <AddSectionButton onAdd={(type) => addSection(type, idx)} />
-              </div>
-            )}
+            <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
+              <AddSectionButton onAdd={(type) => addSection(type, idx)} />
+            </div>
           </div>
         );
       })}
