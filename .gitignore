@@ -30,6 +30,13 @@ data/
 # Attachments
 attachments/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+e2e-test/.env
+
 # Claude Code
 .claude/settings.local.json
 
