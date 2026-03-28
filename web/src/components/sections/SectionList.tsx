@@ -49,6 +49,16 @@ export function SectionList({
     [onDocumentChange]
   );
 
+  const togglePreview = useCallback(
+    (id: string) => {
+      const updated = sectionsRef.current.map((s) =>
+        s.id === id ? { ...s, meta: { ...s.meta, preview: !s.meta?.preview } } : s
+      );
+      updateSections(updated);
+    },
+    [updateSections]
+  );
+
   const addSection = useCallback(
     (type: SectionType, afterIndex: number) => {
       const current = sectionsRef.current;
@@ -192,7 +202,7 @@ export function SectionList({
         </div>
       )}
       {sections.map((section, idx) => {
-        const isEditing = !presentationMode;
+        const isEditing = !presentationMode && !section.meta?.preview;
         return (
           <div key={section.id}>
             <SectionWrapper
@@ -202,6 +212,7 @@ export function SectionList({
               onMoveUp={() => moveSection(section.id, "up")}
               onMoveDown={() => moveSection(section.id, "down")}
               onDelete={() => deleteSection(section.id)}
+              onTogglePreview={() => togglePreview(section.id)}
               presentationMode={presentationMode}
             >
               {renderSection(section, isEditing)}

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Section } from "@/types";
-import { ChevronUp, ChevronDown, Trash2, GripVertical } from "lucide-react";
+import { ChevronUp, ChevronDown, Trash2, GripVertical, Eye, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -22,6 +22,7 @@ interface SectionWrapperProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
+  onTogglePreview?: () => void;
   presentationMode?: boolean;
   children: React.ReactNode;
 }
@@ -33,9 +34,12 @@ export function SectionWrapper({
   onMoveUp,
   onMoveDown,
   onDelete,
+  onTogglePreview,
   presentationMode,
   children,
 }: SectionWrapperProps) {
+  const isPreview = !!section.meta?.preview;
+
   return (
     <div className="group relative">
       {!presentationMode && (
@@ -46,6 +50,15 @@ export function SectionWrapper({
           )}
         >
           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+          {section.type !== "divider" && onTogglePreview && (
+            <button
+              onClick={onTogglePreview}
+              className="p-0.5 text-muted-foreground hover:text-foreground"
+              title={isPreview ? "Switch to Edit" : "Switch to Preview"}
+            >
+              {isPreview ? <Pencil className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </button>
+          )}
           <button
             onClick={onMoveUp}
             disabled={isFirst}
