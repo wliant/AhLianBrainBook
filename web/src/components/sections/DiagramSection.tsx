@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useId } from "react";
+import { useEffect, useRef, useId } from "react";
 import type { Section } from "@/types";
 
 interface DiagramSectionProps {
@@ -9,16 +9,13 @@ interface DiagramSectionProps {
   editing?: boolean;
 }
 
-export function DiagramSection({ section, onUpdate, editing: editingProp = true }: DiagramSectionProps) {
+export function DiagramSection({ section, onUpdate, editing = true }: DiagramSectionProps) {
   const source = (section.content.source as string) || "";
-  const [internalEditing, setInternalEditing] = useState(!source);
   const previewRef = useRef<HTMLDivElement>(null);
   const uniqueId = useId().replace(/:/g, "-");
 
-  const isEditing = editingProp && internalEditing;
-
   useEffect(() => {
-    if (!previewRef.current || !source) return;
+    if (editing || !previewRef.current || !source) return;
 
     let cancelled = false;
     (async () => {
@@ -45,21 +42,13 @@ export function DiagramSection({ section, onUpdate, editing: editingProp = true 
     return () => {
       cancelled = true;
     };
-  }, [source, uniqueId]);
+  }, [source, uniqueId, editing]);
 
-  if (isEditing) {
+  if (editing) {
     return (
       <div className="border rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b">
           <span className="text-xs text-muted-foreground font-medium">Mermaid Diagram</span>
-          {source && (
-            <button
-              onClick={() => setInternalEditing(false)}
-              className="text-xs text-primary ml-auto hover:underline"
-            >
-              Preview
-            </button>
-          )}
         </div>
         <textarea
           value={source}
@@ -68,13 +57,7 @@ export function DiagramSection({ section, onUpdate, editing: editingProp = true 
           }
           placeholder={`graph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[OK]\n    B -->|No| D[End]`}
           className="w-full p-3 font-mono text-sm bg-transparent border-none outline-none resize-y min-h-[120px]"
-          autoFocus
         />
-        {source && (
-          <div className="border-t p-3 bg-white dark:bg-zinc-900">
-            <div ref={previewRef} className="overflow-x-auto flex justify-center" />
-          </div>
-        )}
       </div>
     );
   }
@@ -88,10 +71,7 @@ export function DiagramSection({ section, onUpdate, editing: editingProp = true 
   }
 
   return (
-    <div
-      className="border rounded-lg p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-      onClick={() => editingProp && setInternalEditing(true)}
-    >
+    <div className="border rounded-lg p-4">
       <div ref={previewRef} className="overflow-x-auto flex justify-center" />
     </div>
   );
