@@ -1,0 +1,109 @@
+import { http, HttpResponse } from 'msw';
+
+const API_BASE = 'http://localhost:8080';
+
+export const handlers = [
+  // Brains
+  http.get(`${API_BASE}/api/brains`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/brains`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'brain-1',
+        name: body.name,
+        icon: body.icon || null,
+        color: body.color || null,
+        sortOrder: 0,
+        isArchived: false,
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+      },
+      { status: 201 }
+    );
+  }),
+  http.patch(`${API_BASE}/api/brains/:id`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: params.id,
+      name: body.name || 'Updated Brain',
+      icon: body.icon || null,
+      color: body.color || null,
+      sortOrder: 0,
+      isArchived: false,
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    });
+  }),
+  http.delete(`${API_BASE}/api/brains/:id`, () => new HttpResponse(null, { status: 204 })),
+
+  // Clusters
+  http.get(`${API_BASE}/api/clusters/brain/:brainId`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/clusters`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'cluster-1',
+        brainId: body.brainId,
+        name: body.name,
+        parentClusterId: null,
+        sortOrder: 0,
+        isArchived: false,
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+      },
+      { status: 201 }
+    );
+  }),
+  http.patch(`${API_BASE}/api/clusters/:id`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: params.id,
+      brainId: 'brain-1',
+      name: body.name || 'Updated Cluster',
+      parentClusterId: null,
+      sortOrder: 0,
+      isArchived: false,
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    });
+  }),
+  http.delete(`${API_BASE}/api/clusters/:id`, () => new HttpResponse(null, { status: 204 })),
+
+  // Neurons
+  http.get(`${API_BASE}/api/neurons/cluster/:clusterId`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/neurons`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'neuron-1',
+        brainId: body.brainId,
+        clusterId: body.clusterId,
+        title: body.title,
+        contentJson: null,
+        contentText: null,
+        templateId: null,
+        isArchived: false,
+        isDeleted: false,
+        isFavorite: false,
+        isPinned: false,
+        version: 1,
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+        lastEditedAt: '2024-01-01T00:00:00',
+      },
+      { status: 201 }
+    );
+  }),
+  http.delete(`${API_BASE}/api/neurons/:id`, () => new HttpResponse(null, { status: 204 })),
+
+  // Dashboard endpoints
+  http.get(`${API_BASE}/api/neurons/recent`, () => HttpResponse.json([])),
+  http.get(`${API_BASE}/api/neurons/favorites`, () => HttpResponse.json([])),
+  http.get(`${API_BASE}/api/neurons/pinned`, () => HttpResponse.json([])),
+
+  // Trash & Search
+  http.get(`${API_BASE}/api/neurons/trash`, () => HttpResponse.json([])),
+  http.get(`${API_BASE}/api/search`, () =>
+    HttpResponse.json({ results: [], totalCount: 0 })
+  ),
+];

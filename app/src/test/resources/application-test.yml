@@ -1,0 +1,12 @@
+spring:
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+minio:
+  endpoint: http://localhost:9000
+  bucket: test-bucket
+  access-key: test
+  secret-key: test123
