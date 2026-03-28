@@ -92,7 +92,7 @@ class BrainControllerIntegrationTest {
 
     @Test
     void createBrain_returns201() {
-        BrainRequest request = new BrainRequest("My Brain", "brain-icon", "#FF0000");
+        BrainRequest request = new BrainRequest("My Brain", "brain-icon", "#FF0000", null);
 
         ResponseEntity<BrainResponse> response = restTemplate.postForEntity(
                 "/api/brains", request, BrainResponse.class);
@@ -107,7 +107,7 @@ class BrainControllerIntegrationTest {
 
     @Test
     void getBrain_returnsBrain() {
-        BrainRequest request = new BrainRequest("Test Brain", "icon", "#00FF00");
+        BrainRequest request = new BrainRequest("Test Brain", "icon", "#00FF00", null);
         ResponseEntity<BrainResponse> createResponse = restTemplate.postForEntity(
                 "/api/brains", request, BrainResponse.class);
         UUID brainId = createResponse.getBody().id();
@@ -133,12 +133,12 @@ class BrainControllerIntegrationTest {
 
     @Test
     void updateBrain_modifiesBrain() {
-        BrainRequest createRequest = new BrainRequest("Original", "icon", "#000000");
+        BrainRequest createRequest = new BrainRequest("Original", "icon", "#000000", null);
         ResponseEntity<BrainResponse> createResponse = restTemplate.postForEntity(
                 "/api/brains", createRequest, BrainResponse.class);
         UUID brainId = createResponse.getBody().id();
 
-        BrainRequest updateRequest = new BrainRequest("Updated", "new-icon", "#FFFFFF");
+        BrainRequest updateRequest = new BrainRequest("Updated", "new-icon", "#FFFFFF", null);
         ResponseEntity<BrainResponse> response = restTemplate.exchange(
                 "/api/brains/{id}",
                 HttpMethod.PATCH,
@@ -155,7 +155,7 @@ class BrainControllerIntegrationTest {
 
     @Test
     void deleteBrain_removes() {
-        BrainRequest request = new BrainRequest("To Delete", "icon", "#FF0000");
+        BrainRequest request = new BrainRequest("To Delete", "icon", "#FF0000", null);
         ResponseEntity<BrainResponse> createResponse = restTemplate.postForEntity(
                 "/api/brains", request, BrainResponse.class);
         UUID brainId = createResponse.getBody().id();

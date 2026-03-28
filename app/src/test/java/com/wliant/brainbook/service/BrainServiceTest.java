@@ -47,7 +47,7 @@ class BrainServiceTest {
 
     @Test
     void create_savesAndReturnsBrain() {
-        BrainRequest request = new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000");
+        BrainRequest request = new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null);
         BrainResponse response = brainService.create(request);
 
         assertThat(response.id()).isNotNull();
@@ -61,7 +61,7 @@ class BrainServiceTest {
 
     @Test
     void getById_returnsBrain() {
-        BrainResponse created = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse created = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
 
         BrainResponse found = brainService.getById(created.id());
 
@@ -78,9 +78,9 @@ class BrainServiceTest {
 
     @Test
     void update_modifiesBrain() {
-        BrainResponse created = brainService.create(new BrainRequest("Original", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse created = brainService.create(new BrainRequest("Original", "\uD83E\uDDE0", "#FF0000", null));
 
-        BrainResponse updated = brainService.update(created.id(), new BrainRequest("Updated", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse updated = brainService.update(created.id(), new BrainRequest("Updated", "\uD83E\uDDE0", "#FF0000", null));
 
         assertThat(updated.name()).isEqualTo("Updated");
         assertThat(updated.id()).isEqualTo(created.id());
@@ -88,7 +88,7 @@ class BrainServiceTest {
 
     @Test
     void delete_removesBrain() {
-        BrainResponse created = brainService.create(new BrainRequest("To Delete", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse created = brainService.create(new BrainRequest("To Delete", "\uD83E\uDDE0", "#FF0000", null));
 
         brainService.delete(created.id());
 
@@ -97,7 +97,7 @@ class BrainServiceTest {
 
     @Test
     void archive_setsArchived() {
-        BrainResponse created = brainService.create(new BrainRequest("To Archive", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse created = brainService.create(new BrainRequest("To Archive", "\uD83E\uDDE0", "#FF0000", null));
 
         BrainResponse archived = brainService.archive(created.id());
 
@@ -106,7 +106,7 @@ class BrainServiceTest {
 
     @Test
     void restore_unsetsArchived() {
-        BrainResponse created = brainService.create(new BrainRequest("To Restore", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse created = brainService.create(new BrainRequest("To Restore", "\uD83E\uDDE0", "#FF0000", null));
         brainService.archive(created.id());
 
         BrainResponse restored = brainService.restore(created.id());

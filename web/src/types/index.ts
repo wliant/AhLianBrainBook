@@ -3,6 +3,7 @@ export interface Brain {
   name: string;
   icon: string | null;
   color: string | null;
+  description: string | null;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -36,6 +37,7 @@ export interface Neuron {
   createdAt: string;
   updatedAt: string;
   lastEditedAt: string;
+  tags: Tag[];
 }
 
 export interface Tag {

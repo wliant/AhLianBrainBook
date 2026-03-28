@@ -1,14 +1,41 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { FolderOpen, Plus, FileText } from "lucide-react";
+import { FolderOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useClusters } from "@/lib/hooks/useClusters";
+import { useBrains } from "@/lib/hooks/useBrains";
 
 export default function BrainPage({ params }: { params: Promise<{ brainId: string }> }) {
   const { brainId } = use(params);
   const { clusters, createCluster } = useClusters(brainId);
+  const { brains, updateBrain } = useBrains();
+  const brain = brains.find((b) => b.id === brainId);
+
+  const [description, setDescription] = useState(brain?.description || "");
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setDescription(brain?.description || "");
+  }, [brain?.description]);
+
+  const saveDescription = useCallback(
+    (value: string) => {
+      if (!brain) return;
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        updateBrain(brain.id, brain.name, brain.icon || undefined, brain.color || undefined, value);
+      }, 800);
+    },
+    [brain, updateBrain]
+  );
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setDescription(value);
+    saveDescription(value);
+  };
 
   const handleNewCluster = async () => {
     const name = prompt("Cluster name:");
@@ -17,8 +44,18 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-2">{brain?.name || "Brain"}</h1>
+
+      <textarea
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mb-6 resize-y min-h-[60px]"
+        placeholder="Add a description..."
+        value={description}
+        onChange={handleDescriptionChange}
+        rows={3}
+      />
+
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Clusters</h1>
+        <h2 className="text-xl font-semibold">Clusters</h2>
         <Button size="sm" onClick={handleNewCluster}>
           <Plus className="h-4 w-4 mr-1" /> New Cluster
         </Button>

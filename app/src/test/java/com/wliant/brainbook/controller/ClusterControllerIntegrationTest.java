@@ -81,7 +81,7 @@ class ClusterControllerIntegrationTest {
     }
 
     private UUID createBrain(String name) {
-        BrainRequest request = new BrainRequest(name, "icon", "#FF0000");
+        BrainRequest request = new BrainRequest(name, "icon", "#FF0000", null);
         ResponseEntity<BrainResponse> response = restTemplate.postForEntity(
                 "/api/brains", request, BrainResponse.class);
         return response.getBody().id();

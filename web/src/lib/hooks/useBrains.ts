@@ -23,14 +23,14 @@ export function useBrains() {
     fetchBrains();
   }, [fetchBrains]);
 
-  const createBrain = async (name: string, icon?: string, color?: string) => {
-    const brain = await api.post<Brain>("/api/brains", { name, icon, color });
+  const createBrain = async (name: string, icon?: string, color?: string, description?: string) => {
+    const brain = await api.post<Brain>("/api/brains", { name, icon, color, description });
     setBrains((prev) => [...prev, brain]);
     return brain;
   };
 
-  const updateBrain = async (id: string, name: string, icon?: string, color?: string) => {
-    const brain = await api.patch<Brain>(`/api/brains/${id}`, { name, icon, color });
+  const updateBrain = async (id: string, name: string, icon?: string, color?: string, description?: string) => {
+    const brain = await api.patch<Brain>(`/api/brains/${id}`, { name, icon, color, description });
     setBrains((prev) => prev.map((b) => (b.id === id ? brain : b)));
     return brain;
   };

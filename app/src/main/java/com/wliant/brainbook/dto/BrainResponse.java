@@ -8,6 +8,7 @@ public record BrainResponse(
         String name,
         String icon,
         String color,
+        String description,
         int sortOrder,
         boolean isArchived,
         LocalDateTime createdAt,

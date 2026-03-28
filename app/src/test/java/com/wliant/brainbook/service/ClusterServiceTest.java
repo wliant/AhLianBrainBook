@@ -47,7 +47,7 @@ class ClusterServiceTest {
     void setUp() {
         clusterRepository.deleteAll();
         brainRepository.deleteAll();
-        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
         brainId = brain.id();
     }
 

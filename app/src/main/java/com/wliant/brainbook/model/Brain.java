@@ -30,6 +30,9 @@ public class Brain {
     @Column(name = "color")
     private String color;
 
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
@@ -84,6 +87,14 @@ public class Brain {
 
     public void setColor(String color) {
         this.color = color;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public int getSortOrder() {

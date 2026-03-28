@@ -73,7 +73,7 @@ class AttachmentServiceTest {
         clusterRepository.deleteAll();
         brainRepository.deleteAll();
 
-        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000"));
+        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
         ClusterResponse cluster = clusterService.create(new ClusterRequest("Test Cluster", brain.id(), null));
         NeuronResponse neuron = neuronService.create(
                 new NeuronRequest("Test Neuron", brain.id(), cluster.id(), null, null, null));

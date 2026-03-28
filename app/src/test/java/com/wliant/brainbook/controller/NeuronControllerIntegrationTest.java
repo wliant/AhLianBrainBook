@@ -86,7 +86,7 @@ class NeuronControllerIntegrationTest {
         tagRepository.deleteAll();
 
         // Create brain and cluster for neuron tests
-        BrainRequest brainRequest = new BrainRequest("Test Brain", "icon", "#FF0000");
+        BrainRequest brainRequest = new BrainRequest("Test Brain", "icon", "#FF0000", null);
         ResponseEntity<BrainResponse> brainResponse = restTemplate.postForEntity(
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();

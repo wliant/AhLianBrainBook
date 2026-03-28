@@ -12,6 +12,9 @@ public record BrainRequest(
         String icon,
 
         @Size(max = 20, message = "Color must be at most 20 characters")
-        String color
+        String color,
+
+        @Size(max = 5000, message = "Description must be at most 5000 characters")
+        String description
 ) {
 }

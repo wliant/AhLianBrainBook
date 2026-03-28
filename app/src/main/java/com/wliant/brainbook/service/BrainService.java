@@ -40,6 +40,7 @@ public class BrainService {
         brain.setName(req.name());
         brain.setIcon(req.icon());
         brain.setColor(req.color());
+        brain.setDescription(req.description());
         brain.setSortOrder(0);
         brain.setArchived(false);
         Brain saved = brainRepository.save(brain);
@@ -52,6 +53,7 @@ public class BrainService {
         brain.setName(req.name());
         brain.setIcon(req.icon());
         brain.setColor(req.color());
+        brain.setDescription(req.description());
         Brain saved = brainRepository.save(brain);
         return toResponse(saved);
     }
@@ -88,6 +90,7 @@ public class BrainService {
                 brain.getName(),
                 brain.getIcon(),
                 brain.getColor(),
+                brain.getDescription(),
                 brain.getSortOrder(),
                 brain.isArchived(),
                 brain.getCreatedAt(),

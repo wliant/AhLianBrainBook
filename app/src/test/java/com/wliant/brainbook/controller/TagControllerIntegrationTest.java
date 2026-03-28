@@ -85,7 +85,7 @@ class TagControllerIntegrationTest {
     }
 
     private UUID createNeuron() {
-        BrainRequest brainRequest = new BrainRequest("Brain", "icon", "#FF0000");
+        BrainRequest brainRequest = new BrainRequest("Brain", "icon", "#FF0000", null);
         ResponseEntity<BrainResponse> brainResponse = restTemplate.postForEntity(
                 "/api/brains", brainRequest, BrainResponse.class);
         UUID brainId = brainResponse.getBody().id();
