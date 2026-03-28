@@ -79,14 +79,7 @@ public class BrainService {
     }
 
     public void reorder(ReorderRequest req) {
-        List<UUID> orderedIds = req.orderedIds();
-        for (int i = 0; i < orderedIds.size(); i++) {
-            UUID brainId = orderedIds.get(i);
-            Brain brain = brainRepository.findById(brainId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + brainId));
-            brain.setSortOrder(i);
-            brainRepository.save(brain);
-        }
+        ReorderHelper.reorder(req, brainRepository, Brain::setSortOrder, "Brain");
     }
 
     public BrainResponse toResponse(Brain brain) {

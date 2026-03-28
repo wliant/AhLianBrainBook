@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { Section } from "@/types";
-import katex from "katex";
-import "katex/dist/katex.min.css";
 
 interface MathSectionProps {
   section: Section;
@@ -18,14 +16,22 @@ export function MathSection({ section, onUpdate }: MathSectionProps) {
 
   useEffect(() => {
     if (previewRef.current && latex) {
-      try {
-        previewRef.current.innerHTML = katex.renderToString(latex, {
-          displayMode,
-          throwOnError: false,
-        });
-      } catch {
-        previewRef.current.innerHTML = `<span class="text-destructive text-sm">Invalid LaTeX</span>`;
-      }
+      (async () => {
+        try {
+          const katex = (await import("katex")).default;
+          await import("katex/dist/katex.min.css");
+          if (previewRef.current) {
+            previewRef.current.innerHTML = katex.renderToString(latex, {
+              displayMode,
+              throwOnError: false,
+            });
+          }
+        } catch {
+          if (previewRef.current) {
+            previewRef.current.innerHTML = `<span class="text-destructive text-sm">Invalid LaTeX</span>`;
+          }
+        }
+      })();
     }
   }, [latex, displayMode]);
 

@@ -206,14 +206,7 @@ public class NeuronService {
     }
 
     public void reorder(ReorderRequest req) {
-        List<UUID> orderedIds = req.orderedIds();
-        for (int i = 0; i < orderedIds.size(); i++) {
-            UUID neuronId = orderedIds.get(i);
-            Neuron neuron = neuronRepository.findById(neuronId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
-            neuron.setSortOrder(i);
-            neuronRepository.save(neuron);
-        }
+        ReorderHelper.reorder(req, neuronRepository, Neuron::setSortOrder, "Neuron");
     }
 
     public List<NeuronResponse> getTrash() {

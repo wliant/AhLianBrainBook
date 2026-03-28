@@ -85,14 +85,7 @@ public class ClusterService {
     }
 
     public void reorder(ReorderRequest req) {
-        List<UUID> orderedIds = req.orderedIds();
-        for (int i = 0; i < orderedIds.size(); i++) {
-            UUID clusterId = orderedIds.get(i);
-            Cluster cluster = clusterRepository.findById(clusterId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + clusterId));
-            cluster.setSortOrder(i);
-            clusterRepository.save(cluster);
-        }
+        ReorderHelper.reorder(req, clusterRepository, Cluster::setSortOrder, "Cluster");
     }
 
     public ClusterResponse move(UUID id, UUID targetBrainId) {

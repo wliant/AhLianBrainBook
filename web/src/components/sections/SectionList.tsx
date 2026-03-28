@@ -1,18 +1,25 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, lazy, Suspense } from "react";
 import type { Section, SectionType, SectionsDocument } from "@/types";
 import { createSection } from "./sectionUtils";
 import { SectionWrapper } from "./SectionWrapper";
 import { AddSectionButton } from "./AddSectionButton";
 import { RichTextSection } from "./RichTextSection";
-import { CodeSection } from "./CodeSection";
-import { MathSection } from "./MathSection";
-import { DiagramSection } from "./DiagramSection";
 import { CalloutSection } from "./CalloutSection";
 import { DividerSection } from "./DividerSection";
 import { ImageSection } from "./ImageSection";
 import { TableSection } from "./TableSection";
+
+const CodeSection = lazy(() =>
+  import("./CodeSection").then((m) => ({ default: m.CodeSection }))
+);
+const MathSection = lazy(() =>
+  import("./MathSection").then((m) => ({ default: m.MathSection }))
+);
+const DiagramSection = lazy(() =>
+  import("./DiagramSection").then((m) => ({ default: m.DiagramSection }))
+);
 
 interface SectionListProps {
   document: SectionsDocument;
@@ -106,24 +113,30 @@ export function SectionList({
         );
       case "code":
         return (
-          <CodeSection
-            section={section}
-            onUpdate={(content) => updateSection(section.id, content)}
-          />
+          <Suspense fallback={<SectionSkeleton />}>
+            <CodeSection
+              section={section}
+              onUpdate={(content) => updateSection(section.id, content)}
+            />
+          </Suspense>
         );
       case "math":
         return (
-          <MathSection
-            section={section}
-            onUpdate={(content) => updateSection(section.id, content)}
-          />
+          <Suspense fallback={<SectionSkeleton />}>
+            <MathSection
+              section={section}
+              onUpdate={(content) => updateSection(section.id, content)}
+            />
+          </Suspense>
         );
       case "diagram":
         return (
-          <DiagramSection
-            section={section}
-            onUpdate={(content) => updateSection(section.id, content)}
-          />
+          <Suspense fallback={<SectionSkeleton />}>
+            <DiagramSection
+              section={section}
+              onUpdate={(content) => updateSection(section.id, content)}
+            />
+          </Suspense>
         );
       case "callout":
         return (
@@ -177,6 +190,15 @@ export function SectionList({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function SectionSkeleton() {
+  return (
+    <div className="border rounded-lg p-4 animate-pulse">
+      <div className="h-4 bg-muted rounded w-1/3 mb-2" />
+      <div className="h-20 bg-muted rounded" />
     </div>
   );
 }
