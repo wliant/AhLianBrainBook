@@ -2,6 +2,7 @@ package com.wliant.brainbook.service;
 
 import com.wliant.brainbook.dto.AttachmentResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
+import com.wliant.brainbook.exception.StorageException;
 import com.wliant.brainbook.model.Attachment;
 import com.wliant.brainbook.model.Neuron;
 import com.wliant.brainbook.repository.AttachmentRepository;
@@ -10,6 +11,8 @@ import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -19,12 +22,20 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class AttachmentService {
+
+    private static final Logger log = LoggerFactory.getLogger(AttachmentService.class);
+
+    private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
+            ".exe", ".bat", ".cmd", ".com", ".msi", ".scr", ".pif",
+            ".sh", ".bash", ".csh", ".ps1", ".vbs", ".js", ".wsh", ".wsf"
+    );
 
     private final AttachmentRepository attachmentRepository;
     private final NeuronRepository neuronRepository;
@@ -51,8 +62,11 @@ public class AttachmentService {
         Neuron neuron = neuronRepository.findById(neuronId)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
 
+        String fileName = file.getOriginalFilename();
+        validateFileType(fileName);
+
         try {
-            String objectKey = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            String objectKey = UUID.randomUUID() + "_" + fileName;
 
             minioClient.putObject(PutObjectArgs.builder()
                     .bucket(bucket)
@@ -63,7 +77,7 @@ public class AttachmentService {
 
             Attachment attachment = new Attachment();
             attachment.setNeuron(neuron);
-            attachment.setFileName(file.getOriginalFilename());
+            attachment.setFileName(fileName);
             attachment.setFilePath(objectKey);
             attachment.setFileSize(file.getSize());
             attachment.setContentType(file.getContentType());
@@ -71,7 +85,7 @@ public class AttachmentService {
             Attachment saved = attachmentRepository.save(attachment);
             return toResponse(saved);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to store file in MinIO", e);
+            throw new StorageException("Failed to store file in MinIO", e);
         }
     }
 
@@ -86,7 +100,7 @@ public class AttachmentService {
                     .build());
             return new InputStreamResource(stream);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to read file from MinIO", e);
+            throw new StorageException("Failed to read file from MinIO", e);
         }
     }
 
@@ -100,10 +114,22 @@ public class AttachmentService {
                     .object(attachment.getFilePath())
                     .build());
         } catch (Exception e) {
-            // Log but don't fail -- DB record removal is more important
+            log.warn("Failed to delete file from MinIO (key={}): {}", attachment.getFilePath(), e.getMessage());
         }
 
         attachmentRepository.delete(attachment);
+    }
+
+    private void validateFileType(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            throw new IllegalArgumentException("File name is required");
+        }
+        String lowerName = fileName.toLowerCase();
+        for (String ext : BLOCKED_EXTENSIONS) {
+            if (lowerName.endsWith(ext)) {
+                throw new IllegalArgumentException("File type not allowed: " + ext);
+            }
+        }
     }
 
     private AttachmentResponse toResponse(Attachment attachment) {

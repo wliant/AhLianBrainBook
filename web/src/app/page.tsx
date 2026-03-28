@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Brain, FileText, Star, Pin, Clock } from "lucide-react";
+import { Brain, FileText, Star, Pin, Clock, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Neuron } from "@/types";
 
@@ -10,11 +10,16 @@ export default function Dashboard() {
   const [recentNeurons, setRecentNeurons] = useState<Neuron[]>([]);
   const [favoriteNeurons, setFavoriteNeurons] = useState<Neuron[]>([]);
   const [pinnedNeurons, setPinnedNeurons] = useState<Neuron[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Neuron[]>("/api/neurons/recent?limit=10").then(setRecentNeurons).catch(() => {});
-    api.get<Neuron[]>("/api/neurons/favorites").then(setFavoriteNeurons).catch(() => {});
-    api.get<Neuron[]>("/api/neurons/pinned").then(setPinnedNeurons).catch(() => {});
+    Promise.all([
+      api.get<Neuron[]>("/api/neurons/recent?limit=10").then(setRecentNeurons),
+      api.get<Neuron[]>("/api/neurons/favorites").then(setFavoriteNeurons),
+      api.get<Neuron[]>("/api/neurons/pinned").then(setPinnedNeurons),
+    ]).catch(() => {
+      setError("Failed to load dashboard data. Is the backend running?");
+    });
   }, []);
 
   return (
@@ -26,6 +31,13 @@ export default function Dashboard() {
         </h1>
         <p className="text-muted-foreground mt-1">Your personal technical notebook</p>
       </div>
+
+      {error && (
+        <div className="mb-6 flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
 
       {pinnedNeurons.length > 0 && (
         <NeuronSection title="Pinned" icon={<Pin className="h-4 w-4" />} neurons={pinnedNeurons} />

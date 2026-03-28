@@ -94,13 +94,13 @@ public class RevisionService {
     }
 
     private RevisionResponse toResponse(NeuronRevision revision) {
-        RevisionResponse resp = new RevisionResponse();
-        resp.setId(revision.getId());
-        resp.setNeuronId(revision.getNeuronId());
-        resp.setRevisionNumber(revision.getRevisionNumber());
-        resp.setContentJson(revision.getContentJson());
-        resp.setContentText(revision.getContentText());
-        resp.setCreatedAt(revision.getCreatedAt());
-        return resp;
+        return new RevisionResponse(
+                revision.getId(),
+                revision.getNeuronId(),
+                revision.getRevisionNumber(),
+                revision.getContentJson(),
+                revision.getContentText(),
+                revision.getCreatedAt()
+        );
     }
 }

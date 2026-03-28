@@ -83,11 +83,11 @@ class RevisionServiceTest {
 
         RevisionResponse revision = revisionService.createRevision(neuron.id(), "snapshot");
 
-        assertThat(revision.getId()).isNotNull();
-        assertThat(revision.getNeuronId()).isEqualTo(neuron.id());
-        assertThat(revision.getRevisionNumber()).isEqualTo(1);
-        assertThat(revision.getContentJson()).isEqualTo("{\"doc\":true}");
-        assertThat(revision.getContentText()).isEqualTo("some text");
+        assertThat(revision.id()).isNotNull();
+        assertThat(revision.neuronId()).isEqualTo(neuron.id());
+        assertThat(revision.revisionNumber()).isEqualTo(1);
+        assertThat(revision.contentJson()).isEqualTo("{\"doc\":true}");
+        assertThat(revision.contentText()).isEqualTo("some text");
     }
 
     @Test
@@ -113,7 +113,7 @@ class RevisionServiceTest {
         neuronService.updateContent(neuron.id(),
                 new NeuronContentRequest("{\"v\":2}", "changed text", 1));
 
-        NeuronResponse restored = revisionService.restoreRevision(revision.getId());
+        NeuronResponse restored = revisionService.restoreRevision(revision.id());
 
         assertThat(restored.contentJson()).isEqualTo("{\"v\":1}");
         assertThat(restored.contentText()).isEqualTo("original text");

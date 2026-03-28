@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Trash2, RotateCcw, X, FileText } from "lucide-react";
+import { Trash2, RotateCcw, X, FileText, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { Neuron } from "@/types";
 
 export default function TrashPage() {
   const [neurons, setNeurons] = useState<Neuron[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Neuron[]>("/api/neurons/trash").then(setNeurons).catch(() => {});
+    api.get<Neuron[]>("/api/neurons/trash").then(setNeurons).catch(() => {
+      setError("Failed to load trash");
+    });
   }, []);
 
   const handleRestore = async (id: string) => {
@@ -31,7 +34,14 @@ export default function TrashPage() {
         Trash
       </h1>
 
-      {neurons.length === 0 ? (
+      {error && (
+        <div className="mb-6 flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {neurons.length === 0 && !error ? (
         <p className="text-muted-foreground text-center py-12">Trash is empty</p>
       ) : (
         <div className="space-y-1">

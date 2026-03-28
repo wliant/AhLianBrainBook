@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Star, FileText } from "lucide-react";
+import { Star, FileText, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Neuron } from "@/types";
 
 export default function FavoritesPage() {
   const [neurons, setNeurons] = useState<Neuron[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Neuron[]>("/api/neurons/favorites").then(setNeurons).catch(() => {});
+    api.get<Neuron[]>("/api/neurons/favorites").then(setNeurons).catch(() => {
+      setError("Failed to load favorites");
+    });
   }, []);
 
   return (
@@ -20,7 +23,14 @@ export default function FavoritesPage() {
         Favorites
       </h1>
 
-      {neurons.length === 0 ? (
+      {error && (
+        <div className="mb-6 flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {neurons.length === 0 && !error ? (
         <p className="text-muted-foreground text-center py-12">No favorites yet</p>
       ) : (
         <div className="space-y-1">
