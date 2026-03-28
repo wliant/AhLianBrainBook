@@ -75,7 +75,7 @@ export function TiptapEditor({ content, onUpdate, editable = true }: TiptapEdito
   }, [editor, editable]);
 
   return (
-    <div className={editable ? "min-h-[60vh]" : ""}>
+    <div className={editable ? "min-h-[100px]" : ""}>
       {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} />
     </div>

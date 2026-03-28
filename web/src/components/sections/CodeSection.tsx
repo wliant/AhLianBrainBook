@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { Section } from "@/types";
 import Editor from "@monaco-editor/react";
+import { GripHorizontal } from "lucide-react";
 
 const LANGUAGES = [
   "javascript",
@@ -36,6 +37,8 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
   const language = (section.content.language as string) || "javascript";
   const title = (section.content.title as string) || "";
   const [lang, setLang] = useState(language);
+  const [editorHeight, setEditorHeight] = useState(200);
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const handleCodeChange = useCallback(
     (value: string | undefined) => {
@@ -58,6 +61,26 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
       onUpdate({ code, language: lang, title: e.target.value });
     },
     [onUpdate, code, lang]
+  );
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragRef.current = { startY: e.clientY, startHeight: editorHeight };
+      const onMouseMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return;
+        const newHeight = Math.max(80, dragRef.current.startHeight + ev.clientY - dragRef.current.startY);
+        setEditorHeight(newHeight);
+      };
+      const onMouseUp = () => {
+        dragRef.current = null;
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    },
+    [editorHeight]
   );
 
   return (
@@ -92,7 +115,7 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
         )}
       </div>
       <Editor
-        height={editing ? "200px" : `${Math.max(40, (code.split("\n").length) * 20 + 16)}px`}
+        height={editing ? `${editorHeight}px` : `${Math.max(40, (code.split("\n").length) * 20 + 16)}px`}
         language={lang}
         value={code}
         onChange={handleCodeChange}
@@ -109,6 +132,14 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
           ...(editing ? {} : { scrollbar: { vertical: "hidden", horizontal: "hidden" } }),
         }}
       />
+      {editing && (
+        <div
+          onMouseDown={handleResizeStart}
+          className="flex items-center justify-center h-3 bg-muted/50 cursor-row-resize hover:bg-muted transition-colors border-t"
+        >
+          <GripHorizontal className="h-3 w-3 text-muted-foreground" />
+        </div>
+      )}
     </div>
   );
 }
