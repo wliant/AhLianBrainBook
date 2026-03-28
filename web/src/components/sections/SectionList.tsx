@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, lazy, Suspense } from "react";
+import { useCallback, useRef, useEffect, lazy, Suspense } from "react";
 import type { Section, SectionType, SectionsDocument } from "@/types";
 import { createSection } from "./sectionUtils";
 import { SectionWrapper } from "./SectionWrapper";
@@ -27,6 +27,7 @@ interface SectionListProps {
   onDocumentChange: (doc: SectionsDocument) => void;
   richTextTextsRef: React.MutableRefObject<Map<string, string>>;
   neuronId?: string;
+  viewMode?: boolean;
 }
 
 export function SectionList({
@@ -34,11 +35,23 @@ export function SectionList({
   onDocumentChange,
   richTextTextsRef,
   neuronId,
+  viewMode,
 }: SectionListProps) {
   const sections = document.sections;
   const sectionsRef = useRef(sections);
   sectionsRef.current = sections;
 
+  useEffect(() => {
+    if (sections.length === 0) return;
+    const hash = window.location.hash;
+    if (!hash) return;
+    // Delay to let sections render
+    const timer = setTimeout(() => {
+      const el = window.document.getElementById(hash.slice(1));
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [sections.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateSections = useCallback(
     (newSections: Section[]) => {
@@ -193,16 +206,16 @@ export function SectionList({
   };
 
   return (
-    <div className="space-y-2 pl-10">
-      {sections.length === 0 && (
+    <div className={viewMode ? "space-y-2" : "space-y-2 pl-10"}>
+      {!viewMode && sections.length === 0 && (
         <div className="flex justify-center py-8">
           <AddSectionButton onAdd={(type) => addSection(type, -1)} />
         </div>
       )}
       {sections.map((section, idx) => {
-        const isEditing = !section.meta?.preview;
+        const isEditing = viewMode ? false : !section.meta?.preview;
         return (
-          <div key={section.id}>
+          <div key={section.id} id={`section-${section.id}`}>
             <SectionWrapper
               section={section}
               isFirst={idx === 0}
@@ -211,12 +224,15 @@ export function SectionList({
               onMoveDown={() => moveSection(section.id, "down")}
               onDelete={() => deleteSection(section.id)}
               onTogglePreview={() => togglePreview(section.id)}
+              viewMode={viewMode}
             >
               {renderSection(section, isEditing)}
             </SectionWrapper>
-            <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
-              <AddSectionButton onAdd={(type) => addSection(type, idx)} />
-            </div>
+            {!viewMode && (
+              <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
+                <AddSectionButton onAdd={(type) => addSection(type, idx)} />
+              </div>
+            )}
           </div>
         );
       })}

@@ -1,9 +1,10 @@
 "use client";
 
-import { use, useState, useEffect, useCallback, useRef } from "react";
+import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Neuron, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,16 @@ import { cn } from "@/lib/utils";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-export default function NeuronPage({
-  params,
+function NeuronPageContent({
+  neuronId,
 }: {
-  params: Promise<{ brainId: string; clusterId: string; neuronId: string }>;
+  neuronId: string;
 }) {
-  const { neuronId } = use(params);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const viewMode = searchParams.get("mode") === "view";
+
   const [neuron, setNeuron] = useState<Neuron | null>(null);
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -42,12 +47,20 @@ export default function NeuronPage({
     });
   }, [neuronId]);
 
+  const toggleViewMode = () => {
+    const hash = window.location.hash;
+    if (viewMode) {
+      router.replace(pathname + hash);
+    } else {
+      router.replace(pathname + "?mode=view" + hash);
+    }
+  };
+
   const saveContent = useCallback(
     async (newTitle: string) => {
       setSaveStatus("saving");
       try {
         const doc = latestDoc.current;
-        // Build plain text: use richTextTextsRef for rich-text sections, extractPlainText for others
         const textParts = doc.sections.map((s) => {
           if (s.type === "rich-text") {
             return richTextTextsRef.current.get(s.id) || "";
@@ -116,8 +129,21 @@ export default function NeuronPage({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 border-b px-6 py-2">
-        <SaveStatusIndicator status={saveStatus} />
+        {!viewMode && <SaveStatusIndicator status={saveStatus} />}
         <div className="flex-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={toggleViewMode}
+          title={viewMode ? "Switch to Edit" : "Switch to View"}
+        >
+          {viewMode ? (
+            <Pencil className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -148,21 +174,45 @@ export default function NeuronPage({
         </Button>
       </div>
       <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          placeholder="Untitled"
-          className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
-        />
+        {viewMode ? (
+          <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
+        ) : (
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="Untitled"
+            className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
+          />
+        )}
         <SectionList
           document={sectionsDoc}
           onDocumentChange={handleDocumentChange}
           richTextTextsRef={richTextTextsRef}
           neuronId={neuronId}
+          viewMode={viewMode}
         />
       </div>
     </div>
+  );
+}
+
+export default function NeuronPage({
+  params,
+}: {
+  params: Promise<{ brainId: string; clusterId: string; neuronId: string }>;
+}) {
+  const { neuronId } = use(params);
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <NeuronPageContent neuronId={neuronId} />
+    </Suspense>
   );
 }
 
