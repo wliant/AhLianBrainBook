@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -28,6 +29,8 @@ interface TiptapEditorProps {
 }
 
 export function TiptapEditor({ content, onUpdate, editable = true }: TiptapEditorProps) {
+  const router = useRouter();
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -74,8 +77,28 @@ export function TiptapEditor({ content, onUpdate, editable = true }: TiptapEdito
     if (editor) editor.setEditable(editable);
   }, [editor, editable]);
 
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      // Internal links start with /
+      if (href.startsWith("/")) {
+        e.preventDefault();
+        router.push(href);
+      } else if (!editable) {
+        // In view mode, open external links in new tab
+        e.preventDefault();
+        window.open(href, "_blank", "noopener");
+      }
+    },
+    [router, editable]
+  );
+
   return (
-    <div className={editable ? "min-h-[100px]" : ""}>
+    <div className={editable ? "min-h-[100px]" : ""} onClick={handleClick}>
       {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} />
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Editor } from "@tiptap/react";
 import {
   Bold,
@@ -21,6 +22,16 @@ import {
   Redo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
+import type { Neuron } from "@/types";
+
+interface SearchResponse {
+  results: Neuron[];
+  totalCount: number;
+}
 
 interface ToolbarProps {
   editor: Editor | null;
@@ -28,14 +39,6 @@ interface ToolbarProps {
 
 export function Toolbar({ editor }: ToolbarProps) {
   if (!editor) return null;
-
-  const addLink = () => {
-    const url = prompt("Enter URL:");
-    if (url) {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-    }
-  };
-
 
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b pb-2 mb-4">
@@ -152,9 +155,7 @@ export function Toolbar({ editor }: ToolbarProps) {
 
       <div className="w-px h-6 bg-border mx-1" />
 
-      <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link">
-        <LinkIcon className="h-4 w-4" />
-      </ToolbarButton>
+      <LinkPopover editor={editor} />
 
       <div className="w-px h-6 bg-border mx-1" />
 
@@ -173,6 +174,158 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Redo2 className="h-4 w-4" />
       </ToolbarButton>
     </div>
+  );
+}
+
+function LinkPopover({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"url" | "neuron">("url");
+  const [url, setUrl] = useState("");
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<Neuron[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const handleOpen = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      const currentUrl = editor.getAttributes("link").href || "";
+      setUrl(currentUrl);
+      setSearch("");
+      setResults([]);
+      setTab(currentUrl.startsWith("/") ? "neuron" : "url");
+    }
+  };
+
+  const applyLink = (href: string) => {
+    editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+    setOpen(false);
+  };
+
+  const removeLink = () => {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setOpen(false);
+  };
+
+  const handleUrlSubmit = () => {
+    if (url.trim()) applyLink(url.trim());
+  };
+
+  const handleNeuronSearch = async (query: string) => {
+    setSearch(query);
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await api.get<SearchResponse>(`/api/search?q=${encodeURIComponent(query)}&size=10`);
+      setResults(res.results);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleNeuronSelect = (neuron: Neuron) => {
+    const href = `/brain/${neuron.brainId}/cluster/${neuron.clusterId}/neuron/${neuron.id}`;
+    applyLink(href);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title="Link"
+          className={cn(
+            "p-1.5 rounded hover:bg-accent transition-colors",
+            editor.isActive("link") && "bg-accent text-primary"
+          )}
+        >
+          <LinkIcon className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="flex border-b">
+          <button
+            className={cn(
+              "flex-1 px-3 py-2 text-sm font-medium transition-colors",
+              tab === "url" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setTab("url")}
+          >
+            URL
+          </button>
+          <button
+            className={cn(
+              "flex-1 px-3 py-2 text-sm font-medium transition-colors",
+              tab === "neuron" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setTab("neuron")}
+          >
+            Neuron
+          </button>
+        </div>
+
+        <div className="p-3">
+          {tab === "url" ? (
+            <div className="space-y-2">
+              <Input
+                placeholder="https://..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
+                autoFocus
+                className="h-8 text-sm"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs" onClick={handleUrlSubmit}>
+                  Apply
+                </Button>
+                {editor.isActive("link") && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={removeLink}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Input
+                placeholder="Search neurons..."
+                value={search}
+                onChange={(e) => handleNeuronSearch(e.target.value)}
+                autoFocus
+                className="h-8 text-sm"
+              />
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {searching && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Searching...</p>
+                )}
+                {!searching && results.length === 0 && search.trim() && (
+                  <p className="text-xs text-muted-foreground text-center py-2">No neurons found</p>
+                )}
+                {results.map((neuron) => (
+                  <button
+                    key={neuron.id}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors text-left"
+                    onClick={() => handleNeuronSelect(neuron)}
+                  >
+                    <span className="truncate">{neuron.title || "Untitled"}</span>
+                  </button>
+                ))}
+              </div>
+              {editor.isActive("link") && (
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={removeLink}>
+                  Remove Link
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
