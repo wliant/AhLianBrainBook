@@ -55,7 +55,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         return undefined as T;
       }
 
-      return response.json();
+      const text = await response.text();
+      if (!text) {
+        return undefined as T;
+      }
+
+      return JSON.parse(text);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
 
