@@ -25,8 +25,7 @@ echo ""
 echo "BrainBook is starting up. Services:"
 # Source .env to read ports for display
 set -a; source "$ENV_FILE"; set +a
-echo "  Web:           http://localhost:${WEB_PORT:-3000}"
-echo "  API:           http://localhost:${APP_PORT:-8080}"
-echo "  MinIO Console: http://localhost:${MINIO_CONSOLE_PORT:-9001}"
+echo "  Web: http://localhost:${WEB_PORT:-3000}"
+echo "  API: http://localhost:${APP_PORT:-8080}"
 echo ""
 echo "Run 'docker compose -f $COMPOSE_FILE ps' to check status."
