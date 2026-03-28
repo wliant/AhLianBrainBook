@@ -25,6 +25,8 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
     implementation("io.minio:minio:8.5.17")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
