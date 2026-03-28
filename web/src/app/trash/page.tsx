@@ -32,20 +32,20 @@ export default function TrashPage() {
       </h1>
 
       {neurons.length === 0 ? (
-        <p className="text-gray-400 text-center py-12">Trash is empty</p>
+        <p className="text-muted-foreground text-center py-12">Trash is empty</p>
       ) : (
         <div className="space-y-1">
           {neurons.map((neuron) => (
             <div
               key={neuron.id}
-              className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-gray-50"
+              className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent"
             >
-              <FileText className="h-4 w-4 text-gray-400" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 truncate">{neuron.title || "Untitled"}</span>
               <Button size="sm" variant="ghost" onClick={() => handleRestore(neuron.id)}>
                 <RotateCcw className="h-3.5 w-3.5 mr-1" /> Restore
               </Button>
-              <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handlePermanentDelete(neuron.id)}>
+              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handlePermanentDelete(neuron.id)}>
                 <X className="h-3.5 w-3.5 mr-1" /> Delete
               </Button>
             </div>

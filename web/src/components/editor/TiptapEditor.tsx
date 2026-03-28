@@ -34,7 +34,7 @@ export function TiptapEditor({ content, onUpdate }: TiptapEditorProps) {
       Underline,
       LinkExtension.configure({
         openOnClick: false,
-        HTMLAttributes: { class: "text-blue-600 underline cursor-pointer" },
+        HTMLAttributes: { class: "text-primary underline cursor-pointer" },
       }),
       Image.configure({
         HTMLAttributes: { class: "max-w-full rounded-lg" },
@@ -61,7 +61,7 @@ export function TiptapEditor({ content, onUpdate }: TiptapEditorProps) {
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[60vh] px-0",
+          "prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-none min-h-[60vh] px-0",
       },
     },
     immediatelyRender: false,

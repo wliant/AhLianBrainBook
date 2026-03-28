@@ -25,7 +25,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
       </div>
 
       {clusters.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-muted-foreground">
           <FolderOpen className="h-12 w-12 mx-auto mb-3" />
           <p>No clusters yet. Create one to get started.</p>
         </div>
@@ -35,9 +35,9 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
             <Link
               key={cluster.id}
               href={`/brain/${brainId}/cluster/${cluster.id}`}
-              className="flex items-center gap-3 rounded-lg border p-4 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 rounded-lg border p-4 hover:bg-accent transition-colors"
             >
-              <FolderOpen className="h-5 w-5 text-gray-500" />
+              <FolderOpen className="h-5 w-5 text-muted-foreground" />
               <span className="font-medium">{cluster.name}</span>
             </Link>
           ))}

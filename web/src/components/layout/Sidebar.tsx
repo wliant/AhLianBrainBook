@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { Brain as BrainType } from "@/types";
 
 export function Sidebar() {
@@ -89,7 +90,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-gray-50">
+    <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <Brain className="h-5 w-5" />
@@ -128,7 +129,7 @@ export function Sidebar() {
       </nav>
 
       <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-xs font-medium uppercase text-gray-500">Brains</span>
+        <span className="text-xs font-medium uppercase text-sidebar-muted">Brains</span>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain}>
           <Plus className="h-3.5 w-3.5" />
         </Button>
@@ -151,6 +152,10 @@ export function Sidebar() {
           ))}
         </div>
       </ScrollArea>
+
+      <div className="border-t border-sidebar-border px-3 py-2">
+        <ThemeToggle />
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -211,10 +216,10 @@ function BrainItem({
       <div
         className={cn(
           "group flex items-center rounded-md px-2 py-1.5 text-sm",
-          isActive && "bg-gray-200"
+          isActive && "bg-sidebar-accent"
         )}
       >
-        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-gray-200 rounded">
+        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded">
           <ChevronRight
             className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-90")}
           />
@@ -229,7 +234,7 @@ function BrainItem({
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-200 rounded">
+            <button className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent rounded">
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -239,7 +244,7 @@ function BrainItem({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-red-600">
+            <DropdownMenuItem onClick={onDelete} className="text-destructive">
               <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -253,8 +258,8 @@ function BrainItem({
               key={cluster.id}
               href={`/brain/${brain.id}/cluster/${cluster.id}`}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-gray-700 hover:bg-gray-100",
-                activeClusterId === cluster.id && "bg-gray-200 font-medium"
+                "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
+                activeClusterId === cluster.id && "bg-sidebar-accent font-medium"
               )}
             >
               <FolderOpen className="h-3.5 w-3.5" />

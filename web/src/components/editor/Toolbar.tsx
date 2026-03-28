@@ -94,7 +94,7 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Highlighter className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-gray-200 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -118,7 +118,7 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Heading3 className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-gray-200 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -162,7 +162,7 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Code className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-gray-200 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
 
       <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link">
         <LinkIcon className="h-4 w-4" />
@@ -174,7 +174,7 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Table className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-gray-200 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
 
       <ToolbarButton
         onClick={() => editor.chain().focus().undo().run()}
@@ -214,8 +214,8 @@ function ToolbarButton({
       disabled={disabled}
       title={title}
       className={cn(
-        "p-1.5 rounded hover:bg-gray-100 transition-colors",
-        active && "bg-gray-200 text-blue-600",
+        "p-1.5 rounded hover:bg-accent transition-colors",
+        active && "bg-accent text-primary",
         disabled && "opacity-30 cursor-not-allowed"
       )}
     >

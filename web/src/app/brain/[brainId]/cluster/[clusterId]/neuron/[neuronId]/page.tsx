@@ -100,7 +100,7 @@ export default function NeuronPage({
   if (!neuron) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -156,7 +156,7 @@ export default function NeuronPage({
 function SaveStatusIndicator({ status }: { status: SaveStatus }) {
   if (status === "idle") return null;
   return (
-    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       {status === "saving" && (
         <>
           <Loader2 className="h-3 w-3 animate-spin" />
@@ -171,7 +171,7 @@ function SaveStatusIndicator({ status }: { status: SaveStatus }) {
       )}
       {status === "error" && (
         <>
-          <AlertCircle className="h-3 w-3 text-red-500" />
+          <AlertCircle className="h-3 w-3 text-destructive" />
           <span>Save failed</span>
         </>
       )}

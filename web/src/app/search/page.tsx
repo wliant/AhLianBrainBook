@@ -48,7 +48,7 @@ export default function SearchPage() {
       </form>
 
       {searched && results.length === 0 && (
-        <p className="text-gray-400 text-center py-8">No results found</p>
+        <p className="text-muted-foreground text-center py-8">No results found</p>
       )}
 
       <div className="space-y-1">
@@ -56,12 +56,12 @@ export default function SearchPage() {
           <Link
             key={neuron.id}
             href={`/brain/${neuron.brainId}/cluster/${neuron.clusterId}/neuron/${neuron.id}`}
-            className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent transition-colors"
           >
-            <FileText className="h-4 w-4 text-gray-400" />
+            <FileText className="h-4 w-4 text-muted-foreground" />
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{neuron.title || "Untitled"}</p>
-              <p className="text-xs text-gray-400 truncate">
+              <p className="text-xs text-muted-foreground truncate">
                 {neuron.contentText?.slice(0, 150) || "Empty note"}
               </p>
             </div>
