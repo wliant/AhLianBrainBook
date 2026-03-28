@@ -6,12 +6,13 @@ import { useParams } from "next/navigation";
 import {
   Brain,
   ChevronRight,
+  ChevronsDownUp,
   FolderOpen,
+  FileText,
   Plus,
   MoreHorizontal,
   Trash2,
   Star,
-  Pin,
   Search,
   Home,
 } from "lucide-react";
@@ -35,16 +36,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
+import { useNeurons } from "@/lib/hooks/useNeurons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import type { Brain as BrainType } from "@/types";
+import type { Brain as BrainType, Cluster as ClusterType } from "@/types";
 
 export function Sidebar() {
   const params = useParams();
   const activeBrainId = params?.brainId as string | undefined;
   const activeClusterId = params?.clusterId as string | undefined;
+  const activeNeuronId = params?.neuronId as string | undefined;
 
   const { brains, createBrain, updateBrain, deleteBrain } = useBrains();
   const [expandedBrains, setExpandedBrains] = useState<Set<string>>(new Set());
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create-brain" | "rename-brain" | "create-cluster">("create-brain");
   const [dialogValue, setDialogValue] = useState("");
@@ -57,6 +61,20 @@ export function Sidebar() {
       else next.add(id);
       return next;
     });
+  };
+
+  const toggleCluster = (id: string) => {
+    setExpandedClusters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedBrains(new Set());
+    setExpandedClusters(new Set());
   };
 
   const handleCreateBrain = () => {
@@ -130,9 +148,16 @@ export function Sidebar() {
 
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-xs font-medium uppercase text-sidebar-muted">Brains</span>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain}>
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          {expandedBrains.size > 0 && (
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCollapseAll}>
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain}>
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
@@ -144,7 +169,10 @@ export function Sidebar() {
               isExpanded={expandedBrains.has(brain.id)}
               isActive={activeBrainId === brain.id}
               activeClusterId={activeClusterId}
+              activeNeuronId={activeNeuronId}
+              expandedClusters={expandedClusters}
               onToggle={() => toggleBrain(brain.id)}
+              onToggleCluster={toggleCluster}
               onRename={() => handleRenameBrain(brain)}
               onDelete={() => deleteBrain(brain.id)}
               onCreateCluster={() => handleCreateCluster(brain.id)}
@@ -189,7 +217,10 @@ function BrainItem({
   isExpanded,
   isActive,
   activeClusterId,
+  activeNeuronId,
+  expandedClusters,
   onToggle,
+  onToggleCluster,
   onRename,
   onDelete,
   onCreateCluster,
@@ -198,18 +229,15 @@ function BrainItem({
   isExpanded: boolean;
   isActive: boolean;
   activeClusterId?: string;
+  activeNeuronId?: string;
+  expandedClusters: Set<string>;
   onToggle: () => void;
+  onToggleCluster: (id: string) => void;
   onRename: () => void;
   onDelete: () => void;
   onCreateCluster: () => void;
 }) {
-  const { clusters, createCluster, deleteCluster } = useClusters(
-    isExpanded ? brain.id : null
-  );
-
-  const handleCreateCluster = async () => {
-    onCreateCluster();
-  };
+  const { clusters } = useClusters(isExpanded ? brain.id : null);
 
   return (
     <div>
@@ -239,7 +267,7 @@ function BrainItem({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleCreateCluster}>
+            <DropdownMenuItem onClick={onCreateCluster}>
               <Plus className="mr-2 h-3.5 w-3.5" /> New Cluster
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
@@ -254,16 +282,74 @@ function BrainItem({
       {isExpanded && (
         <div className="ml-4 space-y-0.5">
           {clusters.map((cluster) => (
-            <Link
+            <ClusterItem
               key={cluster.id}
-              href={`/brain/${brain.id}/cluster/${cluster.id}`}
+              cluster={cluster}
+              brainId={brain.id}
+              isExpanded={expandedClusters.has(cluster.id)}
+              isActive={activeClusterId === cluster.id}
+              activeNeuronId={activeNeuronId}
+              onToggle={() => onToggleCluster(cluster.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClusterItem({
+  cluster,
+  brainId,
+  isExpanded,
+  isActive,
+  activeNeuronId,
+  onToggle,
+}: {
+  cluster: ClusterType;
+  brainId: string;
+  isExpanded: boolean;
+  isActive: boolean;
+  activeNeuronId?: string;
+  onToggle: () => void;
+}) {
+  const { neurons } = useNeurons(isExpanded ? cluster.id : null);
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "flex items-center rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
+          isActive && !activeNeuronId && "bg-sidebar-accent font-medium"
+        )}
+      >
+        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded">
+          <ChevronRight
+            className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
+          />
+        </button>
+        <Link
+          href={`/brain/${brainId}/cluster/${cluster.id}`}
+          className="flex items-center gap-1.5 flex-1 truncate"
+        >
+          <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{cluster.name}</span>
+        </Link>
+      </div>
+
+      {isExpanded && (
+        <div className="ml-4 space-y-0.5">
+          {neurons.map((neuron) => (
+            <Link
+              key={neuron.id}
+              href={`/brain/${brainId}/cluster/${cluster.id}/neuron/${neuron.id}`}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
-                activeClusterId === cluster.id && "bg-sidebar-accent font-medium"
+                activeNeuronId === neuron.id && "bg-sidebar-accent font-medium"
               )}
             >
-              <FolderOpen className="h-3.5 w-3.5" />
-              <span className="truncate">{cluster.name}</span>
+              <FileText className="h-3 w-3 shrink-0" />
+              <span className="truncate">{neuron.title || "Untitled"}</span>
             </Link>
           ))}
         </div>
