@@ -74,3 +74,26 @@ export interface Template {
   createdAt: string;
   updatedAt: string;
 }
+
+export type SectionType =
+  | "rich-text"
+  | "code"
+  | "math"
+  | "diagram"
+  | "callout"
+  | "divider"
+  | "image"
+  | "table";
+
+export interface Section {
+  id: string;
+  type: SectionType;
+  order: number;
+  content: Record<string, unknown>;
+  meta: Record<string, unknown>;
+}
+
+export interface SectionsDocument {
+  version: 2;
+  sections: Section[];
+}

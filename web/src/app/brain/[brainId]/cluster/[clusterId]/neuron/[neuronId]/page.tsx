@@ -2,9 +2,10 @@
 
 import { use, useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
-import type { Neuron } from "@/types";
+import type { Neuron, SectionsDocument } from "@/types";
 import { CheckCircle, AlertCircle, Loader2, Star, Pin } from "lucide-react";
-import { TiptapEditor } from "@/components/editor/TiptapEditor";
+import { SectionList } from "@/components/sections/SectionList";
+import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -19,12 +20,11 @@ export default function NeuronPage({
   const [neuron, setNeuron] = useState<Neuron | null>(null);
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
-  const latestContent = useRef<{ json: Record<string, unknown> | null; text: string }>({
-    json: null,
-    text: "",
-  });
+  const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
+  const richTextTextsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     api.get<Neuron>(`/api/neurons/${neuronId}`).then((n) => {
@@ -36,10 +36,9 @@ export default function NeuronPage({
       setNeuron(parsed);
       setTitle(parsed.title);
       versionRef.current = parsed.version;
-      latestContent.current = {
-        json: parsedJson,
-        text: parsed.contentText || "",
-      };
+      const doc = normalizeContent(parsedJson);
+      setSectionsDoc(doc);
+      latestDoc.current = doc;
     });
   }, [neuronId]);
 
@@ -47,11 +46,19 @@ export default function NeuronPage({
     async (newTitle: string) => {
       setSaveStatus("saving");
       try {
+        const doc = latestDoc.current;
+        // Build plain text: use richTextTextsRef for rich-text sections, extractPlainText for others
+        const textParts = doc.sections.map((s) => {
+          if (s.type === "rich-text") {
+            return richTextTextsRef.current.get(s.id) || "";
+          }
+          return extractPlainText([s]);
+        });
+        const contentText = textParts.filter(Boolean).join("\n");
+
         await api.put(`/api/neurons/${neuronId}/content`, {
-          contentJson: latestContent.current.json
-            ? JSON.stringify(latestContent.current.json)
-            : null,
-          contentText: latestContent.current.text,
+          contentJson: JSON.stringify(doc),
+          contentText,
           clientVersion: versionRef.current,
         });
         if (newTitle !== neuron?.title) {
@@ -79,9 +86,10 @@ export default function NeuronPage({
     debouncedSave(e.target.value);
   };
 
-  const handleEditorUpdate = useCallback(
-    (json: Record<string, unknown>, text: string) => {
-      latestContent.current = { json, text };
+  const handleDocumentChange = useCallback(
+    (doc: SectionsDocument) => {
+      latestDoc.current = doc;
+      setSectionsDoc(doc);
       debouncedSave(title);
     },
     [debouncedSave, title]
@@ -97,7 +105,7 @@ export default function NeuronPage({
     setNeuron((prev) => (prev ? { ...prev, isPinned: !prev.isPinned } : prev));
   };
 
-  if (!neuron) {
+  if (!neuron || !sectionsDoc) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -147,7 +155,11 @@ export default function NeuronPage({
           placeholder="Untitled"
           className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
         />
-        <TiptapEditor content={neuron.contentJson} onUpdate={handleEditorUpdate} />
+        <SectionList
+          document={sectionsDoc}
+          onDocumentChange={handleDocumentChange}
+          richTextTextsRef={richTextTextsRef}
+        />
       </div>
     </div>
   );
