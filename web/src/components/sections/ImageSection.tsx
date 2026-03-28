@@ -21,6 +21,20 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
   const [inputMode, setInputMode] = useState<"url" | "upload">("upload");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleFileUpload(file);
+        return;
+      }
+    }
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!neuronId) return;
@@ -47,7 +61,7 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
 
   if (editing && (!src || showInput)) {
     return (
-      <div className="border rounded-lg p-4">
+      <div className="border rounded-lg p-4" onPaste={handlePaste} ref={dropZoneRef} tabIndex={0}>
         <div className="flex flex-col items-center gap-3">
           <ImageIcon className="h-8 w-8 text-muted-foreground" />
 
@@ -91,7 +105,7 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
                     Uploading...
                   </span>
                 ) : (
-                  "Click to choose an image file"
+                  "Click to choose or paste an image"
                 )}
               </button>
             </div>
