@@ -34,41 +34,61 @@ interface CodeSectionProps {
 export function CodeSection({ section, onUpdate, editing = true }: CodeSectionProps) {
   const code = (section.content.code as string) || "";
   const language = (section.content.language as string) || "javascript";
+  const title = (section.content.title as string) || "";
   const [lang, setLang] = useState(language);
 
   const handleCodeChange = useCallback(
     (value: string | undefined) => {
-      onUpdate({ code: value || "", language: lang });
+      onUpdate({ code: value || "", language: lang, title });
     },
-    [onUpdate, lang]
+    [onUpdate, lang, title]
   );
 
   const handleLanguageChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newLang = e.target.value;
       setLang(newLang);
-      onUpdate({ code, language: newLang });
+      onUpdate({ code, language: newLang, title });
     },
-    [onUpdate, code]
+    [onUpdate, code, title]
+  );
+
+  const handleTitleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onUpdate({ code, language: lang, title: e.target.value });
+    },
+    [onUpdate, code, lang]
   );
 
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b">
         {editing ? (
-          <select
-            value={lang}
-            onChange={handleLanguageChange}
-            className="text-xs bg-transparent border rounded px-1.5 py-0.5 outline-none"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              value={lang}
+              onChange={handleLanguageChange}
+              className="text-xs bg-transparent border rounded px-1.5 py-0.5 outline-none"
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={title}
+              onChange={handleTitleChange}
+              placeholder="Section title..."
+              className="flex-1 text-xs bg-transparent outline-none text-muted-foreground placeholder:text-muted-foreground/50"
+            />
+          </>
         ) : (
-          <span className="text-xs text-muted-foreground font-medium">{lang}</span>
+          <>
+            <span className="text-xs text-muted-foreground font-medium">{lang}</span>
+            {title && <span className="text-xs text-muted-foreground ml-1">{title}</span>}
+          </>
         )}
       </div>
       <Editor
