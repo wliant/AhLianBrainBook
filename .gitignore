@@ -29,3 +29,9 @@ data/
 
 # Attachments
 attachments/
+
+# Claude Code
+.claude/settings.local.json
+
+# Playwright MCP
+.playwright-mcp/
