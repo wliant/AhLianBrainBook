@@ -174,6 +174,7 @@ export default function NeuronPage({
           onDocumentChange={handleDocumentChange}
           richTextTextsRef={richTextTextsRef}
           presentationMode={presentationMode}
+          neuronId={neuronId}
         />
       </div>
     </div>

@@ -10,6 +10,7 @@ import { CalloutSection } from "./CalloutSection";
 import { DividerSection } from "./DividerSection";
 import { ImageSection } from "./ImageSection";
 import { TableSection } from "./TableSection";
+import { api } from "@/lib/api";
 
 const CodeSection = lazy(() =>
   import("./CodeSection").then((m) => ({ default: m.CodeSection }))
@@ -26,6 +27,7 @@ interface SectionListProps {
   onDocumentChange: (doc: SectionsDocument) => void;
   richTextTextsRef: React.MutableRefObject<Map<string, string>>;
   presentationMode?: boolean;
+  neuronId?: string;
 }
 
 export function SectionList({
@@ -33,6 +35,7 @@ export function SectionList({
   onDocumentChange,
   richTextTextsRef,
   presentationMode = false,
+  neuronId,
 }: SectionListProps) {
   const sections = document.sections;
   const sectionsRef = useRef(sections);
@@ -79,6 +82,10 @@ export function SectionList({
 
   const deleteSection = useCallback(
     (id: string) => {
+      const section = sectionsRef.current.find((s) => s.id === id);
+      if (section?.type === "image" && section.content.sourceType === "upload" && section.content.attachmentId) {
+        api.delete(`/api/attachments/${section.content.attachmentId}`).catch(() => {});
+      }
       const updated = sectionsRef.current
         .filter((s) => s.id !== id)
         .map((s, i) => ({ ...s, order: i }));
@@ -161,6 +168,7 @@ export function SectionList({
             section={section}
             onUpdate={(content) => updateSection(section.id, content)}
             editing={isEditing}
+            neuronId={neuronId}
           />
         );
       case "table":

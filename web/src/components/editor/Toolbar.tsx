@@ -15,9 +15,7 @@ import {
   ListChecks,
   Quote,
   Minus,
-  Table,
   Link as LinkIcon,
-  Image,
   Highlighter,
   Undo2,
   Redo2,
@@ -38,16 +36,6 @@ export function Toolbar({ editor }: ToolbarProps) {
     }
   };
 
-  const addImage = () => {
-    const url = prompt("Enter image URL:");
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
-  };
-
-  const insertTable = () => {
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-  };
 
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b pb-2 mb-4">
@@ -166,12 +154,6 @@ export function Toolbar({ editor }: ToolbarProps) {
 
       <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link">
         <LinkIcon className="h-4 w-4" />
-      </ToolbarButton>
-      <ToolbarButton onClick={addImage} title="Image">
-        <Image className="h-4 w-4" />
-      </ToolbarButton>
-      <ToolbarButton onClick={insertTable} title="Table">
-        <Table className="h-4 w-4" />
       </ToolbarButton>
 
       <div className="w-px h-6 bg-border mx-1" />

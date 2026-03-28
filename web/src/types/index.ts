@@ -48,10 +48,10 @@ export interface Tag {
 export interface Attachment {
   id: string;
   neuronId: string;
-  storageKey: string;
-  filename: string;
-  mimeType: string | null;
-  sizeBytes: number | null;
+  fileName: string;
+  filePath: string;
+  fileSize: number | null;
+  contentType: string | null;
   createdAt: string;
 }
 

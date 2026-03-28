@@ -38,7 +38,7 @@ export function createSection(type: SectionType, order: number): Section {
     diagram: { source: "", diagramType: "mermaid" },
     callout: { variant: "info", text: "" },
     divider: {},
-    image: { src: "", caption: "" },
+    image: { src: "", caption: "", sourceType: "url" },
     table: { headers: ["Column 1", "Column 2", "Column 3"], rows: [["", "", ""]] },
   };
   return {
