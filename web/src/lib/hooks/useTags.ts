@@ -37,5 +37,13 @@ export function useTags() {
     await api.delete<void>(`/api/tags/neurons/${neuronId}/tags/${tagId}`);
   };
 
-  return { tags, loading, createTag, addTagToNeuron, removeTagFromNeuron, refetch: fetchTags };
+  const addTagToBrain = async (brainId: string, tagId: string) => {
+    await api.post<void>(`/api/tags/brains/${brainId}/tags/${tagId}`);
+  };
+
+  const removeTagFromBrain = async (brainId: string, tagId: string) => {
+    await api.delete<void>(`/api/tags/brains/${brainId}/tags/${tagId}`);
+  };
+
+  return { tags, loading, createTag, addTagToNeuron, removeTagFromNeuron, addTagToBrain, removeTagFromBrain, refetch: fetchTags };
 }

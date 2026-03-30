@@ -8,6 +8,7 @@ export interface Brain {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  tags: Tag[];
 }
 
 export interface Cluster {

@@ -9,13 +9,14 @@ import { useTags } from "@/lib/hooks/useTags";
 import type { Tag } from "@/types";
 
 interface TagComboboxProps {
-  neuronId: string;
+  entityType: "neuron" | "brain";
+  entityId: string;
   currentTags: Tag[];
   onTagsChange: (tags: Tag[]) => void;
 }
 
-export function TagCombobox({ neuronId, currentTags, onTagsChange }: TagComboboxProps) {
-  const { tags: allTags, createTag, addTagToNeuron, removeTagFromNeuron } = useTags();
+export function TagCombobox({ entityType, entityId, currentTags, onTagsChange }: TagComboboxProps) {
+  const { tags: allTags, createTag, addTagToNeuron, removeTagFromNeuron, addTagToBrain, removeTagFromBrain } = useTags();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -25,12 +26,15 @@ export function TagCombobox({ neuronId, currentTags, onTagsChange }: TagCombobox
   );
   const exactMatch = allTags.some((t) => t.name.toLowerCase() === search.toLowerCase());
 
+  const addTag = entityType === "neuron" ? addTagToNeuron : addTagToBrain;
+  const removeTag = entityType === "neuron" ? removeTagFromNeuron : removeTagFromBrain;
+
   const handleToggleTag = async (tag: Tag) => {
     if (currentTagIds.has(tag.id)) {
-      await removeTagFromNeuron(neuronId, tag.id);
+      await removeTag(entityId, tag.id);
       onTagsChange(currentTags.filter((t) => t.id !== tag.id));
     } else {
-      await addTagToNeuron(neuronId, tag.id);
+      await addTag(entityId, tag.id);
       onTagsChange([...currentTags, tag]);
     }
   };
@@ -38,7 +42,7 @@ export function TagCombobox({ neuronId, currentTags, onTagsChange }: TagCombobox
   const handleCreateTag = async () => {
     if (!search.trim()) return;
     const tag = await createTag(search.trim());
-    await addTagToNeuron(neuronId, tag.id);
+    await addTag(entityId, tag.id);
     onTagsChange([...currentTags, tag]);
     setSearch("");
   };
@@ -46,7 +50,7 @@ export function TagCombobox({ neuronId, currentTags, onTagsChange }: TagCombobox
   const handleRemoveTag = async (e: React.MouseEvent, tag: Tag) => {
     e.preventDefault();
     e.stopPropagation();
-    await removeTagFromNeuron(neuronId, tag.id);
+    await removeTag(entityId, tag.id);
     onTagsChange(currentTags.filter((t) => t.id !== tag.id));
   };
 

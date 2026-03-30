@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Search, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import type { Neuron } from "@/types";
+import { useTags } from "@/lib/hooks/useTags";
+import { TagFilterSelect } from "@/components/tags/TagFilterSelect";
+import type { Neuron, Tag } from "@/types";
 
 interface SearchResult {
   results: Neuron[];
@@ -16,12 +18,23 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Neuron[]>([]);
   const [searched, setSearched] = useState(false);
+  const [selectedBrainTags, setSelectedBrainTags] = useState<Tag[]>([]);
+  const [selectedNeuronTags, setSelectedNeuronTags] = useState<Tag[]>([]);
+  const { tags: allTags } = useTags();
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
     try {
-      const data = await api.get<SearchResult>(`/api/search?q=${encodeURIComponent(query)}`);
+      const params = new URLSearchParams();
+      params.set("q", query);
+      if (selectedBrainTags.length > 0) {
+        selectedBrainTags.forEach((t) => params.append("brainTagIds", t.id));
+      }
+      if (selectedNeuronTags.length > 0) {
+        selectedNeuronTags.forEach((t) => params.append("neuronTagIds", t.id));
+      }
+      const data = await api.get<SearchResult>(`/api/search?${params.toString()}`);
       setResults(data.results);
       setSearched(true);
     } catch {
@@ -37,7 +50,7 @@ export default function SearchPage() {
         Search
       </h1>
 
-      <form onSubmit={handleSearch} className="mb-6">
+      <form onSubmit={handleSearch} className="mb-4">
         <Input
           placeholder="Search neurons..."
           value={query}
@@ -46,6 +59,21 @@ export default function SearchPage() {
           autoFocus
         />
       </form>
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        <TagFilterSelect
+          label="Brain Tags"
+          allTags={allTags}
+          selectedTags={selectedBrainTags}
+          onSelectionChange={setSelectedBrainTags}
+        />
+        <TagFilterSelect
+          label="Neuron Tags"
+          allTags={allTags}
+          selectedTags={selectedNeuronTags}
+          onSelectionChange={setSelectedNeuronTags}
+        />
+      </div>
 
       {searched && results.length === 0 && (
         <p className="text-muted-foreground text-center py-8">No results found</p>

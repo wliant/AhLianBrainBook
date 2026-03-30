@@ -67,7 +67,8 @@ export default function ClusterPage({
               </Link>
               <div className="px-3 pb-2 pl-10">
                 <TagCombobox
-                  neuronId={neuron.id}
+                  entityType="neuron"
+                  entityId={neuron.id}
                   currentTags={getTagsForNeuron(neuron)}
                   onTagsChange={(tags) => handleTagsChange(neuron.id, tags)}
                 />
