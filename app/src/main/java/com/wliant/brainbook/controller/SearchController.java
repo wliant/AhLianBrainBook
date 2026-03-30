@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -25,8 +26,10 @@ public class SearchController {
             @RequestParam(name = "q", required = false) String query,
             @RequestParam(required = false) UUID brainId,
             @RequestParam(required = false) UUID clusterId,
+            @RequestParam(required = false) List<UUID> neuronTagIds,
+            @RequestParam(required = false) List<UUID> brainTagIds,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(searchService.search(query, brainId, clusterId, page, size));
+        return ResponseEntity.ok(searchService.search(query, brainId, clusterId, neuronTagIds, brainTagIds, page, size));
     }
 }

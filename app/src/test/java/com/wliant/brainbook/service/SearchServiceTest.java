@@ -73,7 +73,7 @@ class SearchServiceTest {
         neuronService.create(new NeuronRequest("Spring Boot Guide", brainId, clusterId,
                 null, "Learn about Spring Boot framework", null));
 
-        SearchResponse response = searchService.search("Spring", null, null, 0, 20);
+        SearchResponse response = searchService.search("Spring", null, null, null, null, 0, 20);
 
         assertThat(response.results()).isNotEmpty();
         assertThat(response.results().get(0).title()).isEqualTo("Spring Boot Guide");
@@ -84,7 +84,7 @@ class SearchServiceTest {
         neuronService.create(new NeuronRequest("Some Note", brainId, clusterId,
                 null, "content", null));
 
-        SearchResponse response = searchService.search("", null, null, 0, 20);
+        SearchResponse response = searchService.search("", null, null, null, null, 0, 20);
 
         assertThat(response.results()).isEmpty();
         assertThat(response.totalCount()).isEqualTo(0);
