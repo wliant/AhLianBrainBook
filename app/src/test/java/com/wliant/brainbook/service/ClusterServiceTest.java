@@ -8,6 +8,7 @@ import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
 import io.minio.MinioClient;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,12 +42,14 @@ class ClusterServiceTest {
     @Autowired
     private BrainService brainService;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private UUID brainId;
 
     @BeforeEach
     void setUp() {
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
+        jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
         BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
         brainId = brain.id();
     }

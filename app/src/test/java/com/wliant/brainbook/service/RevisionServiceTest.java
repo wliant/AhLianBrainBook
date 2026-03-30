@@ -79,21 +79,21 @@ class RevisionServiceTest {
     @Test
     void createRevision_savesSnapshot() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{\"doc\":true}", "some text", null));
+                new NeuronRequest("Title", brainId, clusterId, "{\"doc\":true}", "some text", null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id(), "snapshot");
 
         assertThat(revision.id()).isNotNull();
         assertThat(revision.neuronId()).isEqualTo(neuron.id());
         assertThat(revision.revisionNumber()).isEqualTo(1);
-        assertThat(revision.contentJson()).isEqualTo("{\"doc\":true}");
+        assertThat(revision.contentJson()).isEqualTo("{\"doc\": true}");
         assertThat(revision.contentText()).isEqualTo("some text");
     }
 
     @Test
     void getRevisions_returnsRevisions() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null));
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
 
         revisionService.createRevision(neuron.id(), "first");
         revisionService.createRevision(neuron.id(), "second");
@@ -106,7 +106,7 @@ class RevisionServiceTest {
     @Test
     void restoreRevision_updatesNeuronContent() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{\"v\":1}", "original text", null));
+                new NeuronRequest("Title", brainId, clusterId, "{\"v\":1}", "original text", null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id(), "before change");
 
@@ -115,7 +115,7 @@ class RevisionServiceTest {
 
         NeuronResponse restored = revisionService.restoreRevision(revision.id());
 
-        assertThat(restored.contentJson()).isEqualTo("{\"v\":1}");
+        assertThat(restored.contentJson()).isEqualTo("{\"v\": 1}");
         assertThat(restored.contentText()).isEqualTo("original text");
     }
 }

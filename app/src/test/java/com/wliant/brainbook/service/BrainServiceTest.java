@@ -6,6 +6,7 @@ import com.wliant.brainbook.dto.BrainResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.repository.BrainRepository;
 import io.minio.MinioClient;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +35,12 @@ class BrainServiceTest {
     @Autowired
     private BrainRepository brainRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void setUp() {
-        brainRepository.deleteAll();
+        jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
     }
 
     @Test
