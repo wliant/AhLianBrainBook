@@ -15,6 +15,8 @@ import {
   Star,
   Search,
   Home,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,6 +49,7 @@ export function Sidebar() {
   const activeNeuronId = params?.neuronId as string | undefined;
 
   const { brains, createBrain, updateBrain, deleteBrain } = useBrains();
+  const [collapsed, setCollapsed] = useState(false);
   const [expandedBrains, setExpandedBrains] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -108,82 +111,128 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+    <aside
+      className={cn(
+        "flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+        collapsed ? "w-14" : "w-64"
+      )}
+    >
+      <div className="flex items-center justify-between border-b px-3 py-3">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Brain className="h-5 w-5" />
-          BrainBook
+          <Brain className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>BrainBook</span>}
         </Link>
+        {!collapsed && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setCollapsed(true)}>
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      <div className="px-3 py-2">
-        <Link href="/search">
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-            <Search className="h-4 w-4" />
-            Search
-          </Button>
-        </Link>
-      </div>
-
-      <nav className="px-3 py-1 space-y-1">
-        <Link href="/">
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
-            <Home className="h-4 w-4" />
-            Dashboard
-          </Button>
-        </Link>
-        <Link href="/favorites">
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
-            <Star className="h-4 w-4" />
-            Favorites
-          </Button>
-        </Link>
-        <Link href="/trash">
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
-            <Trash2 className="h-4 w-4" />
-            Trash
-          </Button>
-        </Link>
-      </nav>
-
-      <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-xs font-medium uppercase text-sidebar-muted">Brains</span>
-        <div className="flex items-center gap-0.5">
-          {expandedBrains.size > 0 && (
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCollapseAll}>
-              <ChevronsDownUp className="h-3.5 w-3.5" />
+      {collapsed ? (
+        <>
+          <nav className="flex flex-col items-center gap-1 px-2 py-2">
+            <Link href="/search">
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <Search className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Home className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/favorites">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Star className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/trash">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </Link>
+          </nav>
+          <div className="flex-1" />
+          <div className="flex flex-col items-center gap-1 border-t border-sidebar-border px-2 py-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(false)}>
+              <PanelLeftOpen className="h-4 w-4" />
             </Button>
-          )}
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain}>
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="px-3 py-2">
+            <Link href="/search">
+              <Button variant="outline" size="sm" className="w-full justify-start gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+            </Link>
+          </div>
 
-      <ScrollArea className="flex-1">
-        <div className="px-2 pb-4 space-y-0.5">
-          {brains.map((brain) => (
-            <BrainItem
-              key={brain.id}
-              brain={brain}
-              isExpanded={expandedBrains.has(brain.id)}
-              isActive={activeBrainId === brain.id}
-              activeClusterId={activeClusterId}
-              activeNeuronId={activeNeuronId}
-              expandedClusters={expandedClusters}
-              onToggle={() => toggleBrain(brain.id)}
-              onToggleCluster={toggleCluster}
-              onRename={() => handleRenameBrain(brain)}
-              onDelete={() => deleteBrain(brain.id)}
-              onCreateCluster={() => handleCreateCluster(brain.id)}
-            />
-          ))}
-        </div>
-      </ScrollArea>
+          <nav className="px-3 py-1 space-y-1">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                <Home className="h-4 w-4" />
+                Dashboard
+              </Button>
+            </Link>
+            <Link href="/favorites">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                <Star className="h-4 w-4" />
+                Favorites
+              </Button>
+            </Link>
+            <Link href="/trash">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                <Trash2 className="h-4 w-4" />
+                Trash
+              </Button>
+            </Link>
+          </nav>
 
-      <div className="border-t border-sidebar-border px-3 py-2">
-        <ThemeToggle />
-      </div>
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-xs font-medium uppercase text-sidebar-muted">Brains</span>
+            <div className="flex items-center gap-0.5">
+              {expandedBrains.size > 0 && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCollapseAll}>
+                  <ChevronsDownUp className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="px-2 pb-4 space-y-0.5">
+              {brains.map((brain) => (
+                <BrainItem
+                  key={brain.id}
+                  brain={brain}
+                  isExpanded={expandedBrains.has(brain.id)}
+                  isActive={activeBrainId === brain.id}
+                  activeClusterId={activeClusterId}
+                  activeNeuronId={activeNeuronId}
+                  expandedClusters={expandedClusters}
+                  onToggle={() => toggleBrain(brain.id)}
+                  onToggleCluster={toggleCluster}
+                  onRename={() => handleRenameBrain(brain)}
+                  onDelete={() => deleteBrain(brain.id)}
+                  onCreateCluster={() => handleCreateCluster(brain.id)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+
+          <div className="border-t border-sidebar-border px-3 py-2">
+            <ThemeToggle />
+          </div>
+        </>
+      )
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
