@@ -4,8 +4,11 @@ import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.ReminderRequest;
+import com.wliant.brainbook.dto.ReminderResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.service.NeuronService;
+import com.wliant.brainbook.service.ReminderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -28,9 +32,11 @@ import java.util.UUID;
 public class NeuronController {
 
     private final NeuronService neuronService;
+    private final ReminderService reminderService;
 
-    public NeuronController(NeuronService neuronService) {
+    public NeuronController(NeuronService neuronService, ReminderService reminderService) {
         this.neuronService = neuronService;
+        this.reminderService = reminderService;
     }
 
     @GetMapping("/cluster/{clusterId}")
@@ -132,6 +138,33 @@ public class NeuronController {
     @DeleteMapping("/{id}/permanent")
     public ResponseEntity<Void> permanentDelete(@PathVariable UUID id) {
         neuronService.permanentDelete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // Reminder endpoints
+
+    @PostMapping("/{id}/reminder")
+    public ResponseEntity<ReminderResponse> createReminder(@PathVariable UUID id,
+                                                            @Valid @RequestBody ReminderRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(reminderService.create(id, req));
+    }
+
+    @GetMapping("/{id}/reminder")
+    public ResponseEntity<ReminderResponse> getReminder(@PathVariable UUID id) {
+        Optional<ReminderResponse> reminder = reminderService.getByNeuronId(id);
+        return reminder.map(ResponseEntity::ok)
+                .orElse(ResponseEntity.noContent().build());
+    }
+
+    @PutMapping("/{id}/reminder")
+    public ResponseEntity<ReminderResponse> updateReminder(@PathVariable UUID id,
+                                                            @Valid @RequestBody ReminderRequest req) {
+        return ResponseEntity.ok(reminderService.update(id, req));
+    }
+
+    @DeleteMapping("/{id}/reminder")
+    public ResponseEntity<Void> deleteReminder(@PathVariable UUID id) {
+        reminderService.delete(id);
         return ResponseEntity.noContent().build();
     }
 }
