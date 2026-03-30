@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { TagCombobox } from "@/components/tags/TagCombobox";
+import { BrainStats } from "@/components/brain/BrainStats";
 import type { Tag } from "@/types";
 
 export default function BrainPage({ params }: { params: Promise<{ brainId: string }> }) {
@@ -66,6 +67,8 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
         onChange={handleDescriptionChange}
         rows={3}
       />
+
+      <BrainStats brainId={brainId} />
 
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold">Clusters</h2>
