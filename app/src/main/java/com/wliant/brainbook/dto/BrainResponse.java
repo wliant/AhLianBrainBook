@@ -1,6 +1,7 @@
 package com.wliant.brainbook.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record BrainResponse(
@@ -12,6 +13,7 @@ public record BrainResponse(
         int sortOrder,
         boolean isArchived,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        List<TagResponse> tags
 ) {
 }

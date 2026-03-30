@@ -67,4 +67,23 @@ public class TagController {
     public ResponseEntity<List<TagResponse>> getTagsForNeuron(@PathVariable UUID neuronId) {
         return ResponseEntity.ok(tagService.getTagsForNeuron(neuronId));
     }
+
+    @PostMapping("/brains/{brainId}/tags/{tagId}")
+    public ResponseEntity<Void> addTagToBrain(@PathVariable UUID brainId,
+                                              @PathVariable UUID tagId) {
+        tagService.addTagToBrain(brainId, tagId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/brains/{brainId}/tags/{tagId}")
+    public ResponseEntity<Void> removeTagFromBrain(@PathVariable UUID brainId,
+                                                   @PathVariable UUID tagId) {
+        tagService.removeTagFromBrain(brainId, tagId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/brains/{brainId}/tags")
+    public ResponseEntity<List<TagResponse>> getTagsForBrain(@PathVariable UUID brainId) {
+        return ResponseEntity.ok(tagService.getTagsForBrain(brainId));
+    }
 }

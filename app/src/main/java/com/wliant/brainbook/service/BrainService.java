@@ -18,9 +18,11 @@ import java.util.stream.Collectors;
 public class BrainService {
 
     private final BrainRepository brainRepository;
+    private final TagService tagService;
 
-    public BrainService(BrainRepository brainRepository) {
+    public BrainService(BrainRepository brainRepository, TagService tagService) {
         this.brainRepository = brainRepository;
+        this.tagService = tagService;
     }
 
     public List<BrainResponse> getAll() {
@@ -94,7 +96,8 @@ public class BrainService {
                 brain.getSortOrder(),
                 brain.isArchived(),
                 brain.getCreatedAt(),
-                brain.getUpdatedAt()
+                brain.getUpdatedAt(),
+                tagService.getTagsForBrain(brain.getId())
         );
     }
 }
