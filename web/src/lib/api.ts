@@ -121,6 +121,30 @@ export const api = {
       request<T>(`/api/neuron-links/${id}`, { method: "DELETE" }),
   },
 
+  // Thought endpoints
+  thoughts: {
+    list: () => request<import("@/types").Thought[]>("/api/thoughts"),
+    get: (id: string) => request<import("@/types").Thought>(`/api/thoughts/${id}`),
+    create: (body: {
+      name: string;
+      description?: string;
+      neuronTagMode?: string;
+      brainTagMode?: string;
+      neuronTagIds: string[];
+      brainTagIds?: string[];
+    }) => request<import("@/types").Thought>("/api/thoughts", { method: "POST", body }),
+    update: (id: string, body: {
+      name: string;
+      description?: string;
+      neuronTagMode?: string;
+      brainTagMode?: string;
+      neuronTagIds: string[];
+      brainTagIds?: string[];
+    }) => request<import("@/types").Thought>(`/api/thoughts/${id}`, { method: "PATCH", body }),
+    delete: (id: string) => request<void>(`/api/thoughts/${id}`, { method: "DELETE" }),
+    neurons: (id: string) => request<import("@/types").Neuron[]>(`/api/thoughts/${id}/neurons`),
+  },
+
   // Import/Export endpoints
   importExport: {
     exportBrain: <T>(brainId: string) =>

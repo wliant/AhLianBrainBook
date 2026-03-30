@@ -141,6 +141,19 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface Thought {
+  id: string;
+  name: string;
+  description: string | null;
+  neuronTagMode: "any" | "all";
+  brainTagMode: "any" | "all";
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  neuronTags: Tag[];
+  brainTags: Tag[];
+}
+
 export interface BrainExport {
   version: string;
   brain: {

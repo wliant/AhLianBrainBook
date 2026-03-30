@@ -17,6 +17,7 @@ import {
   Home,
   PanelLeftClose,
   PanelLeftOpen,
+  Lightbulb,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,8 +41,9 @@ import {
 import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { useNeurons } from "@/lib/hooks/useNeurons";
+import { useThoughts } from "@/lib/hooks/useThoughts";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import type { Brain as BrainType, Cluster as ClusterType } from "@/types";
+import type { Brain as BrainType, Cluster as ClusterType, Thought as ThoughtType } from "@/types";
 
 export function Sidebar({
   open,
@@ -57,11 +59,13 @@ export function Sidebar({
   const activeNeuronId = params?.neuronId as string | undefined;
 
   const { brains, createBrain, updateBrain, deleteBrain } = useBrains();
+  const { thoughts, createThought, deleteThought } = useThoughts();
   const [collapsed, setCollapsed] = useState(false);
   const [expandedBrains, setExpandedBrains] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const [thoughtsExpanded, setThoughtsExpanded] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"create-brain" | "rename-brain" | "create-cluster">("create-brain");
+  const [dialogMode, setDialogMode] = useState<"create-brain" | "rename-brain" | "create-cluster" | "create-thought">("create-brain");
   const [dialogValue, setDialogValue] = useState("");
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
   const initialPathname = useRef(pathname);
@@ -116,12 +120,20 @@ export function Sidebar({
     setDialogOpen(true);
   };
 
+  const handleCreateThought = () => {
+    setDialogMode("create-thought");
+    setDialogValue("");
+    setDialogOpen(true);
+  };
+
   const handleDialogSubmit = async () => {
     if (!dialogValue.trim()) return;
     if (dialogMode === "create-brain") {
       await createBrain(dialogValue.trim());
     } else if (dialogMode === "rename-brain" && editingBrainId) {
       await updateBrain(editingBrainId, dialogValue.trim());
+    } else if (dialogMode === "create-thought") {
+      await createThought({ name: dialogValue.trim(), neuronTagIds: [] });
     }
     setDialogOpen(false);
   };
@@ -149,6 +161,11 @@ export function Sidebar({
             <Link href="/trash">
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <Trash2 className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/thoughts">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Lightbulb className="h-4 w-4" />
               </Button>
             </Link>
           </nav>
@@ -191,6 +208,43 @@ export function Sidebar({
               </Button>
             </Link>
           </nav>
+
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-xs font-medium uppercase text-sidebar-muted">Thoughts</span>
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setThoughtsExpanded(!thoughtsExpanded)}>
+                <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", thoughtsExpanded && "rotate-90")} />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateThought}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {thoughtsExpanded && thoughts.length > 0 && (
+            <div className="px-2 pb-2 space-y-0.5">
+              {thoughts.map((thought) => (
+                <div key={thought.id} className="group flex items-center rounded-md px-2 py-1 text-sm">
+                  <Link
+                    href={`/thoughts/${thought.id}`}
+                    className={cn(
+                      "flex items-center gap-1.5 flex-1 truncate text-sidebar-foreground hover:text-sidebar-foreground/80",
+                      pathname.startsWith(`/thoughts/${thought.id}`) && "font-medium"
+                    )}
+                  >
+                    <Lightbulb className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{thought.name}</span>
+                  </Link>
+                  <button
+                    className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent rounded text-destructive"
+                    onClick={() => deleteThought(thought.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center justify-between px-4 py-2">
             <span className="text-xs font-medium uppercase text-sidebar-muted">Brains</span>
@@ -240,6 +294,7 @@ export function Sidebar({
               {dialogMode === "create-brain" && "New Brain"}
               {dialogMode === "rename-brain" && "Rename Brain"}
               {dialogMode === "create-cluster" && "New Cluster"}
+              {dialogMode === "create-thought" && "New Thought"}
             </DialogTitle>
           </DialogHeader>
           <Input
