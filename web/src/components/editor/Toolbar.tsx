@@ -126,8 +126,8 @@ export function Toolbar({ editor }: ToolbarProps) {
         <ListOrdered className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleTaskList().run()}
-        active={editor.isActive("taskList")}
+        onClick={() => editor.chain().focus().insertCheckbox().run()}
+        active={editor.isActive("inlineCheckbox")}
         title="Checklist"
       >
         <ListChecks className="h-4 w-4" />

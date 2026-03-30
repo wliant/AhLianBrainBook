@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -94,4 +95,14 @@
   a, button, [role="button"] {
     cursor: pointer;
   }
+}
+
+/* Inline checkbox in TipTap editor */
+.inline-checkbox {
+  appearance: auto;
+  vertical-align: middle;
+  margin: 0 0.15em;
+  cursor: pointer;
+  width: 0.9em;
+  height: 0.9em;
 }
