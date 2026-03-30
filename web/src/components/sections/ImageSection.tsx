@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import type { Section, Attachment } from "@/types";
 import { ImageIcon, Upload, Link, Loader2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { useAttachmentUpload } from "@/lib/hooks/useAttachmentUpload";
 
 interface ImageSectionProps {
   section: Section;
@@ -15,13 +15,25 @@ interface ImageSectionProps {
 export function ImageSection({ section, onUpdate, editing = true, neuronId }: ImageSectionProps) {
   const src = (section.content.src as string) || "";
   const caption = (section.content.caption as string) || "";
-  const sourceType = (section.content.sourceType as string) || "url";
-  const attachmentId = section.content.attachmentId as string | undefined;
   const [showInput, setShowInput] = useState(!src);
   const [inputMode, setInputMode] = useState<"url" | "upload">("upload");
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  const onUploaded = useCallback(
+    (downloadUrl: string, attachment: Attachment) => {
+      onUpdate({
+        src: downloadUrl,
+        caption,
+        sourceType: "upload",
+        attachmentId: attachment.id,
+      });
+      setShowInput(false);
+    },
+    [onUpdate, caption]
+  );
+
+  const { upload, uploading, error: uploadError, clearError } =
+    useAttachmentUpload({ neuronId, onUploaded });
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
@@ -30,51 +42,28 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
       if (item.type.startsWith("image/")) {
         e.preventDefault();
         const file = item.getAsFile();
-        if (file) handleFileUpload(file);
+        if (file) upload(file);
         return;
       }
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    if (!neuronId) return;
-    setUploading(true);
-    try {
-      const attachment = await api.upload<Attachment>(
-        `/api/attachments/neuron/${neuronId}`,
-        file
-      );
-      const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/attachments/${attachment.id}/download`;
-      onUpdate({
-        src: downloadUrl,
-        caption,
-        sourceType: "upload",
-        attachmentId: attachment.id,
-      });
-      setShowInput(false);
-    } catch (err) {
-      console.error("Upload failed:", err);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   if (editing && (!src || showInput)) {
     return (
-      <div className="border rounded-lg p-4" onPaste={handlePaste} ref={dropZoneRef} tabIndex={0}>
+      <div className="border rounded-lg p-4" onPaste={handlePaste} tabIndex={0}>
         <div className="flex flex-col items-center gap-3">
           <ImageIcon className="h-8 w-8 text-muted-foreground" />
 
           <div className="flex gap-2 text-xs">
             <button
-              onClick={() => setInputMode("upload")}
+              onClick={() => { setInputMode("upload"); clearError(); }}
               className={`px-3 py-1 rounded ${inputMode === "upload" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
             >
               <Upload className="h-3 w-3 inline mr-1" />
               Upload
             </button>
             <button
-              onClick={() => setInputMode("url")}
+              onClick={() => { setInputMode("url"); clearError(); }}
               className={`px-3 py-1 rounded ${inputMode === "url" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
             >
               <Link className="h-3 w-3 inline mr-1" />
@@ -91,7 +80,7 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
+                  if (file) upload(file);
                 }}
               />
               <button
@@ -108,6 +97,9 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
                   "Click to choose or paste an image"
                 )}
               </button>
+              {uploadError && (
+                <p className="mt-2 text-xs text-destructive text-center">{uploadError}</p>
+              )}
             </div>
           ) : (
             <input
@@ -146,7 +138,7 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
         {editing && (
           <button
             onClick={() => setShowInput(true)}
-            className="absolute top-2 right-2 text-xs bg-black/50 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2 right-2 text-xs bg-black/50 text-white px-2 py-1 rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           >
             Change
           </button>
@@ -156,7 +148,7 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
         <input
           type="text"
           value={caption}
-          onChange={(e) => onUpdate({ src, caption: e.target.value, sourceType, attachmentId })}
+          onChange={(e) => onUpdate({ src, caption: e.target.value, sourceType: section.content.sourceType, attachmentId: section.content.attachmentId })}
           placeholder="Add a caption..."
           className="w-full px-3 py-2 text-sm text-center bg-transparent border-t outline-none text-muted-foreground"
         />
