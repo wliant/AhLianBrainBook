@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { FolderOpen, Plus } from "lucide-react";
+import { FolderOpen, Plus, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { useBrains } from "@/lib/hooks/useBrains";
@@ -69,9 +69,16 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
 
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold">Clusters</h2>
-        <Button size="sm" onClick={handleNewCluster}>
-          <Plus className="h-4 w-4 mr-1" /> New Cluster
-        </Button>
+        <div className="flex gap-2">
+          <Link href={`/brain/${brainId}/graph`}>
+            <Button variant="outline" size="sm">
+              <Network className="h-4 w-4 mr-1" /> Knowledge Graph
+            </Button>
+          </Link>
+          <Button size="sm" onClick={handleNewCluster}>
+            <Plus className="h-4 w-4 mr-1" /> New Cluster
+          </Button>
+        </div>
       </div>
 
       {clusters.length === 0 ? (
