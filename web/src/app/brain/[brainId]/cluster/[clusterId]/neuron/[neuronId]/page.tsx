@@ -4,10 +4,11 @@ import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2 } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ function NeuronPageContent({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
   const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
+  const [showLinks, setShowLinks] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
@@ -192,9 +194,24 @@ function NeuronPageContent({
             )}
           />
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setShowLinks(!showLinks)}
+          title="Toggle Connections"
+        >
+          <Link2
+            className={cn(
+              "h-4 w-4",
+              showLinks && "text-blue-400"
+            )}
+          />
+        </Button>
       </div>
-      <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
-        {viewMode ? (
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
+          {viewMode ? (
           <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
         ) : (
           <input
@@ -212,6 +229,14 @@ function NeuronPageContent({
           neuronId={neuronId}
           viewMode={viewMode}
         />
+        </div>
+        {showLinks && (
+          <ConnectionsPanel
+            neuronId={neuronId}
+            brainId={brainId}
+            onClose={() => setShowLinks(false)}
+          />
+        )}
       </div>
     </div>
   );

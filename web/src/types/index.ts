@@ -105,8 +105,10 @@ export interface NeuronLink {
   id: string;
   sourceNeuronId: string;
   sourceNeuronTitle: string | null;
+  sourceNeuronClusterId: string | null;
   targetNeuronId: string;
   targetNeuronTitle: string | null;
+  targetNeuronClusterId: string | null;
   label: string | null;
   linkType: string | null;
   weight: number | null;
