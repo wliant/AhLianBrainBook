@@ -31,6 +31,7 @@ const NODE_HEIGHT = 60;
 const nodeTypes = { neuronNode: NeuronNode };
 
 function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
+  if (nodes.length === 0) return nodes;
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 80 });
@@ -39,7 +40,9 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
   edges.forEach((edge) => {
-    g.setEdge(edge.source, edge.target);
+    if (g.hasNode(edge.source) && g.hasNode(edge.target)) {
+      g.setEdge(edge.source, edge.target);
+    }
   });
 
   dagre.layout(g);
@@ -56,6 +59,71 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   });
 }
 
+// Layout nodes grouped by cluster with cluster offsets
+function applyClusteredLayout(
+  nodes: Node[],
+  edges: Edge[],
+  clusters: { id: string; name: string }[]
+): Node[] {
+  if (nodes.length === 0) return nodes;
+
+  // Group nodes by cluster
+  const clusterNodes: Record<string, Node[]> = {};
+  const orphans: Node[] = [];
+  for (const node of nodes) {
+    const cid = (node.data as { clusterId?: string }).clusterId;
+    if (cid) {
+      if (!clusterNodes[cid]) clusterNodes[cid] = [];
+      clusterNodes[cid].push(node);
+    } else {
+      orphans.push(node);
+    }
+  }
+
+  // Layout each cluster independently, then offset
+  const result: Node[] = [];
+  let xOffset = 0;
+  const CLUSTER_GAP = 100;
+
+  for (const cluster of clusters) {
+    const cNodes = clusterNodes[cluster.id];
+    if (!cNodes || cNodes.length === 0) continue;
+
+    const cEdges = edges.filter(
+      (e) => cNodes.some((n) => n.id === e.source) && cNodes.some((n) => n.id === e.target)
+    );
+
+    const laid = applyDagreLayout(cNodes, cEdges);
+
+    // Find bounding box
+    let minX = Infinity, maxX = -Infinity;
+    for (const n of laid) {
+      minX = Math.min(minX, n.position.x);
+      maxX = Math.max(maxX, n.position.x + NODE_WIDTH);
+    }
+
+    // Shift to xOffset
+    const shift = xOffset - minX;
+    for (const n of laid) {
+      n.position.x += shift;
+      result.push(n);
+    }
+
+    xOffset = maxX + shift + CLUSTER_GAP;
+  }
+
+  // Orphans at the end
+  if (orphans.length > 0) {
+    const laid = applyDagreLayout(orphans, []);
+    for (const n of laid) {
+      n.position.x += xOffset;
+      result.push(n);
+    }
+  }
+
+  return result;
+}
+
 function GraphCanvasInner({
   data,
   brainId,
@@ -65,6 +133,7 @@ function GraphCanvasInner({
 }) {
   const router = useRouter();
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [focusedNode, setFocusedNode] = useState<string | null>(null);
 
   const clusterColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -82,7 +151,23 @@ function GraphCanvasInner({
     return map;
   }, [data.clusters]);
 
+  // Build adjacency set for focus mode
+  const adjacencyMap = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    for (const l of data.links) {
+      if (!map[l.sourceNeuronId]) map[l.sourceNeuronId] = new Set();
+      if (!map[l.targetNeuronId]) map[l.targetNeuronId] = new Set();
+      map[l.sourceNeuronId].add(l.targetNeuronId);
+      map[l.targetNeuronId].add(l.sourceNeuronId);
+    }
+    return map;
+  }, [data.links]);
+
   const { nodes, edges } = useMemo(() => {
+    const focusNeighbors = focusedNode
+      ? new Set([focusedNode, ...(adjacencyMap[focusedNode] || [])])
+      : null;
+
     const rawNodes: Node[] = data.neurons.map((n) => ({
       id: n.id,
       type: "neuronNode",
@@ -91,6 +176,9 @@ function GraphCanvasInner({
         title: n.title,
         clusterName: clusterNameMap[n.clusterId] || "Unknown",
         clusterColor: clusterColorMap[n.clusterId] || "#6b7280",
+        complexity: (n as Record<string, unknown>).complexity || null,
+        clusterId: n.clusterId,
+        dimmed: focusNeighbors ? !focusNeighbors.has(n.id) : false,
       },
     }));
 
@@ -98,19 +186,24 @@ function GraphCanvasInner({
 
     const rawEdges: Edge[] = data.links
       .filter((l) => nodeIdSet.has(l.sourceNeuronId) && nodeIdSet.has(l.targetNeuronId))
-      .map((l) => ({
-        id: `${l.sourceNeuronId}-${l.targetNeuronId}`,
-        source: l.sourceNeuronId,
-        target: l.targetNeuronId,
-        label: l.label || undefined,
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#6b7280" },
-        labelStyle: { fontSize: 10 },
-      }));
+      .map((l) => {
+        const dimmed = focusNeighbors
+          ? !focusNeighbors.has(l.sourceNeuronId) || !focusNeighbors.has(l.targetNeuronId)
+          : false;
+        return {
+          id: `${l.sourceNeuronId}-${l.targetNeuronId}`,
+          source: l.sourceNeuronId,
+          target: l.targetNeuronId,
+          label: l.label || undefined,
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: { stroke: dimmed ? "#6b728033" : "#6b7280" },
+          labelStyle: { fontSize: 10, opacity: dimmed ? 0.2 : 1 },
+        };
+      });
 
-    const layoutNodes = applyDagreLayout(rawNodes, rawEdges);
+    const layoutNodes = applyClusteredLayout(rawNodes, rawEdges, data.clusters);
     return { nodes: layoutNodes, edges: rawEdges };
-  }, [data.neurons, data.links, clusterNameMap, clusterColorMap]);
+  }, [data.neurons, data.links, data.clusters, clusterNameMap, clusterColorMap, focusedNode, adjacencyMap]);
 
   const selectedNodeDetail = useMemo(() => {
     if (!selectedNode) return null;
@@ -142,6 +235,11 @@ function GraphCanvasInner({
 
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null);
+    setFocusedNode(null);
+  }, []);
+
+  const handleFocus = useCallback((nodeId: string) => {
+    setFocusedNode((prev) => (prev === nodeId ? null : nodeId));
   }, []);
 
   const getNodeColor = useCallback(
@@ -173,6 +271,8 @@ function GraphCanvasInner({
         <NodeDetailPanel
           node={selectedNodeDetail}
           brainId={brainId}
+          isFocused={focusedNode === selectedNodeDetail.id}
+          onFocus={() => handleFocus(selectedNodeDetail.id)}
           onClose={() => setSelectedNode(null)}
         />
       )}

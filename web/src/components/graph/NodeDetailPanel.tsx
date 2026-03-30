@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, Focus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface NodeDetail {
   id: string;
@@ -16,19 +17,36 @@ interface NodeDetail {
 export function NodeDetailPanel({
   node,
   brainId,
+  isFocused,
+  onFocus,
   onClose,
 }: {
   node: NodeDetail;
   brainId: string;
+  isFocused?: boolean;
+  onFocus?: () => void;
   onClose: () => void;
 }) {
   return (
     <div className="absolute right-0 top-0 h-full w-80 border-l bg-background shadow-lg z-10 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm truncate">{node.title}</h3>
-        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          {onFocus && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={onFocus}
+              title={isFocused ? "Exit Focus" : "Focus on this node"}
+            >
+              <Focus className={cn("h-4 w-4", isFocused && "text-blue-400")} />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
