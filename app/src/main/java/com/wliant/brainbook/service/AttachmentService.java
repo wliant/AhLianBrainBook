@@ -135,7 +135,7 @@ public class AttachmentService {
     private AttachmentResponse toResponse(Attachment attachment) {
         return new AttachmentResponse(
                 attachment.getId(),
-                attachment.getNeuronId(),
+                attachment.getNeuron() != null ? attachment.getNeuron().getId() : attachment.getNeuronId(),
                 attachment.getFileName(),
                 attachment.getFilePath(),
                 attachment.getFileSize(),

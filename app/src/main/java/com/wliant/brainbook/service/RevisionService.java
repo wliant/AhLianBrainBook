@@ -74,8 +74,8 @@ public class RevisionService {
 
         return new NeuronResponse(
                 saved.getId(),
-                saved.getBrainId(),
-                saved.getClusterId(),
+                saved.getBrain() != null ? saved.getBrain().getId() : saved.getBrainId(),
+                saved.getCluster() != null ? saved.getCluster().getId() : saved.getClusterId(),
                 saved.getTitle(),
                 saved.getContentJson(),
                 saved.getContentText(),
@@ -97,7 +97,7 @@ public class RevisionService {
     private RevisionResponse toResponse(NeuronRevision revision) {
         return new RevisionResponse(
                 revision.getId(),
-                revision.getNeuronId(),
+                revision.getNeuron() != null ? revision.getNeuron().getId() : revision.getNeuronId(),
                 revision.getRevisionNumber(),
                 revision.getContentJson(),
                 revision.getContentText(),

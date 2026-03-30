@@ -101,7 +101,7 @@ public class ClusterService {
     private ClusterResponse toResponse(Cluster cluster) {
         return new ClusterResponse(
                 cluster.getId(),
-                cluster.getBrainId(),
+                cluster.getBrain() != null ? cluster.getBrain().getId() : cluster.getBrainId(),
                 cluster.getName(),
                 cluster.getParentClusterId(),
                 cluster.getSortOrder(),

@@ -240,8 +240,8 @@ public class NeuronService {
 
         return new NeuronResponse(
                 neuron.getId(),
-                neuron.getBrainId(),
-                neuron.getClusterId(),
+                neuron.getBrain() != null ? neuron.getBrain().getId() : neuron.getBrainId(),
+                neuron.getCluster() != null ? neuron.getCluster().getId() : neuron.getClusterId(),
                 neuron.getTitle(),
                 neuron.getContentJson(),
                 neuron.getContentText(),
