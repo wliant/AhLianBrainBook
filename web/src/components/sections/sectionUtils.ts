@@ -1,5 +1,16 @@
 import type { Section, SectionsDocument, SectionType } from "@/types";
 
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-secure contexts (plain HTTP)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export function normalizeContent(
   raw: Record<string, unknown> | null
 ): SectionsDocument {
@@ -18,7 +29,7 @@ export function normalizeContent(
       version: 2,
       sections: [
         {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           type: "rich-text",
           order: 0,
           content: raw,
@@ -42,7 +53,7 @@ export function createSection(type: SectionType, order: number): Section {
     table: { headers: ["Column 1", "Column 2", "Column 3"], rows: [["", "", ""]] },
   };
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     type,
     order,
     content: defaults[type],
