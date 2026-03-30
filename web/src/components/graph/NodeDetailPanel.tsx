@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, ExternalLink, Focus } from "lucide-react";
+import { X, ExternalLink, Focus, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,19 +14,33 @@ interface NodeDetail {
   tagNames: string[];
 }
 
+interface Connection {
+  direction: "in" | "out";
+  neuronId: string;
+  neuronTitle: string;
+  clusterId: string;
+  linkType: string;
+  label?: string;
+}
+
 export function NodeDetailPanel({
   node,
   brainId,
+  connections,
   isFocused,
   onFocus,
   onClose,
 }: {
   node: NodeDetail;
   brainId: string;
+  connections?: Connection[];
   isFocused?: boolean;
   onFocus?: () => void;
   onClose: () => void;
 }) {
+  const outgoing = connections?.filter((c) => c.direction === "out") || [];
+  const incoming = connections?.filter((c) => c.direction === "in") || [];
+
   return (
     <div className="absolute right-0 top-0 h-full w-80 border-l bg-background shadow-lg z-10 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -77,6 +91,58 @@ export function NodeDetailPanel({
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {connections && connections.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Connections ({connections.length})
+            </p>
+            {outgoing.length > 0 && (
+              <div className="mb-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                  Outgoing ({outgoing.length})
+                </p>
+                <div className="space-y-1">
+                  {outgoing.map((c) => (
+                    <Link
+                      key={`out-${c.neuronId}`}
+                      href={`/brain/${brainId}/cluster/${c.clusterId}/neuron/${c.neuronId}`}
+                      className="flex items-center gap-1.5 text-xs px-2 py-1 rounded hover:bg-muted group"
+                    >
+                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate group-hover:text-foreground">{c.neuronTitle}</span>
+                      <span className="text-[9px] px-1 py-0.5 rounded bg-muted-foreground/10 text-muted-foreground shrink-0">
+                        {c.linkType}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+            {incoming.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                  Incoming ({incoming.length})
+                </p>
+                <div className="space-y-1">
+                  {incoming.map((c) => (
+                    <Link
+                      key={`in-${c.neuronId}`}
+                      href={`/brain/${brainId}/cluster/${c.clusterId}/neuron/${c.neuronId}`}
+                      className="flex items-center gap-1.5 text-xs px-2 py-1 rounded hover:bg-muted group"
+                    >
+                      <ArrowLeft className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate group-hover:text-foreground">{c.neuronTitle}</span>
+                      <span className="text-[9px] px-1 py-0.5 rounded bg-muted-foreground/10 text-muted-foreground shrink-0">
+                        {c.linkType}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

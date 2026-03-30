@@ -97,6 +97,11 @@
   }
 }
 
+/* Hide broken React Flow built-in minimap (incompatible with React 19) */
+.react-flow__minimap {
+  display: none !important;
+}
+
 /* Inline checkbox in TipTap editor */
 .inline-checkbox {
   appearance: auto;
