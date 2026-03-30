@@ -117,6 +117,30 @@ export interface NeuronLink {
   createdAt: string;
 }
 
+export interface Reminder {
+  id: string;
+  neuronId: string;
+  reminderType: "ONCE" | "RECURRING";
+  triggerAt: string;
+  recurrencePattern: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+  recurrenceInterval: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  reminderId: string | null;
+  neuronId: string;
+  brainId: string;
+  clusterId: string;
+  neuronTitle: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface BrainExport {
   version: string;
   brain: {

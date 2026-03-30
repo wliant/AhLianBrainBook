@@ -4,11 +4,12 @@ import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
+import { ReminderDialog } from "@/components/neuron/ReminderDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,8 @@ function NeuronPageContent({
   const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
   const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
   const [showLinks, setShowLinks] = useState(false);
+  const [hasReminder, setHasReminder] = useState(false);
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
@@ -53,6 +56,10 @@ function NeuronPageContent({
       setSectionsDoc(doc);
       latestDoc.current = doc;
     });
+    api.reminders
+      .get(neuronId)
+      .then((r) => setHasReminder(!!r))
+      .catch(() => setHasReminder(false));
     Promise.all([
       api.get<Brain>(`/api/brains/${brainId}`),
       api.get<Cluster>(`/api/clusters/${clusterId}`),
@@ -198,6 +205,20 @@ function NeuronPageContent({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
+          onClick={() => setReminderDialogOpen(true)}
+          title="Set Reminder"
+        >
+          <Bell
+            className={cn(
+              "h-4 w-4",
+              hasReminder && "fill-orange-400 text-orange-400"
+            )}
+          />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
           onClick={() => setShowLinks(!showLinks)}
           title="Toggle Connections"
         >
@@ -240,6 +261,13 @@ function NeuronPageContent({
           </div>
         )}
       </div>
+      <ReminderDialog
+        neuronId={neuronId}
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        onReminderSaved={() => setHasReminder(true)}
+        onReminderDeleted={() => setHasReminder(false)}
+      />
     </div>
   );
 }

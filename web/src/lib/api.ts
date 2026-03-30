@@ -128,4 +128,36 @@ export const api = {
     importBrain: <T>(body: { name: string; description?: string; clusters?: unknown[]; tags?: unknown[]; links?: unknown[] }) =>
       request<T>("/api/brains/import", { method: "POST", body }),
   },
+
+  // Reminder endpoints
+  reminders: {
+    get: (neuronId: string) =>
+      request<import("@/types").Reminder | undefined>(`/api/neurons/${neuronId}/reminder`),
+    create: (neuronId: string, body: {
+      reminderType: string;
+      triggerAt: string;
+      recurrencePattern?: string | null;
+      recurrenceInterval?: number | null;
+    }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminder`, { method: "POST", body }),
+    update: (neuronId: string, body: {
+      reminderType: string;
+      triggerAt: string;
+      recurrencePattern?: string | null;
+      recurrenceInterval?: number | null;
+    }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminder`, { method: "PUT", body }),
+    delete: (neuronId: string) =>
+      request<void>(`/api/neurons/${neuronId}/reminder`, { method: "DELETE" }),
+  },
+
+  // Notification endpoints
+  notifications: {
+    getAll: (page: number, size: number) =>
+      request<import("@/types").AppNotification[]>(`/api/notifications?page=${page}&size=${size}`),
+    getUnreadCount: () =>
+      request<{ count: number }>("/api/notifications/unread/count"),
+    markAsRead: (id: string) =>
+      request<void>(`/api/notifications/${id}/read`, { method: "POST" }),
+    markAllAsRead: () =>
+      request<void>("/api/notifications/read-all", { method: "POST" }),
+  },
 };

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Brain, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "./Sidebar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +27,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Brain className="h-5 w-5" />
             <span>BrainBook</span>
           </Link>
+          <div className="flex-1" />
+          <NotificationBell />
+        </div>
+        <div className="hidden lg:flex items-center justify-end px-4 py-1 border-b">
+          <NotificationBell />
         </div>
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
