@@ -35,6 +35,7 @@ export interface Neuron {
   isFavorite: boolean;
   isPinned: boolean;
   version: number;
+  complexity: string | null;
   createdAt: string;
   updatedAt: string;
   lastEditedAt: string;

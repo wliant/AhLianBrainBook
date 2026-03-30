@@ -86,6 +86,7 @@ public class RevisionService {
                 saved.isArchived(),
                 saved.isDeleted(),
                 saved.getVersion(),
+                saved.getComplexity(),
                 saved.getLastEditedAt(),
                 saved.getCreatedAt(),
                 saved.getUpdatedAt(),

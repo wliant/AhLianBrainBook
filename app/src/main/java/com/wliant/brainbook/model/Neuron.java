@@ -71,6 +71,9 @@ public class Neuron {
     @Column(name = "version", nullable = false)
     private int version;
 
+    @Column(name = "complexity", length = 20)
+    private String complexity;
+
     @Column(name = "last_edited_at")
     private LocalDateTime lastEditedAt;
 
@@ -123,6 +126,8 @@ public class Neuron {
     public void setDeleted(boolean deleted) { isDeleted = deleted; }
     public int getVersion() { return version; }
     public void setVersion(int version) { this.version = version; }
+    public String getComplexity() { return complexity; }
+    public void setComplexity(String complexity) { this.complexity = complexity; }
     public LocalDateTime getLastEditedAt() { return lastEditedAt; }
     public void setLastEditedAt(LocalDateTime lastEditedAt) { this.lastEditedAt = lastEditedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }

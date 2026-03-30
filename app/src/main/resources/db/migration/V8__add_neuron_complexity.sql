@@ -1,0 +1,1 @@
+ALTER TABLE neurons ADD COLUMN complexity VARCHAR(20);

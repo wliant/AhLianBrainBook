@@ -12,6 +12,9 @@ public record NeuronRequest(
         UUID clusterId,
         String contentJson,
         String contentText,
-        UUID templateId
+        UUID templateId,
+
+        @Size(max = 20, message = "Complexity must be at most 20 characters")
+        String complexity
 ) {
 }

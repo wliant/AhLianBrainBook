@@ -18,6 +18,7 @@ public record NeuronResponse(
         boolean isArchived,
         boolean isDeleted,
         int version,
+        String complexity,
         LocalDateTime lastEditedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,

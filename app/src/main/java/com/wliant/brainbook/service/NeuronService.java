@@ -104,10 +104,11 @@ public class NeuronService {
     public NeuronResponse update(UUID id, NeuronRequest req) {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
-        neuron.setTitle(req.title());
-        neuron.setContentJson(req.contentJson());
-        neuron.setContentText(req.contentText());
-        neuron.setTemplateId(req.templateId());
+        if (req.title() != null) neuron.setTitle(req.title());
+        if (req.contentJson() != null) neuron.setContentJson(req.contentJson());
+        if (req.contentText() != null) neuron.setContentText(req.contentText());
+        if (req.templateId() != null) neuron.setTemplateId(req.templateId());
+        if (req.complexity() != null) neuron.setComplexity(req.complexity());
         neuron.setLastEditedAt(LocalDateTime.now());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
@@ -251,6 +252,7 @@ public class NeuronService {
                 neuron.isArchived(),
                 neuron.isDeleted(),
                 neuron.getVersion(),
+                neuron.getComplexity(),
                 neuron.getLastEditedAt(),
                 neuron.getCreatedAt(),
                 neuron.getUpdatedAt(),
