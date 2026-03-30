@@ -46,6 +46,8 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 ### Testing
 - **App**: JUnit 5 + Spring Boot Test + TestContainers (PostgreSQL). Classical-school unit tests for services (real DB, only MinIO mocked). Integration tests for controllers (`@SpringBootTest` with `RANDOM_PORT` + `TestRestTemplate`). Requires Docker for TestContainers.
 - **Web**: Vitest + React Testing Library + MSW (Mock Service Worker). Unit tests for API client, hooks, and components. Integration tests for pages with mocked backend APIs.
+- **When testing**: Run only the relevant test package for the changes made (e.g., `./gradlew test --tests ClassName` or specific test files in web).
+- **E2E tests**: Always rebuild and test using docker compose (`docker compose -f docker-compose.infra.yml -f docker-compose.app.yml up -d --build`).
 
 ### Key Config
 - Backend port: 8080, Frontend port: 3000
