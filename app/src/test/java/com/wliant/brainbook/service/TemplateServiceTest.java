@@ -1,5 +1,6 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.TemplateRequest;
 import com.wliant.brainbook.dto.TemplateResponse;
@@ -31,9 +32,12 @@ class TemplateServiceTest {
     @Autowired
     private TemplateRepository templateRepository;
 
+    @Autowired
+    private DatabaseCleaner databaseCleaner;
+
     @BeforeEach
     void setUp() {
-        templateRepository.deleteAll();
+        databaseCleaner.clean();
     }
 
     @Test

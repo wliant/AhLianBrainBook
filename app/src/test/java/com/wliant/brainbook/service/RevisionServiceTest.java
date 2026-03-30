@@ -1,18 +1,14 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
-import com.wliant.brainbook.dto.BrainRequest;
+import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.dto.ClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.dto.RevisionResponse;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
-import com.wliant.brainbook.repository.NeuronRevisionRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,37 +38,20 @@ class RevisionServiceTest {
     private NeuronService neuronService;
 
     @Autowired
-    private NeuronRepository neuronRepository;
+    private DatabaseCleaner databaseCleaner;
 
     @Autowired
-    private NeuronRevisionRepository neuronRevisionRepository;
-
-    @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainService brainService;
-
-    @Autowired
-    private ClusterService clusterService;
+    private TestDataFactory testDataFactory;
 
     private UUID brainId;
     private UUID clusterId;
 
     @BeforeEach
     void setUp() {
-        neuronRevisionRepository.deleteAll();
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-
-        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
+        databaseCleaner.clean();
+        BrainResponse brain = testDataFactory.createBrain();
         brainId = brain.id();
-
-        ClusterResponse cluster = clusterService.create(new ClusterRequest("Test Cluster", brainId, null));
+        ClusterResponse cluster = testDataFactory.createCluster(brainId);
         clusterId = cluster.id();
     }
 

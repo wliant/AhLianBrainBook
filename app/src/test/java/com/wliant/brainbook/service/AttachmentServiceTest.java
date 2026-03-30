@@ -1,17 +1,10 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
+import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.dto.AttachmentResponse;
-import com.wliant.brainbook.dto.BrainRequest;
-import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.dto.ClusterRequest;
-import com.wliant.brainbook.dto.ClusterResponse;
-import com.wliant.brainbook.dto.NeuronRequest;
-import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.repository.AttachmentRepository;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
 import io.minio.MinioClient;
 import io.minio.ObjectWriteResponse;
 import io.minio.PutObjectArgs;
@@ -47,37 +40,18 @@ class AttachmentServiceTest {
     private AttachmentRepository attachmentRepository;
 
     @Autowired
-    private NeuronRepository neuronRepository;
+    private DatabaseCleaner databaseCleaner;
 
     @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainService brainService;
-
-    @Autowired
-    private ClusterService clusterService;
-
-    @Autowired
-    private NeuronService neuronService;
+    private TestDataFactory testDataFactory;
 
     private UUID neuronId;
 
     @BeforeEach
     void setUp() throws Exception {
-        attachmentRepository.deleteAll();
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-
-        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
-        ClusterResponse cluster = clusterService.create(new ClusterRequest("Test Cluster", brain.id(), null));
-        NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Test Neuron", brain.id(), cluster.id(), null, null, null, null));
-        neuronId = neuron.id();
+        databaseCleaner.clean();
+        var chain = testDataFactory.createFullChain();
+        neuronId = chain.neuron().id();
 
         when(minioClient.putObject(any(PutObjectArgs.class)))
                 .thenReturn(Mockito.mock(ObjectWriteResponse.class));

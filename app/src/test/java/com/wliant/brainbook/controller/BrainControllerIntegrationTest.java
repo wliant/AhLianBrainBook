@@ -1,15 +1,9 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.BrainRequest;
 import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.repository.AttachmentRepository;
-import com.wliant.brainbook.repository.NeuronLinkRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
-import com.wliant.brainbook.repository.NeuronRevisionRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.TagRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +16,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -43,39 +36,11 @@ class BrainControllerIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private NeuronRevisionRepository neuronRevisionRepository;
-
-    @Autowired
-    private AttachmentRepository attachmentRepository;
-
-    @Autowired
-    private NeuronLinkRepository neuronLinkRepository;
-
-    @Autowired
-    private NeuronRepository neuronRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private TagRepository tagRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DatabaseCleaner databaseCleaner;
 
     @BeforeEach
     void cleanup() {
-        jdbcTemplate.execute("DELETE FROM neuron_tags");
-        neuronRevisionRepository.deleteAll();
-        attachmentRepository.deleteAll();
-        neuronLinkRepository.deleteAll();
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-        tagRepository.deleteAll();
+        databaseCleaner.clean();
     }
 
     @Test
