@@ -38,7 +38,7 @@ export function CalloutSection({ section, onUpdate, editing = true }: CalloutSec
             className="text-xs bg-transparent border rounded px-1.5 py-0.5 outline-none"
           >
             {Object.entries(VARIANTS).map(([key, val]) => (
-              <option key={key} value={key}>
+              <option key={key} value={key} className="bg-popover text-popover-foreground">
                 {val.label}
               </option>
             ))}

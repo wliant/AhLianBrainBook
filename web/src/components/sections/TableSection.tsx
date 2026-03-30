@@ -77,7 +77,7 @@ export function TableSection({ section, onUpdate, editing = true }: TableSection
               {headers.map((header, colIdx) => (
                 <th key={colIdx} className="border-b border-r last:border-r-0 p-0">
                   {editing ? (
-                    <div className="flex items-center">
+                    <div className="flex items-center group/col">
                       <input
                         type="text"
                         value={header}
@@ -87,7 +87,7 @@ export function TableSection({ section, onUpdate, editing = true }: TableSection
                       {headers.length > 1 && (
                         <button
                           onClick={() => removeColumn(colIdx)}
-                          className="p-1 text-muted-foreground hover:text-destructive opacity-0 hover:opacity-100 focus:opacity-100"
+                          className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover/col:opacity-100 focus:opacity-100"
                           title="Remove column"
                         >
                           <Trash2 className="h-3 w-3" />
