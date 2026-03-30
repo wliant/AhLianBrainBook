@@ -14,7 +14,6 @@ Capabilities observed in the "Understand Anything" knowledge graph dashboard tha
 - **Phase 1 (Foundation):** P0-1, P0-2, P0-3, P1-6, P1-7
 - **Phase 2 (Links & Visualization):** P1-4, P1-5, P1-8, P2-11
 - **Phase 3 (Polish):** P2-9, P2-10, P2-12, P2-13, P3-17
-- **Phase 4 (Advanced):** P3-14, P3-15, P3-16
 
 ---
 
@@ -298,60 +297,6 @@ Capabilities observed in the "Understand Anything" knowledge graph dashboard tha
 
 ---
 
-## P3-14: Guided Tours
-
-**Problem:** No way to create a curated, step-by-step walkthrough of a brain's content.
-
-**What the knowledge graph does:** 12-step tour with title, description, and associated nodes per step. Tour player highlights nodes on the graph and shows description in a side panel. Previous/Next navigation.
-
-**Scope:**
-- New domain entity: `Tour` (id, brainId, title, description) and `TourStep` (id, tourId, order, title, body, neuronIds[])
-- CRUD API for tours and steps
-- Tour player UI: step counter, prev/next buttons, description panel
-- In graph view: tour highlights the associated neurons at each step
-- In non-graph view: tour shows step description with links to neurons
-
-**New tables:** `tours`, `tour_steps`, `tour_step_neurons`
-
-**Effort:** Large (5-7 days). New domain concept.
-
----
-
-## P3-15: Semantic Search
-
-**Problem:** BrainBook only supports PostgreSQL full-text search (keyword matching). The knowledge graph offers semantic search that understands meaning.
-
-**What the knowledge graph does:** Toggle between "Fuzzy" and "Semantic" search modes. Semantic search finds conceptually related nodes even without exact keyword matches.
-
-**Scope:**
-- Embedding generation for neuron content (on create/update)
-- Vector storage via `pgvector` PostgreSQL extension
-- `GET /api/search/semantic?q=...&brainId=...` endpoint using cosine similarity
-- Frontend toggle between full-text and semantic search on search page
-- Embedding model: OpenAI text-embedding-3-small or local alternative
-
-**Prerequisites:** pgvector extension installed in PostgreSQL
-
-**Effort:** Large (5-8 days). Major infrastructure addition.
-
----
-
-## P3-16: Diff/Change Overlay
-
-**Problem:** Revision history exists but there's no visual comparison between versions.
-
-**What the knowledge graph does:** "Diff" toggle (currently disabled) to overlay changes on the graph.
-
-**Scope:**
-- Side-by-side or inline diff view when comparing two revisions of a neuron
-- Highlighted additions (green) and deletions (red)
-- Accessible from the revision history panel
-- Uses `contentText` for diffing with a library like `diff` or `jsdiff`
-
-**Effort:** Medium (3-4 days).
-
----
-
 ## P3-17: Keyboard Shortcuts
 
 **Problem:** No global keyboard shortcuts for common actions.
@@ -392,7 +337,4 @@ Capabilities observed in the "Understand Anything" knowledge graph dashboard tha
 | 11 | Minimap | P2 | XS | 5 |
 | 12 | Complexity Metadata | P2 | S | -- |
 | 13 | Metrics/Stats Dashboard | P2 | M | -- |
-| 14 | Guided Tours | P3 | L | -- |
-| 15 | Semantic Search | P3 | L | -- |
-| 16 | Diff/Change Overlay | P3 | M | -- |
-| 17 | Keyboard Shortcuts | P3 | S | -- |
+| 14 | Keyboard Shortcuts | P3 | S | -- |
