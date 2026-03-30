@@ -8,6 +8,10 @@ import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 export const metadata: Metadata = {
   title: "BrainBook",
   description: "Personal Technical Notebook",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({

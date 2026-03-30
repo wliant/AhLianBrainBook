@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
   ReactFlow,
   Controls,
@@ -132,6 +133,7 @@ function GraphCanvasInner({
   brainId: string;
 }) {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [focusedNode, setFocusedNode] = useState<string | null>(null);
 
@@ -259,6 +261,7 @@ function GraphCanvasInner({
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         onPaneClick={handlePaneClick}
+        colorMode={resolvedTheme === "dark" ? "dark" : "light"}
         fitView
         minZoom={0.1}
         maxZoom={2}
