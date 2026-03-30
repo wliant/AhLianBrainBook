@@ -3,18 +3,23 @@
 import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Neuron, SectionsDocument } from "@/types";
+import type { Brain, Cluster, Neuron, SectionsDocument } from "@/types";
 import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
+import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function NeuronPageContent({
+  brainId,
+  clusterId,
   neuronId,
 }: {
+  brainId: string;
+  clusterId: string;
   neuronId: string;
 }) {
   const searchParams = useSearchParams();
@@ -26,6 +31,7 @@ function NeuronPageContent({
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
+  const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
@@ -45,7 +51,16 @@ function NeuronPageContent({
       setSectionsDoc(doc);
       latestDoc.current = doc;
     });
-  }, [neuronId]);
+    Promise.all([
+      api.get<Brain>(`/api/brains/${brainId}`),
+      api.get<Cluster>(`/api/clusters/${clusterId}`),
+    ]).then(([brain, cluster]) => {
+      setBreadcrumbItems([
+        { label: brain.name, href: `/brain/${brainId}` },
+        { label: cluster.name, href: `/brain/${brainId}/cluster/${clusterId}` },
+      ]);
+    });
+  }, [neuronId, brainId, clusterId]);
 
   const toggleViewMode = () => {
     const hash = window.location.hash;
@@ -126,8 +141,13 @@ function NeuronPageContent({
     );
   }
 
+  const neuronBreadcrumbs = title
+    ? [...breadcrumbItems, { label: title, href: pathname }]
+    : breadcrumbItems;
+
   return (
     <div className="flex flex-col h-full">
+      <Breadcrumb items={neuronBreadcrumbs} />
       <div className="flex items-center gap-2 border-b px-6 py-2">
         {!viewMode && <SaveStatusIndicator status={saveStatus} />}
         <div className="flex-1" />
@@ -202,7 +222,7 @@ export default function NeuronPage({
 }: {
   params: Promise<{ brainId: string; clusterId: string; neuronId: string }>;
 }) {
-  const { neuronId } = use(params);
+  const { brainId, clusterId, neuronId } = use(params);
   return (
     <Suspense
       fallback={
@@ -211,7 +231,7 @@ export default function NeuronPage({
         </div>
       }
     >
-      <NeuronPageContent neuronId={neuronId} />
+      <NeuronPageContent brainId={brainId} clusterId={clusterId} neuronId={neuronId} />
     </Suspense>
   );
 }

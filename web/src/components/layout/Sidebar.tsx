@@ -281,17 +281,23 @@ function BrainItem({
 
       {isExpanded && (
         <div className="ml-4 space-y-0.5">
-          {clusters.map((cluster) => (
-            <ClusterItem
-              key={cluster.id}
-              cluster={cluster}
-              brainId={brain.id}
-              isExpanded={expandedClusters.has(cluster.id)}
-              isActive={activeClusterId === cluster.id}
-              activeNeuronId={activeNeuronId}
-              onToggle={() => onToggleCluster(cluster.id)}
-            />
-          ))}
+          {clusters
+            .filter((c) => !c.parentClusterId)
+            .map((cluster) => (
+              <ClusterItem
+                key={cluster.id}
+                cluster={cluster}
+                brainId={brain.id}
+                allClusters={clusters}
+                isExpanded={expandedClusters.has(cluster.id)}
+                isActive={activeClusterId === cluster.id}
+                activeClusterId={activeClusterId}
+                activeNeuronId={activeNeuronId}
+                expandedClusters={expandedClusters}
+                onToggle={() => onToggleCluster(cluster.id)}
+                onToggleCluster={onToggleCluster}
+              />
+            ))}
         </div>
       )}
     </div>
@@ -301,19 +307,28 @@ function BrainItem({
 function ClusterItem({
   cluster,
   brainId,
+  allClusters,
   isExpanded,
   isActive,
+  activeClusterId,
   activeNeuronId,
+  expandedClusters,
   onToggle,
+  onToggleCluster,
 }: {
   cluster: ClusterType;
   brainId: string;
+  allClusters: ClusterType[];
   isExpanded: boolean;
   isActive: boolean;
+  activeClusterId?: string;
   activeNeuronId?: string;
+  expandedClusters: Set<string>;
   onToggle: () => void;
+  onToggleCluster: (id: string) => void;
 }) {
   const { neurons } = useNeurons(isExpanded ? cluster.id : null);
+  const childClusters = allClusters.filter((c) => c.parentClusterId === cluster.id);
 
   return (
     <div>
@@ -339,6 +354,21 @@ function ClusterItem({
 
       {isExpanded && (
         <div className="ml-4 space-y-0.5">
+          {childClusters.map((child) => (
+            <ClusterItem
+              key={child.id}
+              cluster={child}
+              brainId={brainId}
+              allClusters={allClusters}
+              isExpanded={expandedClusters.has(child.id)}
+              isActive={activeClusterId === child.id}
+              activeClusterId={activeClusterId}
+              activeNeuronId={activeNeuronId}
+              expandedClusters={expandedClusters}
+              onToggle={() => onToggleCluster(child.id)}
+              onToggleCluster={onToggleCluster}
+            />
+          ))}
           {neurons.map((neuron) => (
             <Link
               key={neuron.id}

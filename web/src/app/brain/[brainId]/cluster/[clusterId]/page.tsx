@@ -1,12 +1,14 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { TagCombobox } from "@/components/tags/TagCombobox";
-import type { Neuron, Tag } from "@/types";
+import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { api } from "@/lib/api";
+import type { Brain, Cluster, Neuron, Tag } from "@/types";
 
 export default function ClusterPage({
   params,
@@ -16,6 +18,19 @@ export default function ClusterPage({
   const { brainId, clusterId } = use(params);
   const { neurons, createNeuron } = useNeurons(clusterId);
   const [neuronTags, setNeuronTags] = useState<Record<string, Tag[]>>({});
+  const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      api.get<Brain>(`/api/brains/${brainId}`),
+      api.get<Cluster>(`/api/clusters/${clusterId}`),
+    ]).then(([brain, cluster]) => {
+      setBreadcrumbItems([
+        { label: brain.name, href: `/brain/${brainId}` },
+        { label: cluster.name, href: `/brain/${brainId}/cluster/${clusterId}` },
+      ]);
+    });
+  }, [brainId, clusterId]);
 
   const getTagsForNeuron = (neuron: Neuron): Tag[] => {
     return neuronTags[neuron.id] ?? neuron.tags ?? [];
@@ -33,7 +48,9 @@ export default function ClusterPage({
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="flex flex-col h-full">
+      <Breadcrumb items={breadcrumbItems} />
+      <div className="p-8 max-w-4xl mx-auto flex-1">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Neurons</h1>
         <Button size="sm" onClick={handleNewNeuron}>
@@ -77,6 +94,7 @@ export default function ClusterPage({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
