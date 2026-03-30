@@ -3,6 +3,7 @@ import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 
 export const metadata: Metadata = {
   title: "BrainBook",
@@ -20,6 +21,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ErrorBoundary>
             <AppShell>{children}</AppShell>
+            <KeyboardShortcuts />
           </ErrorBoundary>
         </ThemeProvider>
       </body>
