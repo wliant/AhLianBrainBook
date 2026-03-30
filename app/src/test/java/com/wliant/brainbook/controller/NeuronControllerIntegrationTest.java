@@ -98,7 +98,7 @@ class NeuronControllerIntegrationTest {
     }
 
     private NeuronResponse createNeuron(String title) {
-        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, "{}", "", null);
+        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, "{}", "", null, null);
         ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
                 "/api/neurons", request, NeuronResponse.class);
         return response.getBody();
@@ -107,7 +107,7 @@ class NeuronControllerIntegrationTest {
     @Test
     void createNeuron_succeeds() {
         NeuronRequest request = new NeuronRequest("My Note", brainId, clusterId,
-                "{\"type\":\"doc\"}", "plain text", null);
+                "{\"type\":\"doc\"}", "plain text", null, null);
 
         ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
                 "/api/neurons", request, NeuronResponse.class);

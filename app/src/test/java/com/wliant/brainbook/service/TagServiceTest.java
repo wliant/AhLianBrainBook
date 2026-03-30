@@ -122,6 +122,6 @@ class TagServiceTest {
     private NeuronResponse createTestNeuron() {
         BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
         ClusterResponse cluster = clusterService.create(new ClusterRequest("Test Cluster", brain.id(), null));
-        return neuronService.create(new NeuronRequest("Test Neuron", brain.id(), cluster.id(), null, null, null));
+        return neuronService.create(new NeuronRequest("Test Neuron", brain.id(), cluster.id(), null, null, null, null));
     }
 }

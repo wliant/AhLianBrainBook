@@ -71,7 +71,7 @@ class SearchServiceTest {
     @Test
     void search_returnsMatchingNeurons() {
         neuronService.create(new NeuronRequest("Spring Boot Guide", brainId, clusterId,
-                null, "Learn about Spring Boot framework", null));
+                null, "Learn about Spring Boot framework", null, null));
 
         SearchResponse response = searchService.search("Spring", null, null, null, null, 0, 20);
 
@@ -82,7 +82,7 @@ class SearchServiceTest {
     @Test
     void search_returnsEmptyForBlankQuery() {
         neuronService.create(new NeuronRequest("Some Note", brainId, clusterId,
-                null, "content", null));
+                null, "content", null, null));
 
         SearchResponse response = searchService.search("", null, null, null, null, 0, 20);
 

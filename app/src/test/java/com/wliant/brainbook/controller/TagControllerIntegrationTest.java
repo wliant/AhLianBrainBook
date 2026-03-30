@@ -95,7 +95,7 @@ class TagControllerIntegrationTest {
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         UUID clusterId = clusterResponse.getBody().id();
 
-        NeuronRequest neuronRequest = new NeuronRequest("Note", brainId, clusterId, "{}", "", null);
+        NeuronRequest neuronRequest = new NeuronRequest("Note", brainId, clusterId, "{}", "", null, null);
         ResponseEntity<NeuronResponse> neuronResponse = restTemplate.postForEntity(
                 "/api/neurons", neuronRequest, NeuronResponse.class);
         return neuronResponse.getBody().id();
