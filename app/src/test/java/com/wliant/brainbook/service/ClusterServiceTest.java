@@ -1,14 +1,15 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
-import com.wliant.brainbook.dto.BrainRequest;
+import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.dto.BrainResponse;
 import com.wliant.brainbook.dto.ClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
-import com.wliant.brainbook.repository.BrainRepository;
+import com.wliant.brainbook.dto.ReorderRequest;
+import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.repository.ClusterRepository;
 import io.minio.MinioClient;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Import(TestContainersConfig.class)
@@ -37,20 +39,17 @@ class ClusterServiceTest {
     private ClusterRepository clusterRepository;
 
     @Autowired
-    private BrainRepository brainRepository;
+    private DatabaseCleaner databaseCleaner;
 
     @Autowired
-    private BrainService brainService;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private TestDataFactory testDataFactory;
 
     private UUID brainId;
 
     @BeforeEach
     void setUp() {
-        jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
-        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
+        databaseCleaner.clean();
+        BrainResponse brain = testDataFactory.createBrain();
         brainId = brain.id();
     }
 
@@ -112,5 +111,53 @@ class ClusterServiceTest {
         ClusterResponse restored = clusterService.restore(created.id());
 
         assertThat(restored.isArchived()).isFalse();
+    }
+
+    @Test
+    void getById_returnsCluster() {
+        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId, null));
+
+        ClusterResponse found = clusterService.getById(created.id());
+
+        assertThat(found.id()).isEqualTo(created.id());
+        assertThat(found.name()).isEqualTo("Test");
+    }
+
+    @Test
+    void getById_throwsWhenNotFound() {
+        assertThatThrownBy(() -> clusterService.getById(UUID.randomUUID()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void move_changesBrain() {
+        ClusterResponse created = clusterService.create(new ClusterRequest("To Move", brainId, null));
+        BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
+
+        ClusterResponse moved = clusterService.move(created.id(), brain2.id());
+
+        assertThat(moved.brainId()).isEqualTo(brain2.id());
+    }
+
+    @Test
+    void move_throwsOnNonexistentBrain() {
+        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId, null));
+
+        assertThatThrownBy(() -> clusterService.move(created.id(), UUID.randomUUID()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void reorder_updatesSortOrders() {
+        ClusterResponse c1 = clusterService.create(new ClusterRequest("A", brainId, null));
+        ClusterResponse c2 = clusterService.create(new ClusterRequest("B", brainId, null));
+        ClusterResponse c3 = clusterService.create(new ClusterRequest("C", brainId, null));
+
+        clusterService.reorder(new ReorderRequest(List.of(c3.id(), c1.id(), c2.id())));
+
+        List<ClusterResponse> reordered = clusterService.getByBrainId(brainId);
+        assertThat(reordered.get(0).name()).isEqualTo("C");
+        assertThat(reordered.get(1).name()).isEqualTo("A");
+        assertThat(reordered.get(2).name()).isEqualTo("B");
     }
 }

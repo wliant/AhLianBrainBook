@@ -1,17 +1,11 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
-import com.wliant.brainbook.dto.BrainRequest;
-import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.dto.ClusterRequest;
-import com.wliant.brainbook.dto.ClusterResponse;
-import com.wliant.brainbook.dto.NeuronRequest;
+import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.dto.TagRequest;
 import com.wliant.brainbook.dto.TagResponse;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
 import com.wliant.brainbook.repository.TagRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,29 +36,14 @@ class TagServiceTest {
     private TagRepository tagRepository;
 
     @Autowired
-    private NeuronRepository neuronRepository;
+    private DatabaseCleaner databaseCleaner;
 
     @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainService brainService;
-
-    @Autowired
-    private ClusterService clusterService;
-
-    @Autowired
-    private NeuronService neuronService;
+    private TestDataFactory testDataFactory;
 
     @BeforeEach
     void setUp() {
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-        tagRepository.deleteAll();
+        databaseCleaner.clean();
     }
 
     @Test
@@ -120,8 +99,62 @@ class TagServiceTest {
     }
 
     private NeuronResponse createTestNeuron() {
-        BrainResponse brain = brainService.create(new BrainRequest("Test Brain", "\uD83E\uDDE0", "#FF0000", null));
-        ClusterResponse cluster = clusterService.create(new ClusterRequest("Test Cluster", brain.id(), null));
-        return neuronService.create(new NeuronRequest("Test Neuron", brain.id(), cluster.id(), null, null, null, null));
+        return testDataFactory.createFullChain().neuron();
+    }
+
+    @Test
+    void search_returnsMatchingTags() {
+        tagService.create(new TagRequest("JavaScript", "#FFFF00"));
+        tagService.create(new TagRequest("Java", "#0000FF"));
+        tagService.create(new TagRequest("Python", "#00FF00"));
+
+        List<TagResponse> results = tagService.search("Java");
+
+        assertThat(results).hasSize(2);
+    }
+
+    @Test
+    void addTagToBrain_linksBrainAndTag() {
+        var brain = testDataFactory.createBrain();
+        TagResponse tag = tagService.create(new TagRequest("DevOps", "#FF0000"));
+
+        tagService.addTagToBrain(brain.id(), tag.id());
+
+        List<TagResponse> tags = tagService.getTagsForBrain(brain.id());
+        assertThat(tags).hasSize(1);
+        assertThat(tags.get(0).name()).isEqualTo("DevOps");
+    }
+
+    @Test
+    void removeTagFromBrain_unlinksBrainAndTag() {
+        var brain = testDataFactory.createBrain();
+        TagResponse tag = tagService.create(new TagRequest("DevOps", "#FF0000"));
+        tagService.addTagToBrain(brain.id(), tag.id());
+
+        tagService.removeTagFromBrain(brain.id(), tag.id());
+
+        List<TagResponse> tags = tagService.getTagsForBrain(brain.id());
+        assertThat(tags).isEmpty();
+    }
+
+    @Test
+    void getTagsForBrain_returnsEmptyWhenNoTags() {
+        var brain = testDataFactory.createBrain();
+
+        List<TagResponse> tags = tagService.getTagsForBrain(brain.id());
+
+        assertThat(tags).isEmpty();
+    }
+
+    @Test
+    void addTagToNeuron_idempotent() {
+        TagResponse tag = tagService.create(new TagRequest("Java", "#0000FF"));
+        NeuronResponse neuron = createTestNeuron();
+
+        tagService.addTagToNeuron(neuron.id(), tag.id());
+        tagService.addTagToNeuron(neuron.id(), tag.id()); // second call should not fail
+
+        List<TagResponse> tags = tagService.getTagsForNeuron(neuron.id());
+        assertThat(tags).hasSize(1);
     }
 }

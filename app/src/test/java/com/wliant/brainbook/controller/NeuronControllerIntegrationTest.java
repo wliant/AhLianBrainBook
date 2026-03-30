@@ -1,20 +1,16 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.BrainRequest;
 import com.wliant.brainbook.dto.BrainResponse;
 import com.wliant.brainbook.dto.ClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
+import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
-import com.wliant.brainbook.repository.AttachmentRepository;
-import com.wliant.brainbook.repository.NeuronLinkRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
-import com.wliant.brainbook.repository.NeuronRevisionRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.TagRepository;
+import com.wliant.brainbook.dto.ReorderRequest;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +23,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -48,42 +43,14 @@ class NeuronControllerIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private NeuronRevisionRepository neuronRevisionRepository;
-
-    @Autowired
-    private AttachmentRepository attachmentRepository;
-
-    @Autowired
-    private NeuronLinkRepository neuronLinkRepository;
-
-    @Autowired
-    private NeuronRepository neuronRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private TagRepository tagRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DatabaseCleaner databaseCleaner;
 
     private UUID brainId;
     private UUID clusterId;
 
     @BeforeEach
     void cleanup() {
-        jdbcTemplate.execute("DELETE FROM neuron_tags");
-        neuronRevisionRepository.deleteAll();
-        attachmentRepository.deleteAll();
-        neuronLinkRepository.deleteAll();
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-        tagRepository.deleteAll();
+        databaseCleaner.clean();
 
         // Create brain and cluster for neuron tests
         BrainRequest brainRequest = new BrainRequest("Test Brain", "icon", "#FF0000", null);
@@ -283,5 +250,155 @@ class NeuronControllerIntegrationTest {
                 clusterId);
 
         assertThat(listResponse.getBody()).anyMatch(n -> n.id().equals(created.id()));
+    }
+
+    @Test
+    void updateNeuron_modifiesFields() {
+        NeuronResponse created = createNeuron("Original");
+
+        NeuronRequest updateReq = new NeuronRequest("Updated", null, null, null, null, null, "moderate");
+        ResponseEntity<NeuronResponse> response = restTemplate.exchange(
+                "/api/neurons/{id}",
+                HttpMethod.PATCH,
+                new HttpEntity<>(updateReq),
+                NeuronResponse.class,
+                created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().title()).isEqualTo("Updated");
+    }
+
+    @Test
+    void archiveNeuron_setsArchived() {
+        NeuronResponse created = createNeuron("To Archive");
+
+        ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
+                "/api/neurons/{id}/archive", null, NeuronResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isArchived()).isTrue();
+    }
+
+    @Test
+    void restoreNeuron_unsetsArchived() {
+        NeuronResponse created = createNeuron("To Restore");
+        restTemplate.postForEntity("/api/neurons/{id}/archive", null, NeuronResponse.class, created.id());
+
+        ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
+                "/api/neurons/{id}/restore", null, NeuronResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isArchived()).isFalse();
+    }
+
+    @Test
+    void moveNeuron_changesCluster() {
+        NeuronResponse created = createNeuron("To Move");
+
+        BrainRequest brain2Req = new BrainRequest("Brain 2", "icon", "#00FF00", null);
+        UUID brain2Id = restTemplate.postForEntity("/api/brains", brain2Req, BrainResponse.class).getBody().id();
+        ClusterRequest cluster2Req = new ClusterRequest("Cluster 2", brain2Id, null);
+        UUID cluster2Id = restTemplate.postForEntity("/api/clusters", cluster2Req, ClusterResponse.class).getBody().id();
+
+        MoveNeuronRequest moveReq = new MoveNeuronRequest(cluster2Id, brain2Id);
+        ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
+                "/api/neurons/{id}/move", moveReq, NeuronResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().brainId()).isEqualTo(brain2Id);
+        assertThat(response.getBody().clusterId()).isEqualTo(cluster2Id);
+    }
+
+    @Test
+    void duplicateNeuron_returns201() {
+        NeuronResponse created = createNeuron("Original Note");
+
+        ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
+                "/api/neurons/{id}/duplicate", null, NeuronResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().title()).isEqualTo("Original Note (copy)");
+        assertThat(response.getBody().id()).isNotEqualTo(created.id());
+    }
+
+    @Test
+    void togglePin_togglesFlag() {
+        NeuronResponse created = createNeuron("Pin Note");
+
+        ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
+                "/api/neurons/{id}/pin", null, NeuronResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isPinned()).isTrue();
+    }
+
+    @Test
+    void reorderNeurons_returns200() {
+        NeuronResponse n1 = createNeuron("A");
+        NeuronResponse n2 = createNeuron("B");
+
+        ReorderRequest req = new ReorderRequest(List.of(n2.id(), n1.id()));
+        ResponseEntity<Void> response = restTemplate.postForEntity(
+                "/api/neurons/reorder", req, Void.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void permanentDelete_returns204() {
+        NeuronResponse created = createNeuron("To Destroy");
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/neurons/{id}/permanent",
+                HttpMethod.DELETE,
+                null,
+                Void.class,
+                created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void getRecent_returnsList() {
+        createNeuron("Recent Note");
+
+        ResponseEntity<List<NeuronResponse>> response = restTemplate.exchange(
+                "/api/neurons/recent",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<NeuronResponse>>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotEmpty();
+    }
+
+    @Test
+    void getFavorites_returnsList() {
+        NeuronResponse created = createNeuron("Fav Note");
+        restTemplate.postForEntity("/api/neurons/{id}/favorite", null, NeuronResponse.class, created.id());
+
+        ResponseEntity<List<NeuronResponse>> response = restTemplate.exchange(
+                "/api/neurons/favorites",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<NeuronResponse>>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotEmpty();
+    }
+
+    @Test
+    void getPinned_returnsList() {
+        NeuronResponse created = createNeuron("Pinned Note");
+        restTemplate.postForEntity("/api/neurons/{id}/pin", null, NeuronResponse.class, created.id());
+
+        ResponseEntity<List<NeuronResponse>> response = restTemplate.exchange(
+                "/api/neurons/pinned",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<NeuronResponse>>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotEmpty();
     }
 }

@@ -1,17 +1,12 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.BrainRequest;
 import com.wliant.brainbook.dto.BrainResponse;
 import com.wliant.brainbook.dto.ClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
-import com.wliant.brainbook.repository.AttachmentRepository;
-import com.wliant.brainbook.repository.NeuronLinkRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
-import com.wliant.brainbook.repository.NeuronRevisionRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.TagRepository;
+import com.wliant.brainbook.dto.ReorderRequest;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,11 +19,11 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,39 +40,11 @@ class ClusterControllerIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private NeuronRevisionRepository neuronRevisionRepository;
-
-    @Autowired
-    private AttachmentRepository attachmentRepository;
-
-    @Autowired
-    private NeuronLinkRepository neuronLinkRepository;
-
-    @Autowired
-    private NeuronRepository neuronRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private TagRepository tagRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DatabaseCleaner databaseCleaner;
 
     @BeforeEach
     void cleanup() {
-        jdbcTemplate.execute("DELETE FROM neuron_tags");
-        neuronRevisionRepository.deleteAll();
-        attachmentRepository.deleteAll();
-        neuronLinkRepository.deleteAll();
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-        tagRepository.deleteAll();
+        databaseCleaner.clean();
     }
 
     private UUID createBrain(String name) {
@@ -170,5 +137,85 @@ class ClusterControllerIntegrationTest {
                 brainId);
 
         assertThat(listResponse.getBody()).isEmpty();
+    }
+
+    @Test
+    void getCluster_returnsCluster() {
+        UUID brainId = createBrain("Test Brain");
+        ClusterResponse created = restTemplate.postForEntity(
+                "/api/clusters",
+                new ClusterRequest("My Cluster", brainId, null),
+                ClusterResponse.class).getBody();
+
+        ResponseEntity<ClusterResponse> response = restTemplate.getForEntity(
+                "/api/clusters/{id}", ClusterResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().name()).isEqualTo("My Cluster");
+    }
+
+    @Test
+    void archiveCluster_setsArchived() {
+        UUID brainId = createBrain("Test Brain");
+        ClusterResponse created = restTemplate.postForEntity(
+                "/api/clusters",
+                new ClusterRequest("To Archive", brainId, null),
+                ClusterResponse.class).getBody();
+
+        ResponseEntity<ClusterResponse> response = restTemplate.postForEntity(
+                "/api/clusters/{id}/archive", null, ClusterResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isArchived()).isTrue();
+    }
+
+    @Test
+    void restoreCluster_unsetsArchived() {
+        UUID brainId = createBrain("Test Brain");
+        ClusterResponse created = restTemplate.postForEntity(
+                "/api/clusters",
+                new ClusterRequest("To Restore", brainId, null),
+                ClusterResponse.class).getBody();
+        restTemplate.postForEntity("/api/clusters/{id}/archive", null, ClusterResponse.class, created.id());
+
+        ResponseEntity<ClusterResponse> response = restTemplate.postForEntity(
+                "/api/clusters/{id}/restore", null, ClusterResponse.class, created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isArchived()).isFalse();
+    }
+
+    @Test
+    void reorderClusters_returns200() {
+        UUID brainId = createBrain("Test Brain");
+        ClusterResponse c1 = restTemplate.postForEntity(
+                "/api/clusters", new ClusterRequest("A", brainId, null), ClusterResponse.class).getBody();
+        ClusterResponse c2 = restTemplate.postForEntity(
+                "/api/clusters", new ClusterRequest("B", brainId, null), ClusterResponse.class).getBody();
+
+        ReorderRequest req = new ReorderRequest(List.of(c2.id(), c1.id()));
+        ResponseEntity<Void> response = restTemplate.postForEntity(
+                "/api/clusters/reorder", req, Void.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void moveCluster_changesBrain() {
+        UUID brainId = createBrain("Brain 1");
+        UUID brain2Id = createBrain("Brain 2");
+        ClusterResponse created = restTemplate.postForEntity(
+                "/api/clusters",
+                new ClusterRequest("To Move", brainId, null),
+                ClusterResponse.class).getBody();
+
+        ResponseEntity<ClusterResponse> response = restTemplate.postForEntity(
+                "/api/clusters/{id}/move",
+                Map.of("brainId", brain2Id),
+                ClusterResponse.class,
+                created.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().brainId()).isEqualTo(brain2Id);
     }
 }

@@ -1,5 +1,6 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.BrainRequest;
 import com.wliant.brainbook.dto.BrainResponse;
@@ -9,13 +10,6 @@ import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.dto.TagRequest;
 import com.wliant.brainbook.dto.TagResponse;
-import com.wliant.brainbook.repository.AttachmentRepository;
-import com.wliant.brainbook.repository.NeuronLinkRepository;
-import com.wliant.brainbook.repository.NeuronRepository;
-import com.wliant.brainbook.repository.NeuronRevisionRepository;
-import com.wliant.brainbook.repository.ClusterRepository;
-import com.wliant.brainbook.repository.BrainRepository;
-import com.wliant.brainbook.repository.TagRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +21,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -48,40 +41,11 @@ class TagControllerIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private NeuronRevisionRepository neuronRevisionRepository;
-
-    @Autowired
-    private AttachmentRepository attachmentRepository;
-
-    @Autowired
-    private NeuronLinkRepository neuronLinkRepository;
-
-    @Autowired
-    private NeuronRepository neuronRepository;
-
-    @Autowired
-    private ClusterRepository clusterRepository;
-
-    @Autowired
-    private BrainRepository brainRepository;
-
-    @Autowired
-    private TagRepository tagRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DatabaseCleaner databaseCleaner;
 
     @BeforeEach
     void cleanup() {
-        // Clean neuron_tags join table first
-        jdbcTemplate.execute("DELETE FROM neuron_tags");
-        neuronRevisionRepository.deleteAll();
-        attachmentRepository.deleteAll();
-        neuronLinkRepository.deleteAll();
-        neuronRepository.deleteAll();
-        clusterRepository.deleteAll();
-        brainRepository.deleteAll();
-        tagRepository.deleteAll();
+        databaseCleaner.clean();
     }
 
     private UUID createNeuron() {
@@ -197,5 +161,92 @@ class TagControllerIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(2);
+    }
+
+    @Test
+    void searchTags_returnsMatches() {
+        restTemplate.postForEntity("/api/tags", new TagRequest("JavaScript", "#FFFF00"), TagResponse.class);
+        restTemplate.postForEntity("/api/tags", new TagRequest("Java", "#0000FF"), TagResponse.class);
+        restTemplate.postForEntity("/api/tags", new TagRequest("Python", "#00FF00"), TagResponse.class);
+
+        ResponseEntity<List<TagResponse>> response = restTemplate.exchange(
+                "/api/tags/search?q=Java",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<TagResponse>>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(2);
+    }
+
+    @Test
+    void removeTagFromNeuron_returns204() {
+        UUID neuronId = createNeuron();
+        UUID tagId = restTemplate.postForEntity(
+                "/api/tags", new TagRequest("Java", "#0000FF"), TagResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/tags/neurons/{neuronId}/tags/{tagId}",
+                null, Void.class, neuronId, tagId);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/tags/neurons/{neuronId}/tags/{tagId}",
+                HttpMethod.DELETE,
+                null,
+                Void.class,
+                neuronId, tagId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void addTagToBrain_returns200() {
+        BrainRequest brainReq = new BrainRequest("Brain", "icon", "#FF0000", null);
+        UUID brainId = restTemplate.postForEntity("/api/brains", brainReq, BrainResponse.class).getBody().id();
+        UUID tagId = restTemplate.postForEntity(
+                "/api/tags", new TagRequest("DevOps", "#FF0000"), TagResponse.class).getBody().id();
+
+        ResponseEntity<Void> response = restTemplate.postForEntity(
+                "/api/tags/brains/{brainId}/tags/{tagId}",
+                null, Void.class, brainId, tagId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void removeTagFromBrain_returns204() {
+        BrainRequest brainReq = new BrainRequest("Brain", "icon", "#FF0000", null);
+        UUID brainId = restTemplate.postForEntity("/api/brains", brainReq, BrainResponse.class).getBody().id();
+        UUID tagId = restTemplate.postForEntity(
+                "/api/tags", new TagRequest("DevOps", "#FF0000"), TagResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/tags/brains/{brainId}/tags/{tagId}",
+                null, Void.class, brainId, tagId);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/tags/brains/{brainId}/tags/{tagId}",
+                HttpMethod.DELETE,
+                null,
+                Void.class,
+                brainId, tagId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void getTagsForBrain_returnsList() {
+        BrainRequest brainReq = new BrainRequest("Brain", "icon", "#FF0000", null);
+        UUID brainId = restTemplate.postForEntity("/api/brains", brainReq, BrainResponse.class).getBody().id();
+        UUID tagId = restTemplate.postForEntity(
+                "/api/tags", new TagRequest("DevOps", "#FF0000"), TagResponse.class).getBody().id();
+        restTemplate.postForEntity("/api/tags/brains/{brainId}/tags/{tagId}",
+                null, Void.class, brainId, tagId);
+
+        ResponseEntity<List<TagResponse>> response = restTemplate.exchange(
+                "/api/tags/brains/{brainId}/tags",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<List<TagResponse>>() {},
+                brainId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
     }
 }
