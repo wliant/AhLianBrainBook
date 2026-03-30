@@ -239,14 +239,14 @@ function LinkPopover({ editor }: { editor: Editor }) {
           type="button"
           title="Link"
           className={cn(
-            "p-1.5 rounded hover:bg-accent transition-colors",
+            "p-2 sm:p-1.5 rounded hover:bg-accent transition-colors",
             editor.isActive("link") && "bg-accent text-primary"
           )}
         >
           <LinkIcon className="h-4 w-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-80 p-0" align="start">
         <div className="flex border-b">
           <button
             className={cn(
@@ -349,7 +349,7 @@ function ToolbarButton({
       disabled={disabled}
       title={title}
       className={cn(
-        "p-1.5 rounded hover:bg-accent transition-colors",
+        "p-2 sm:p-1.5 rounded hover:bg-accent transition-colors",
         active && "bg-accent text-primary",
         disabled && "opacity-30 cursor-not-allowed"
       )}

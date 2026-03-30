@@ -150,7 +150,7 @@ function NeuronPageContent({
   return (
     <div className="flex flex-col h-full">
       <Breadcrumb items={neuronBreadcrumbs} />
-      <div className="flex items-center gap-2 border-b px-6 py-2">
+      <div className="flex items-center gap-2 border-b px-3 sm:px-6 py-2">
         {!viewMode && <SaveStatusIndicator status={saveStatus} />}
         <div className="flex-1" />
         <Button
@@ -209,8 +209,8 @@ function NeuronPageContent({
           />
         </Button>
       </div>
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
+      <div className="flex flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 max-w-4xl mx-auto w-full">
           {viewMode ? (
           <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
         ) : (
@@ -231,11 +231,13 @@ function NeuronPageContent({
         />
         </div>
         {showLinks && (
-          <ConnectionsPanel
-            neuronId={neuronId}
-            brainId={brainId}
-            onClose={() => setShowLinks(false)}
-          />
+          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+            <ConnectionsPanel
+              neuronId={neuronId}
+              brainId={brainId}
+              onClose={() => setShowLinks(false)}
+            />
+          </div>
         )}
       </div>
     </div>

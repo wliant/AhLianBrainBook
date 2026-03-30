@@ -42,7 +42,7 @@ export function NodeDetailPanel({
   const incoming = connections?.filter((c) => c.direction === "in") || [];
 
   return (
-    <div className="absolute right-0 top-0 h-full w-80 border-l bg-background shadow-lg z-10 flex flex-col">
+    <div className="absolute right-0 top-0 h-full w-full sm:w-80 border-l bg-background shadow-lg z-10 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm truncate">{node.title}</h3>
         <div className="flex items-center gap-1 shrink-0">

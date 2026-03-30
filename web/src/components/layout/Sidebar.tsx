@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import {
   Brain,
   ChevronRight,
@@ -17,6 +17,7 @@ import {
   Home,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,8 +43,15 @@ import { useNeurons } from "@/lib/hooks/useNeurons";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { Brain as BrainType, Cluster as ClusterType } from "@/types";
 
-export function Sidebar() {
+export function Sidebar({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const params = useParams();
+  const pathname = usePathname();
   const activeBrainId = params?.brainId as string | undefined;
   const activeClusterId = params?.clusterId as string | undefined;
   const activeNeuronId = params?.neuronId as string | undefined;
@@ -56,6 +64,14 @@ export function Sidebar() {
   const [dialogMode, setDialogMode] = useState<"create-brain" | "rename-brain" | "create-cluster">("create-brain");
   const [dialogValue, setDialogValue] = useState("");
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
+  const initialPathname = useRef(pathname);
+
+  // Auto-close mobile sidebar on navigation (skip initial mount)
+  useEffect(() => {
+    if (pathname !== initialPathname.current) {
+      onOpenChange(false);
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleBrain = (id: string) => {
     setExpandedBrains((prev) => {
@@ -110,25 +126,8 @@ export function Sidebar() {
     setDialogOpen(false);
   };
 
-  return (
-    <aside
-      className={cn(
-        "flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
-        collapsed ? "w-14" : "w-64"
-      )}
-    >
-      <div className="flex items-center justify-between border-b px-3 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Brain className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>BrainBook</span>}
-        </Link>
-        {!collapsed && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setCollapsed(true)}>
-            <PanelLeftClose className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
+  const sidebarContent = (
+    <>
       {collapsed ? (
         <>
           <nav className="flex flex-col items-center gap-1 px-2 py-2">
@@ -232,7 +231,7 @@ export function Sidebar() {
             <ThemeToggle />
           </div>
         </>
-      )
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -257,7 +256,63 @@ export function Sidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile overlay backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => onOpenChange(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+          // Desktop: static sidebar with collapse
+          "hidden lg:flex lg:h-full",
+          collapsed ? "lg:w-14" : "lg:w-64",
+          // Mobile: fixed overlay
+          open && "fixed inset-y-0 left-0 z-50 flex w-64 h-full lg:relative"
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b px-3 py-3">
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Brain className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>BrainBook</span>}
+          </Link>
+          <div className="flex items-center gap-1">
+            {/* Close button on mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 lg:hidden"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            {/* Collapse button on desktop */}
+            {!collapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 hidden lg:flex"
+                onClick={() => setCollapsed(true)}
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
 
