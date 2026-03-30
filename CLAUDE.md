@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 BrainBook — a personal technical notebook. Spring Boot 3.4.4 (Java 21) app, Next.js 16 (React 19, TypeScript) web, PostgreSQL 16, MinIO for file storage.
 
+## Environment Setup
+
+The backend requires **Java 21** (Liberica JDK). Before running Gradle commands, configure the JDK:
+
+```bash
+# Bash (Git Bash / WSL) — must be sourced, not executed
+source app/setup.sh
+
+# PowerShell
+. .\app\setup.ps1
+```
+
+Java 21 is installed at `D:\Installation\Java\liberica-21.0.5`. The setup scripts set `JAVA_HOME` and prepend the JDK `bin` to `PATH` for the current session.
+
 ## Commands
 
 ### Infrastructure
