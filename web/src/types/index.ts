@@ -100,3 +100,54 @@ export interface SectionsDocument {
   version: 2;
   sections: Section[];
 }
+
+export interface NeuronLink {
+  id: string;
+  sourceNeuronId: string;
+  sourceNeuronTitle: string | null;
+  targetNeuronId: string;
+  targetNeuronTitle: string | null;
+  label: string | null;
+  linkType: string | null;
+  weight: number | null;
+  createdAt: string;
+}
+
+export interface BrainExport {
+  version: string;
+  brain: {
+    id: string;
+    name: string;
+    icon: string | null;
+    color: string | null;
+    description: string | null;
+    createdAt: string;
+  };
+  clusters: Array<{
+    id: string;
+    name: string;
+    parentClusterId: string | null;
+    sortOrder: number;
+    tagNames: string[];
+  }>;
+  neurons: Array<{
+    id: string;
+    clusterId: string;
+    title: string;
+    contentJson: string | null;
+    contentText: string | null;
+    sortOrder: number;
+    isFavorite: boolean;
+    isPinned: boolean;
+    tagNames: string[];
+    createdAt: string;
+  }>;
+  tags: Array<{ name: string; color: string | null }>;
+  links: Array<{
+    sourceNeuronId: string;
+    targetNeuronId: string;
+    label: string | null;
+    linkType: string | null;
+    weight: number | null;
+  }>;
+}

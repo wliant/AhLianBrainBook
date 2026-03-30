@@ -37,6 +37,15 @@ public class NeuronLink {
     @JoinColumn(name = "target_neuron_id", nullable = false)
     private Neuron targetNeuron;
 
+    @Column(name = "label")
+    private String label;
+
+    @Column(name = "link_type", length = 50)
+    private String linkType;
+
+    @Column(name = "weight")
+    private Double weight = 1.0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -55,6 +64,12 @@ public class NeuronLink {
     public void setTargetNeuronId(UUID targetNeuronId) { this.targetNeuronId = targetNeuronId; }
     public Neuron getTargetNeuron() { return targetNeuron; }
     public void setTargetNeuron(Neuron targetNeuron) { this.targetNeuron = targetNeuron; }
+    public String getLabel() { return label; }
+    public void setLabel(String label) { this.label = label; }
+    public String getLinkType() { return linkType; }
+    public void setLinkType(String linkType) { this.linkType = linkType; }
+    public Double getWeight() { return weight; }
+    public void setWeight(Double weight) { this.weight = weight; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

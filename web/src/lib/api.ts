@@ -103,4 +103,29 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   upload: <T>(path: string, file: File) => uploadFile<T>(path, file),
+
+  // NeuronLink endpoints
+  neuronLinks: {
+    getForNeuron: <T>(neuronId: string) =>
+      request<T>(`/api/neuron-links/neuron/${neuronId}`),
+    getForBrain: <T>(brainId: string) =>
+      request<T>(`/api/neuron-links/brain/${brainId}`),
+    create: <T>(body: {
+      sourceNeuronId: string;
+      targetNeuronId: string;
+      label?: string;
+      linkType?: string;
+      weight?: number;
+    }) => request<T>("/api/neuron-links", { method: "POST", body }),
+    delete: <T>(id: string) =>
+      request<T>(`/api/neuron-links/${id}`, { method: "DELETE" }),
+  },
+
+  // Import/Export endpoints
+  importExport: {
+    exportBrain: <T>(brainId: string) =>
+      request<T>(`/api/brains/${brainId}/export`),
+    importBrain: <T>(body: { name: string; description?: string; clusters?: unknown[]; tags?: unknown[]; links?: unknown[] }) =>
+      request<T>("/api/brains/import", { method: "POST", body }),
+  },
 };
