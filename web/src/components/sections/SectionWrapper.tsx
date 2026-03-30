@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
   divider: "Divider",
   image: "Image",
   table: "Table",
+  audio: "Audio",
 };
 
 interface SectionWrapperProps {

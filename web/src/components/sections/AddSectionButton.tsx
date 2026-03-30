@@ -16,6 +16,7 @@ import {
   Minus,
   ImageIcon,
   TableIcon,
+  Music,
 } from "lucide-react";
 import type { SectionType } from "@/types";
 
@@ -28,6 +29,7 @@ const SECTION_OPTIONS: { type: SectionType; label: string; icon: React.ReactNode
   { type: "divider", label: "Divider", icon: <Minus className="h-4 w-4" /> },
   { type: "image", label: "Image", icon: <ImageIcon className="h-4 w-4" /> },
   { type: "table", label: "Table", icon: <TableIcon className="h-4 w-4" /> },
+  { type: "audio", label: "Audio", icon: <Music className="h-4 w-4" /> },
 ];
 
 interface AddSectionButtonProps {

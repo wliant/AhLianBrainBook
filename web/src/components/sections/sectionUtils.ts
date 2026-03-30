@@ -51,6 +51,7 @@ export function createSection(type: SectionType, order: number): Section {
     divider: {},
     image: { src: "", caption: "", sourceType: "url" },
     table: { headers: ["Column 1", "Column 2", "Column 3"], rows: [["", "", ""]] },
+    audio: { src: "", label: "", sourceType: "upload" },
   };
   return {
     id: generateUUID(),
@@ -86,6 +87,8 @@ function extractSectionText(section: Section): string {
       return "";
     case "image":
       return (section.content.caption as string) || "";
+    case "audio":
+      return (section.content.label as string) || "";
     case "table": {
       const headers = (section.content.headers as string[]) || [];
       const rows = (section.content.rows as string[][]) || [];

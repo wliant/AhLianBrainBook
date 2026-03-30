@@ -9,6 +9,7 @@ import { RichTextSection } from "./RichTextSection";
 import { CalloutSection } from "./CalloutSection";
 import { DividerSection } from "./DividerSection";
 import { ImageSection } from "./ImageSection";
+import { AudioSection } from "./AudioSection";
 import { TableSection } from "./TableSection";
 import { api } from "@/lib/api";
 
@@ -104,7 +105,10 @@ export function SectionList({
   const deleteSection = useCallback(
     (id: string) => {
       const section = sectionsRef.current.find((s) => s.id === id);
-      if (section?.type === "image" && section.content.sourceType === "upload" && section.content.attachmentId) {
+      if (
+        (section?.type === "image" || section?.type === "audio") &&
+        section.content.attachmentId
+      ) {
         api.delete(`/api/attachments/${section.content.attachmentId}`).catch(() => {});
       }
       const updated = sectionsRef.current
@@ -198,6 +202,15 @@ export function SectionList({
             section={section}
             onUpdate={(content) => updateSection(section.id, content)}
             editing={isEditing}
+          />
+        );
+      case "audio":
+        return (
+          <AudioSection
+            section={section}
+            onUpdate={(content) => updateSection(section.id, content)}
+            editing={isEditing}
+            neuronId={neuronId}
           />
         );
       default:

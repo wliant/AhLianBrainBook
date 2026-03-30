@@ -87,7 +87,8 @@ export type SectionType =
   | "callout"
   | "divider"
   | "image"
-  | "table";
+  | "table"
+  | "audio";
 
 export interface Section {
   id: string;
