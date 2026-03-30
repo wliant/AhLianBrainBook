@@ -38,4 +38,5 @@ public interface NeuronRepository extends JpaRepository<Neuron, UUID> {
                     "  OR to_tsvector('english', coalesce(n.title, '')) @@ plainto_tsquery('english', :query))",
             nativeQuery = true)
     Page<Neuron> search(@Param("query") String query, Pageable pageable);
+
 }

@@ -230,7 +230,7 @@ public class NeuronService {
         neuronRepository.delete(neuron);
     }
 
-    private NeuronResponse toResponse(Neuron neuron) {
+    public NeuronResponse toResponse(Neuron neuron) {
         List<TagResponse> tags;
         try {
             tags = tagService.getTagsForNeuron(neuron.getId());
