@@ -1,9 +1,9 @@
 services:
   app:
     build: ./app
-    container_name: brainbook-app
+    container_name: ${COMPOSE_PROJECT_NAME:-brainbook}-app
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-18080}:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brainbook
       SPRING_DATASOURCE_USERNAME: brainbook
@@ -13,7 +13,7 @@ services:
       MINIO_BUCKET: brainbook-attachments
       MINIO_ACCESS_KEY: brainbook
       MINIO_SECRET_KEY: brainbook123
-      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:13000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,12 +27,15 @@ services:
       retries: 3
 
   web:
-    build: ./web
-    container_name: brainbook-web
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:18080}
+    container_name: ${COMPOSE_PROJECT_NAME:-brainbook}-web
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-13000}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:18080}
     depends_on:
       app:
         condition: service_healthy

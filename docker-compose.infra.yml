@@ -1,13 +1,13 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: brainbook-db
+    container_name: ${COMPOSE_PROJECT_NAME:-brainbook}-db
     environment:
       POSTGRES_DB: brainbook
       POSTGRES_USER: brainbook
       POSTGRES_PASSWORD: brainbook
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-15432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,14 +18,14 @@ services:
 
   minio:
     image: minio/minio
-    container_name: brainbook-minio
+    container_name: ${COMPOSE_PROJECT_NAME:-brainbook}-minio
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: brainbook
       MINIO_ROOT_PASSWORD: brainbook123
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_API_PORT:-19000}:9000"
+      - "${MINIO_CONSOLE_PORT:-19001}:9001"
     volumes:
       - minio-data:/data
     healthcheck:
