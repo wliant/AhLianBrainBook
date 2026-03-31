@@ -32,6 +32,8 @@
 | `/settings` | Settings | Display name configuration |
 | `/thoughts` | Thoughts | List of thought collections |
 | `/thoughts/[thoughtId]` | Thought Viewer | View neurons matching thought criteria with keyboard navigation |
+| `/review` | Review Queue | Spaced repetition review with quality ratings |
+| `/shared/[token]` | Shared Neuron | Read-only public view of a shared neuron |
 | `/brain/[brainId]` | Brain | Brain overview with stats, clusters, knowledge graph link |
 | `/brain/[brainId]/graph` | Knowledge Graph | Visual network of neurons and links |
 | `/brain/[brainId]/cluster/[clusterId]` | Cluster | List neurons with tags and complexity |
@@ -74,7 +76,11 @@ Core editing experience with section-based content:
 - **Complexity selector** — dropdown to set simple/moderate/complex
 - **Connections panel** — view/manage incoming and outgoing neuron links with labels and types
 - **History panel** — view revisions, preview specific versions, restore or delete snapshots
-- **Reminder panel** — set one-time or recurring reminders
+- **Reminder panel** — set one-time or recurring reminders; supports multiple reminders per neuron with count/max display
+- **Share dialog** — generate read-only share links with configurable expiry (1hr, 24hr, 7 days, 30 days, never); copy link; revoke shares
+- **Table of contents** — auto-generated from headings (H1–H3) in rich-text sections; toggle via Ctrl+Shift+O; highlights active heading on scroll
+- **Spaced repetition toggle** — add/remove neuron from review queue
+- **Export options** — export neuron as markdown file; print as PDF (browser print dialog)
 - **Metadata display** — shows created by, creation date, last updated by, update date
 - **Optimistic locking** — client tracks `versionRef`, sends `clientVersion` on save, handles `409 Conflict`
 
@@ -137,7 +143,9 @@ Core editing experience with section-based content:
 
 ### Settings Page (`/settings`)
 
-- Display name input field
+- **Display name** — text input field for user's display name
+- **Editor mode** — toggle between Normal and Vim editing modes
+- **Max reminders per neuron** — number spinner (range 1–100, default 10)
 - Saves via `PATCH /api/settings`
 
 ### Thoughts List Page (`/thoughts`)
@@ -153,14 +161,37 @@ Core editing experience with section-based content:
 - Arrow key navigation (left/right) between neurons
 - Edit/delete thought actions
 
+### Review Queue Page (`/review`)
+
+- Displays spaced repetition items due for review
+- Shows progress indicator: `{current} / {total}`
+- For each item:
+  - Neuron title displayed
+  - "Show Content" button reveals full neuron content
+  - After revealing content, quality rating buttons appear:
+    - **Again** (quality: 1, red) — complete blackout
+    - **Hard** (quality: 2, orange) — recalled with difficulty
+    - **Good** (quality: 4, blue) — recalled correctly
+    - **Easy** (quality: 5, green) — perfect recall
+- Auto-advances to next item after rating
+- Shows "All caught up!" when queue is empty or all items reviewed
+
+### Shared Neuron Page (`/shared/[token]`)
+
+- Public page, no authentication required
+- Displays shared neuron metadata: title, brain name, creation date, tags
+- Renders full neuron content via SectionList in read-only view mode
+- Error state: "This share link is invalid or has expired."
+- Footer: "Shared via BrainBook"
+
 ## Layout & Navigation
 
 ### Sidebar (`components/layout/Sidebar.tsx`)
 
-- **Brains section** — expandable list with nested clusters (hierarchical tree, recursive rendering)
+- **Brains section** — expandable list with nested clusters (hierarchical tree, recursive rendering); context menus for rename/delete on brains and clusters
 - **Thoughts section** — list of thought collections
-- **Navigation links** — Search, Favorites, Trash, Settings
-- **Collapse toggle** — sidebar can be collapsed/expanded
+- **Navigation links** — Dashboard, Search, Favorites, Trash, Review (with queue count badge), Settings
+- **Collapse toggle** — sidebar can be collapsed/expanded (Ctrl+\)
 - **Theme toggle** — dark/light mode switch
 - **New Brain** button
 
@@ -178,6 +209,14 @@ Core editing experience with section-based content:
 - Click notification to navigate to the related neuron
 - Mark individual as read / mark all as read
 - Polling every 30 seconds (pauses when browser tab is hidden)
+
+### Command Palette (`components/CommandPalette.tsx`)
+
+- Global command launcher triggered by `Ctrl+Shift+P`
+- Searchable list of commands:
+  - **Navigation:** Dashboard, Search, Favorites, Trash, Thoughts, Settings, Review Queue
+  - **Brain navigation:** Jump to any brain or brain graph
+  - **Actions:** Toggle sidebar, toggle table of contents, switch theme, create new brain
 
 ## API Client (`lib/api.ts`)
 
@@ -199,10 +238,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 - `api.neuronLinks` — `getForNeuron()`, `getForBrain()`, `create()`, `delete()`
 - `api.thoughts` — `list()`, `get()`, `create()`, `update()`, `delete()`, `neurons()`
 - `api.importExport` — `exportBrain()`, `importBrain()`
-- `api.reminders` — `get()`, `create()`, `update()`, `delete()`
+- `api.reminders` — `list()`, `create()`, `update()`, `delete()`
 - `api.revisions` — `list()`, `get()`, `create()`, `restore()`, `delete()`
 - `api.settings` — `get()`, `update()`
 - `api.notifications` — `getAll()`, `getUnreadCount()`, `markAsRead()`, `markAllAsRead()`
+- `api.spacedRepetition` — `addItem()`, `removeItem()`, `getItem()`, `getAllItems()`, `getQueue()`, `submitReview()`
 
 **Resilience:**
 - 15-second request timeout
@@ -222,7 +262,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | `useTags()` | `tags`, `loading`, `addTagToNeuron`, `removeTagFromNeuron`, `addTagToBrain`, `removeTagFromBrain` | Tag management for neurons and brains |
 | `useThoughts()` | `thoughts`, `loading`, `createThought`, `updateThought`, `deleteThought` | CRUD thoughts |
 | `useNotifications()` | `notifications`, `unreadCount`, `markAsRead`, `markAllAsRead` | Notification polling and management |
-| `useSettings()` | `settings`, `loading`, `updateSettings` | App settings (display name) |
+| `useSettings()` | `settings`, `loading`, `updateSettings` | App settings (display name, editor mode, max reminders) |
+| `useSpacedRepetition()` | `queue`, `queueLoading`, `allItems`, `itemsLoading`, `addToReview`, `removeFromReview`, `submitReview`, `isInReview` | SM-2 spaced repetition management |
+| `useNeuronShares(neuronId)` | `shares`, `loading`, `createShare`, `revokeShare` | Token-based neuron sharing |
 | `useAudioRecorder()` | `isRecording`, `start`, `stop`, `audioBlob` | Audio recording via MediaRecorder API |
 | `useAttachmentUpload()` | `uploading`, `upload` | File upload to backend with progress |
 | `useDebounce(value, delay)` | `debouncedValue` | Debounce values (used for auto-save) |
@@ -231,12 +273,19 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+K` / `Cmd+K` | Open search |
-| `Ctrl+N` | New neuron |
+| `Ctrl+K` | Open search |
+| `Ctrl+Shift+F` | Global search (focus) |
+| `Ctrl+N` | New neuron (on cluster page) |
+| `Ctrl+S` | Force save / create snapshot |
+| `Ctrl+\` | Toggle sidebar |
+| `Ctrl+Shift+P` | Command palette |
+| `Ctrl+Shift+O` | Toggle table of contents |
+| `Ctrl+[` | Previous neuron |
+| `Ctrl+]` | Next neuron |
+| `Alt+1–9` | Switch to brain by index |
 | `Escape` | Go back / close panels |
 | `?` | Show keyboard shortcuts help dialog |
 | `Arrow Left/Right` | Navigate between neurons in thought viewer |
-| `Enter` | Submit dialogs |
 
 ## Theming
 
@@ -299,9 +348,11 @@ interface NeuronRevision {
 
 interface NeuronLink {
   id: string; sourceNeuronId: string; sourceNeuronTitle: string;
+  sourceNeuronClusterId: string | null;
   targetNeuronId: string; targetNeuronTitle: string;
+  targetNeuronClusterId: string | null;
   label: string | null; linkType: string | null;
-  weight: number; createdAt: string;
+  weight: number; source: string; createdAt: string;
 }
 
 interface Template {
@@ -333,7 +384,32 @@ interface Notification {
 }
 
 interface AppSettings {
-  id: string; displayName: string;
+  displayName: string; editorMode: string;
+  maxRemindersPerNeuron: number;
   createdAt: string; updatedAt: string;
+}
+
+interface SpacedRepetitionItem {
+  id: string; neuronId: string; neuronTitle: string;
+  easeFactor: number; intervalDays: number; repetitions: number;
+  nextReviewAt: string; lastReviewedAt: string | null;
+  createdAt: string;
+}
+
+interface NeuronShare {
+  id: string; token: string;
+  expiresAt: string | null; createdAt: string;
+}
+
+interface SharedNeuron {
+  title: string; contentJson: string | null;
+  tags: Tag[]; brainName: string | null;
+  createdAt: string;
+}
+
+interface SearchResultItem {
+  neuron: Neuron; highlight: string | null;
+  rank: number; brainName: string | null;
+  clusterName: string | null;
 }
 ```

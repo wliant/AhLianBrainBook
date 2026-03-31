@@ -203,12 +203,14 @@ Thoughts are tag-based filtered views that dynamically aggregate neurons matchin
 
 ## 14. Reminders
 
-- Each neuron can have at most one active reminder (enforced by unique constraint)
+- Each neuron can have **multiple reminders**, up to a configurable limit (`maxRemindersPerNeuron` in settings, default 10, range 1–100)
+- Reminder panel displays count and max (e.g., "Reminders 2/10")
 - **Reminder types:**
   - `ONCE` — triggers once at the specified time, then deactivates
   - `RECURRING` — triggers repeatedly based on recurrence pattern
 - **Recurrence patterns:** `DAILY`, `WEEKLY`, `MONTHLY`
 - **Recurrence interval:** 1–365 (e.g., every 2 weeks, every 3 months)
+- Each reminder can be independently edited or deleted
 - Backend scheduled service:
   - Periodically scans for reminders whose `triggerAt` has passed
   - Creates a notification record with neuron context (title, brain/cluster IDs)
@@ -229,11 +231,10 @@ Thoughts are tag-based filtered views that dynamically aggregate neurons matchin
 ## 16. Full-Text Search
 
 - PostgreSQL-native full-text search using tsvector/tsquery
-- Indexed on `neurons.content_text` column with GIN index
-- Supports optional filtering by `brainId` and/or `clusterId`
-- Frontend supports additional tag-based filtering (brain tags and neuron tags)
+- GIN indexes on both `neurons.content_text` and `neurons.title` columns
+- Supports optional filtering by `brainId`, `clusterId`, `neuronTagIds`, and `brainTagIds`
 - Paginated results with `page` and `size` parameters
-- Returns matching neurons with total count
+- Returns matching neurons with total count, plus per-result metadata: text highlight, relevance rank, brain name, and cluster name
 
 ## 17. Dashboard
 
@@ -266,8 +267,9 @@ Brain overview page displays aggregated statistics:
 
 ## 20. Settings
 
-- **Display name** — configurable user display name stored in `app_settings` (singleton row)
-- Used as `createdBy` and `lastUpdatedBy` values when creating or editing brains, clusters, and neurons
+- **Display name** — configurable user display name stored in `app_settings` (singleton row). Used as `createdBy` and `lastUpdatedBy` values when creating or editing brains, clusters, and neurons.
+- **Editor mode** — toggle between `normal` and `vim` editing modes. Vim mode adds hjkl navigation, modal editing (Normal/Insert mode), and common Vim keybindings in the TipTap rich text editor.
+- **Max reminders per neuron** — configurable limit (1–100, default 10) controlling how many reminders can be created per neuron.
 - Settings page accessible from sidebar navigation
 
 ## 21. Entity Audit Trail
@@ -282,8 +284,17 @@ Brain overview page displays aggregated statistics:
 - **Nested clusters** — sidebar renders clusters recursively as a collapsible tree
 - **Breadcrumb** — navigation trail on cluster and neuron pages (`Brain > Cluster > Neuron`)
 - **Deep linking** — full URL support: `/brain/{brainId}/cluster/{clusterId}/neuron/{neuronId}`
+- **Command palette** (`Ctrl+Shift+P`) — global command launcher for navigation, brain switching, theme toggle, and actions
 - **Keyboard shortcuts:**
-  - `Ctrl+K` / `Cmd+K` — open search
+  - `Ctrl+K` — open search
+  - `Ctrl+Shift+F` — global search (focus)
+  - `Ctrl+N` — new neuron (on cluster page)
+  - `Ctrl+S` — force save / create snapshot
+  - `Ctrl+\` — toggle sidebar
+  - `Ctrl+Shift+P` — command palette
+  - `Ctrl+Shift+O` — toggle table of contents
+  - `Ctrl+[` / `Ctrl+]` — previous / next neuron
+  - `Alt+1–9` — switch to brain by index
   - `Escape` — go back / close panels
   - `?` — show keyboard shortcuts help dialog
   - Arrow keys — navigate neuron lists (in thought viewer)
@@ -300,13 +311,72 @@ Brain overview page displays aggregated statistics:
 - Sidebar auto-collapses on small screens
 - Touch-friendly controls and spacing
 
+## 25. Spaced Repetition
+
+SM-2 algorithm-based review scheduling for neurons, enabling long-term retention of knowledge.
+
+- **Add/remove:** Any neuron can be added to or removed from the spaced repetition queue (one SR item per neuron)
+- **Review queue:** `/review` page shows items due for review (`nextReviewAt <= now`)
+- **Review flow:**
+  1. Neuron title is shown
+  2. User clicks "Show Content" to reveal the full neuron
+  3. User rates recall quality:
+     - **Again** (quality 1) — complete blackout, resets interval to 1 day
+     - **Hard** (quality 2) — recalled with significant difficulty
+     - **Good** (quality 4) — recalled correctly with some effort
+     - **Easy** (quality 5) — perfect recall
+  4. Auto-advances to next item
+- **SM-2 algorithm:**
+  - Quality >= 3: intervals progress 1 day → 6 days → (interval * easeFactor)
+  - Quality < 3: resets to 1 day interval, resets repetition count
+  - Ease factor adjusts per review: `ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))`, minimum 1.3
+- **Sidebar badge:** Review link shows count of items due for review
+- **Initial values:** easeFactor = 2.5, intervalDays = 0, repetitions = 0
+
+## 26. Neuron Sharing
+
+Token-based read-only sharing of individual neurons with optional expiration.
+
+- **Share dialog** on neuron editor page allows generating share links
+- **Expiry options:** 1 hour, 24 hours, 7 days, 30 days, or never
+- **Token:** 64-character random hex string (32 bytes via SecureRandom)
+- **Public URL:** `/shared/{token}` — accessible without authentication
+- **Shared view** displays:
+  - Neuron title, brain name, creation date, tags
+  - Full content rendered in read-only view mode
+  - Footer: "Shared via BrainBook"
+- **Expired/invalid tokens** show error message: "This share link is invalid or has expired."
+- **Revoke:** share links can be revoked from the share dialog
+- **Multiple shares:** a neuron can have multiple active share links simultaneously
+
+## 27. Markdown Export
+
+Export neurons and brains as markdown documents.
+
+- **Single neuron:** exported as a `.md` file with converted content
+- **Full brain:** exported as a `.zip` file organized by cluster directories (`{clusterName}/{neuronTitle}.md`)
+- **Supported conversions:**
+  - Rich text sections: headings, paragraphs, lists (bullet, ordered), blockquotes, code blocks, horizontal rules, bold, italic, strikethrough, links
+  - Code sections: fenced code blocks with language annotation
+  - Math sections: LaTeX wrapped in `$$` delimiters
+  - Diagram sections: Mermaid wrapped in fenced code blocks
+  - Callout sections: blockquoted with type prefix
+
+## 28. Table of Contents
+
+- Auto-generated from H1, H2, and H3 headings in rich-text sections
+- Toggle visibility via `Ctrl+Shift+O` or command palette
+- Indentation by heading level for visual hierarchy
+- Active heading highlighted based on scroll position (IntersectionObserver)
+- Click to smooth-scroll to heading
+
 ---
 
 ## Non-Functional Requirements
 
 ### Data Integrity
 - **Optimistic locking** on neuron content prevents concurrent edit data loss (409 Conflict on version mismatch)
-- **Unique constraints** enforce data consistency (e.g., one reminder per neuron, no duplicate neuron links, unique tag names)
+- **Unique constraints** enforce data consistency (e.g., one SR item per neuron, no duplicate neuron links, unique tag names, unique share tokens)
 - **Cascade deletes** ensure referential integrity when parent entities are removed
 - **Transactional imports** ensure brain import is atomic (all-or-nothing)
 

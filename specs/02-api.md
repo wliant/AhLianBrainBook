@@ -1,6 +1,6 @@
 # REST API Specification
 
-Base URL: `http://localhost:8080`
+Base URL: `http://localhost:8080` (configurable via `APP_PORT` in `.env`)
 
 All responses use JSON. Successful mutations return the updated resource unless otherwise noted. Deletes return `204 No Content`. Error responses include a message field.
 
@@ -25,7 +25,8 @@ List all non-archived brains, ordered by `sortOrder`.
     "createdBy": "string",
     "lastUpdatedBy": "string",
     "createdAt": "2024-01-01T00:00:00",
-    "updatedAt": "2024-01-01T00:00:00"
+    "updatedAt": "2024-01-01T00:00:00",
+    "tags": [{ "id": "uuid", "name": "string", "color": "string | null", "createdAt": "...", "updatedAt": "..." }]
   }
 ]
 ```
@@ -311,7 +312,8 @@ Update neuron metadata (title, templateId, complexity, etc.).
   "clusterId": "uuid",
   "contentJson": "string?",
   "contentText": "string?",
-  "templateId": "uuid?"
+  "templateId": "uuid?",
+  "complexity": "simple | moderate | complex | null"
 }
 ```
 **Response:** `200 OK` — NeuronResponse
@@ -392,9 +394,9 @@ Permanently delete neuron from database.
 
 ## Reminders
 
-Reminders are managed as a sub-resource of neurons. Each neuron may have at most one active reminder.
+Reminders are managed as a sub-resource of neurons. Each neuron may have multiple reminders, up to the configurable limit in `AppSettings.maxRemindersPerNeuron` (default 10).
 
-### `POST /api/neurons/{id}/reminder`
+### `POST /api/neurons/{id}/reminders`
 Create a reminder for a neuron.
 
 **Request:**
@@ -407,35 +409,36 @@ Create a reminder for a neuron.
 }
 ```
 **Response:** `200 OK` — ReminderResponse
-**Error:** `409 Conflict` if a reminder already exists for this neuron
+**Error:** `400 Bad Request` if neuron has reached the maximum reminder limit
 
-### `GET /api/neurons/{id}/reminder`
-Get the reminder for a neuron.
+### `GET /api/neurons/{id}/reminders`
+List all reminders for a neuron.
 
 **Response:** `200 OK`
 ```json
-{
-  "id": "uuid",
-  "neuronId": "uuid",
-  "reminderType": "ONCE | RECURRING",
-  "triggerAt": "2024-06-01T09:00:00",
-  "recurrencePattern": "DAILY | WEEKLY | MONTHLY | null",
-  "recurrenceInterval": 1,
-  "isActive": true,
-  "createdAt": "2024-01-01T00:00:00",
-  "updatedAt": "2024-01-01T00:00:00"
-}
+[
+  {
+    "id": "uuid",
+    "neuronId": "uuid",
+    "reminderType": "ONCE | RECURRING",
+    "triggerAt": "2024-06-01T09:00:00",
+    "recurrencePattern": "DAILY | WEEKLY | MONTHLY | null",
+    "recurrenceInterval": 1,
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00",
+    "updatedAt": "2024-01-01T00:00:00"
+  }
+]
 ```
-**Error:** `404` if no reminder exists
 
-### `PUT /api/neurons/{id}/reminder`
-Update the reminder for a neuron.
+### `PUT /api/neurons/{id}/reminders/{reminderId}`
+Update a specific reminder.
 
 **Request:** Same as POST.
 **Response:** `200 OK` — ReminderResponse
 
-### `DELETE /api/neurons/{id}/reminder`
-Delete the reminder for a neuron.
+### `DELETE /api/neurons/{id}/reminders/{reminderId}`
+Delete a specific reminder.
 
 **Response:** `204 No Content`
 
@@ -453,8 +456,10 @@ List all links for a neuron (both incoming and outgoing).
     "id": "uuid",
     "sourceNeuronId": "uuid",
     "sourceNeuronTitle": "string",
+    "sourceNeuronClusterId": "uuid | null",
     "targetNeuronId": "uuid",
     "targetNeuronTitle": "string",
+    "targetNeuronClusterId": "uuid | null",
     "label": "string | null",
     "linkType": "string | null",
     "weight": 1.0,
@@ -787,45 +792,187 @@ Get application settings.
 **Response:** `200 OK`
 ```json
 {
-  "id": "uuid",
   "displayName": "string",
+  "editorMode": "normal | vim",
+  "maxRemindersPerNeuron": 10,
   "createdAt": "2024-01-01T00:00:00",
   "updatedAt": "2024-01-01T00:00:00"
 }
 ```
 
 ### `PATCH /api/settings`
-Update application settings.
+Update application settings. All fields are optional (partial update).
 
 **Request:**
 ```json
-{ "displayName": "string" }
+{
+  "displayName": "string?",
+  "editorMode": "normal | vim",
+  "maxRemindersPerNeuron": 10
+}
 ```
+**Validation:** `displayName` max 100 chars, `editorMode` max 20 chars, `maxRemindersPerNeuron` range 1–100.
 **Response:** `200 OK` — AppSettingsResponse
 
 ---
 
 ## Search
 
-### `GET /api/search?q=query&brainId=uuid&clusterId=uuid&page=0&size=20`
+### `GET /api/search?q=query&brainId=uuid&clusterId=uuid&neuronTagIds=uuid,uuid&brainTagIds=uuid,uuid&page=0&size=20`
 Full-text search across neuron content using PostgreSQL tsvector.
 
 **Query Parameters:**
-| Param     | Required | Default | Description                    |
-|-----------|----------|---------|--------------------------------|
-| q         | yes      | —       | Search query string            |
-| brainId   | no       | —       | Filter to specific brain       |
-| clusterId | no       | —       | Filter to specific cluster     |
-| page      | no       | 0       | Page number (zero-based)       |
-| size      | no       | 20      | Results per page               |
+| Param        | Required | Default | Description                        |
+|--------------|----------|---------|------------------------------------|
+| q            | yes      | —       | Search query string                |
+| brainId      | no       | —       | Filter to specific brain           |
+| clusterId    | no       | —       | Filter to specific cluster         |
+| neuronTagIds | no       | —       | Filter by neuron tag IDs (comma-separated) |
+| brainTagIds  | no       | —       | Filter by brain tag IDs (comma-separated)  |
+| page         | no       | 0       | Page number (zero-based)           |
+| size         | no       | 20      | Results per page                   |
 
 **Response:** `200 OK`
 ```json
 {
-  "results": [ /* NeuronResponse[] */ ],
+  "results": [
+    {
+      "neuron": { /* NeuronResponse */ },
+      "highlight": "string | null",
+      "rank": 0.5,
+      "brainName": "string | null",
+      "clusterName": "string | null"
+    }
+  ],
   "totalCount": 42
 }
 ```
+
+---
+
+## Spaced Repetition
+
+SM-2 algorithm-based review scheduling for neurons.
+
+### `POST /api/spaced-repetition/items/{neuronId}`
+Add a neuron to the spaced repetition queue.
+
+**Response:** `201 Created`
+```json
+{
+  "id": "uuid",
+  "neuronId": "uuid",
+  "neuronTitle": "string",
+  "easeFactor": 2.5,
+  "intervalDays": 0,
+  "repetitions": 0,
+  "nextReviewAt": "2024-01-01T00:00:00",
+  "lastReviewedAt": null,
+  "createdAt": "2024-01-01T00:00:00"
+}
+```
+**Error:** `409 Conflict` if neuron already has a spaced repetition item
+
+### `DELETE /api/spaced-repetition/items/{neuronId}`
+Remove a neuron from the spaced repetition queue.
+
+**Response:** `204 No Content`
+
+### `GET /api/spaced-repetition/items/{neuronId}`
+Get the spaced repetition item for a neuron.
+
+**Response:** `200 OK` — SpacedRepetitionItemResponse
+
+### `GET /api/spaced-repetition/items`
+List all spaced repetition items.
+
+**Response:** `200 OK` — `SpacedRepetitionItemResponse[]`
+
+### `GET /api/spaced-repetition/queue`
+Get items due for review (where `nextReviewAt <= now`).
+
+**Response:** `200 OK` — `SpacedRepetitionItemResponse[]`
+
+### `POST /api/spaced-repetition/items/{itemId}/review`
+Submit a review for a spaced repetition item. Applies the SM-2 algorithm to update scheduling.
+
+**Request:**
+```json
+{
+  "quality": 4
+}
+```
+**Validation:** `quality` is required, integer 0–5 (0 = complete blackout, 5 = perfect recall).
+**Response:** `200 OK` — SpacedRepetitionItemResponse (with updated scheduling fields)
+
+---
+
+## Sharing
+
+Token-based read-only sharing of individual neurons.
+
+### `POST /api/neurons/{neuronId}/share`
+Create a share link for a neuron.
+
+**Request:**
+```json
+{
+  "expiresInHours": 24
+}
+```
+`expiresInHours` is optional. If omitted or null, the share link never expires.
+
+**Response:** `201 Created`
+```json
+{
+  "id": "uuid",
+  "token": "string (64-char hex)",
+  "expiresAt": "2024-01-02T00:00:00 | null",
+  "createdAt": "2024-01-01T00:00:00"
+}
+```
+
+### `GET /api/shares/{token}`
+Get a shared neuron by its public token. No authentication required.
+
+**Response:** `200 OK`
+```json
+{
+  "title": "string",
+  "contentJson": "string | null",
+  "tags": [{ "id": "uuid", "name": "string", "color": "string | null", "createdAt": "...", "updatedAt": "..." }],
+  "brainName": "string | null",
+  "createdAt": "2024-01-01T00:00:00"
+}
+```
+**Error:** `404` if token is invalid or share has expired
+
+### `GET /api/neurons/{neuronId}/shares`
+List all share links for a neuron.
+
+**Response:** `200 OK` — `ShareResponse[]`
+
+### `DELETE /api/shares/{shareId}`
+Revoke a share link.
+
+**Response:** `204 No Content`
+
+---
+
+## Markdown Export
+
+Export neurons and brains as markdown files.
+
+### `GET /api/neurons/{id}/export/markdown`
+Export a single neuron as a markdown document.
+
+**Response:** `200 OK` — `text/markdown` content type, markdown string body
+
+### `GET /api/brains/{id}/export/markdown`
+Export an entire brain as a zip file containing markdown files organized by cluster.
+
+**Response:** `200 OK` — `application/zip` content type, zip binary body
+Directory structure: `{clusterName}/{neuronTitle}.md`
 
 ---
 

@@ -2,12 +2,14 @@
 
 ## Services
 
-| Service    | Technology      | Port(s)     | Purpose                        |
-|------------|-----------------|-------------|--------------------------------|
-| app        | Spring Boot 3.5 | 8080        | Backend REST API               |
-| web        | Next.js 16      | 3000        | Frontend web application       |
-| postgres   | PostgreSQL 16   | 5432        | Primary database               |
-| minio      | MinIO           | 9000, 9001  | Object storage (attachments)   |
+| Service    | Technology      | Internal Port | Default Host Port | Purpose                        |
+|------------|-----------------|---------------|-------------------|--------------------------------|
+| app        | Spring Boot 3.5 | 8080          | 18080             | Backend REST API               |
+| web        | Next.js 16      | 3000          | 13000             | Frontend web application       |
+| postgres   | PostgreSQL 16   | 5432          | 15432             | Primary database               |
+| minio      | MinIO           | 9000, 9001    | 19000, 19001      | Object storage (attachments)   |
+
+Host ports are configurable via `.env` file (`APP_PORT`, `WEB_PORT`, `POSTGRES_PORT`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT`).
 
 ## Docker Compose Files
 
@@ -54,6 +56,10 @@ Production deployment configuration.
 | V12     | Add `title` column to neuron_revisions (renamed from duplicate V11) |
 | V13     | Add GIN index on `title` for full-text search (`idx_neurons_title_text`) |
 | V14     | Add `source` column (VARCHAR 20, default 'manual') to neuron_links — tracks manual vs editor wiki-link origins |
+| V15     | Add `editor_mode` column (VARCHAR 20, default 'normal') to app_settings |
+| V16     | Add `spaced_repetition_items` table with SM-2 fields (ease_factor, interval_days, repetitions, next_review_at, last_reviewed_at), UNIQUE on neuron_id |
+| V17     | Add `neuron_shares` table with token-based sharing (token VARCHAR 64 UNIQUE, expires_at nullable) |
+| V18     | Drop UNIQUE constraint on reminders.neuron_id (allows multiple reminders per neuron); add `max_reminders_per_neuron` (default 10) to app_settings |
 
 ### Content Format (v2 — Sections)
 
@@ -91,9 +97,13 @@ Queried via `to_tsquery('english', ?)` in the search service.
 - `idx_neurons_cluster_id` on `neurons.cluster_id`
 - `idx_neurons_deleted` on `neurons.is_deleted`
 - `idx_neurons_content_text` GIN index for full-text search
+- `idx_neurons_title_text` GIN index for full-text search on title
 - Partial indexes on `is_archived` for brains, clusters, neurons
 - `idx_reminders_trigger` on `reminders.trigger_at` WHERE `is_active = TRUE`
 - `idx_notifications_unread` on `notifications(is_read, created_at DESC)`
+- `idx_sr_next_review` on `spaced_repetition_items.next_review_at`
+- `idx_neuron_shares_token` on `neuron_shares.token`
+- `idx_neuron_shares_neuron_id` on `neuron_shares.neuron_id`
 
 ## Object Storage (MinIO)
 
@@ -166,7 +176,7 @@ npm run test:watch    # watch mode
 
 ## CORS
 
-Configured in `app/src/main/java/com/wliant/brainbook/config/` to allow the frontend origin (`http://localhost:3000`) to access the backend API.
+Configured in `app/src/main/java/com/wliant/brainbook/config/` to allow the frontend origin to access the backend API. The allowed origin is set via `CORS_ALLOWED_ORIGINS` environment variable (default: `http://localhost:13000`).
 
 ## Testing Infrastructure
 
