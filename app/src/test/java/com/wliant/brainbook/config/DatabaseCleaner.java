@@ -13,6 +13,7 @@ public class DatabaseCleaner {
     }
 
     public void clean() {
+        jdbcTemplate.execute("TRUNCATE TABLE spaced_repetition_items CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE tags CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE templates CASCADE");
