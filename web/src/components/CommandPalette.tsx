@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   Network,
   List,
+  GraduationCap,
 } from "lucide-react";
 import type { Brain as BrainType } from "@/types";
 
@@ -29,6 +30,7 @@ const PAGES = [
   { label: "Trash", href: "/trash", icon: Trash2 },
   { label: "Thoughts", href: "/thoughts", icon: Lightbulb },
   { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Review Queue", href: "/review", icon: GraduationCap },
 ];
 
 export function CommandPalette() {

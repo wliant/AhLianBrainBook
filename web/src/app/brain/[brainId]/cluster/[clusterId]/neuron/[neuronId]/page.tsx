@@ -4,7 +4,7 @@ import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
@@ -13,6 +13,7 @@ import { HistoryPanel } from "@/components/neuron/HistoryPanel";
 import { TableOfContents } from "@/components/neuron/TableOfContents";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
+import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -50,6 +51,7 @@ function NeuronPageContent({
   const [viewingRevisionDoc, setViewingRevisionDoc] = useState<SectionsDocument | null>(null);
   const [hasReminder, setHasReminder] = useState(false);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
@@ -293,6 +295,21 @@ function NeuronPageContent({
             className={cn(
               "h-4 w-4",
               hasReminder && "fill-orange-400 text-orange-400"
+            )}
+          />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => isInReview(neuronId) ? removeFromReview(neuronId) : addToReview(neuronId)}
+          title={isInReview(neuronId) ? "Remove from Review" : "Add to Review"}
+          data-testid="toggle-sr"
+        >
+          <GraduationCap
+            className={cn(
+              "h-4 w-4",
+              isInReview(neuronId) && "fill-purple-400 text-purple-400"
             )}
           />
         </Button>

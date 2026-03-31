@@ -205,4 +205,23 @@ export const api = {
     markAllAsRead: () =>
       request<void>("/api/notifications/read-all", { method: "POST" }),
   },
+
+  // Spaced Repetition endpoints
+  spacedRepetition: {
+    addItem: (neuronId: string) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${neuronId}`, { method: "POST" }),
+    removeItem: (neuronId: string) =>
+      request<void>(`/api/spaced-repetition/items/${neuronId}`, { method: "DELETE" }),
+    getItem: (neuronId: string) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${neuronId}`),
+    getAllItems: () =>
+      request<import("@/types").SpacedRepetitionItem[]>("/api/spaced-repetition/items"),
+    getQueue: () =>
+      request<import("@/types").SpacedRepetitionItem[]>("/api/spaced-repetition/queue"),
+    submitReview: (itemId: string, quality: number) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${itemId}/review`, {
+        method: "POST",
+        body: { quality },
+      }),
+  },
 };

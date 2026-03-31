@@ -20,6 +20,7 @@ import {
   Lightbulb,
   Settings,
   X,
+  GraduationCap,
 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { useThoughts } from "@/lib/hooks/useThoughts";
+import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { Brain as BrainType, Cluster as ClusterType, Thought as ThoughtType } from "@/types";
 
@@ -62,6 +64,7 @@ export function Sidebar({
 
   const { brains, createBrain, updateBrain, deleteBrain } = useBrains();
   const { thoughts, createThought, deleteThought } = useThoughts();
+  const { queue } = useSpacedRepetition();
   const [collapsed, setCollapsed] = useState(false);
   const [expandedBrains, setExpandedBrains] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
@@ -170,6 +173,16 @@ export function Sidebar({
                 <Lightbulb className="h-4 w-4" />
               </Button>
             </Link>
+            <Link href="/review">
+              <Button variant="ghost" size="icon" className="h-8 w-8 relative">
+                <GraduationCap className="h-4 w-4" />
+                {queue.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-purple-500 text-white text-[9px] rounded-full h-4 w-4 flex items-center justify-center">
+                    {queue.length}
+                  </span>
+                )}
+              </Button>
+            </Link>
           </nav>
           <div className="flex-1" />
           <div className="flex flex-col items-center gap-1 border-t border-sidebar-border px-2 py-2">
@@ -212,6 +225,17 @@ export function Sidebar({
               <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
                 <Trash2 className="h-4 w-4" />
                 Trash
+              </Button>
+            </Link>
+            <Link href="/review">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                <GraduationCap className="h-4 w-4" />
+                Review
+                {queue.length > 0 && (
+                  <span className="ml-auto bg-purple-500 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                    {queue.length}
+                  </span>
+                )}
               </Button>
             </Link>
           </nav>

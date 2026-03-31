@@ -180,6 +180,18 @@ export interface Thought {
   brainTags: Tag[];
 }
 
+export interface SpacedRepetitionItem {
+  id: string;
+  neuronId: string;
+  neuronTitle: string;
+  easeFactor: number;
+  intervalDays: number;
+  repetitions: number;
+  nextReviewAt: string;
+  lastReviewedAt: string | null;
+  createdAt: string;
+}
+
 export interface BrainExport {
   version: string;
   brain: {
