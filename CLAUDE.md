@@ -25,7 +25,7 @@ Java 21 is installed at `D:\Installation\Java\liberica-21.0.5`. The setup script
 ### Infrastructure
 Always use `--env-file .env` when running docker compose:
 ```bash
-docker compose --env-file .env -f docker-compose.infra.yml up -d          # postgres + minio + ollama
+docker compose --env-file .env -f docker-compose.infra.yml up -d          # postgres + minio
 docker compose --env-file .env -f docker-compose.infra.yml -f docker-compose.app.yml up -d  # full stack
 ```
 
@@ -77,7 +77,8 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 
 ### Key Config
 - Backend port: 8080, Frontend port: 3000, Intelligence Service port: 8001
-- MinIO API: 9000, Console: 9001, Ollama: 11434
+- MinIO API: 9000, Console: 9001
+- Ollama: external (configured via `OLLAMA_BASE_URL` in `.env`)
 - Max upload: 50MB
 - Neuron optimistic locking via `version` field
 - Frontend output mode: `standalone` (for Docker)

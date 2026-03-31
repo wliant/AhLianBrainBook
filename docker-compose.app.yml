@@ -14,6 +14,7 @@ services:
       MINIO_ACCESS_KEY: brainbook
       MINIO_SECRET_KEY: brainbook123
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:13000}
+      INTELLIGENCE_BASE_URL: http://intelligence-service:8001
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,16 +30,15 @@ services:
   intelligence-service:
     build: ./intelligence-service
     container_name: ${COMPOSE_PROJECT_NAME:-brainbook}-intelligence
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${INTELLIGENCE_PORT:-18001}:8001"
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
-    depends_on:
-      ollama:
-        condition: service_healthy
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1:32b}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s
       timeout: 5s
       start_period: 15s
