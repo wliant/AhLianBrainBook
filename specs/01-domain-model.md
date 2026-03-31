@@ -90,6 +90,7 @@ Core content entity. Stores section-based content with dual-format storage (JSON
 - `idx_neurons_cluster_id` on cluster_id
 - `idx_neurons_deleted` on is_deleted
 - `idx_neurons_content_text` GIN index using `to_tsvector('english', content_text)` for full-text search
+- `idx_neurons_title_text` GIN index using `to_tsvector('english', coalesce(title, ''))` for full-text search on title
 - Archived indexes on brains, clusters, neurons `is_archived` columns
 
 ### Tag
@@ -148,6 +149,7 @@ Directed, labeled connections between neurons. Used for knowledge graph visualiz
 | label          | String(255)     | nullable                                 | Human-readable edge label                |
 | linkType       | String(50)      | nullable                                 | Edge category (e.g. references, depends-on, calls, contains) |
 | weight         | Double          | default 1.0                              | Connection strength (0.0–1.0+)           |
+| source         | String(20)      | NOT NULL, default 'manual'               | Origin: `manual` (AddLinkDialog) or `editor` (wiki-link `[[` syntax) |
 | createdAt      | LocalDateTime   | NOT NULL, auto-set                       | Link timestamp                           |
 
 **Constraint:** UNIQUE(source_neuron_id, target_neuron_id) — no duplicate links.

@@ -4,7 +4,7 @@ A personal technical notebook. Organize your knowledge into Brains, Clusters, an
 
 ## Tech Stack
 
-- **Backend**: Spring Boot 3.4.4 (Java 21), PostgreSQL 16, MinIO (S3-compatible file storage)
+- **Backend**: Spring Boot 3.5.13 (Java 21), PostgreSQL 16, MinIO (S3-compatible file storage)
 - **Frontend**: Next.js 16 (React 19, TypeScript), Tailwind CSS, Radix UI, TipTap editor
 - **Testing**: JUnit 5 + TestContainers (backend), Vitest + React Testing Library + MSW (frontend), Playwright + pytest (E2E)
 
@@ -30,7 +30,7 @@ Open http://localhost:3000.
 docker compose -f docker-compose.infra.yml up -d
 ```
 
-This starts PostgreSQL (5432) and MinIO (9000/9001).
+This starts PostgreSQL (15432) and MinIO (19000/19001).
 
 ### Backend (from `app/`)
 
