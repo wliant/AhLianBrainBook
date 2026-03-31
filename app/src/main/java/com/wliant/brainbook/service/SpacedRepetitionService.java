@@ -6,6 +6,8 @@ import com.wliant.brainbook.model.Neuron;
 import com.wliant.brainbook.model.SpacedRepetitionItem;
 import com.wliant.brainbook.repository.NeuronRepository;
 import com.wliant.brainbook.repository.SpacedRepetitionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,8 @@ import java.util.UUID;
 @Service
 @Transactional
 public class SpacedRepetitionService {
+
+    private static final Logger log = LoggerFactory.getLogger(SpacedRepetitionService.class);
 
     private final SpacedRepetitionRepository srRepository;
     private final NeuronRepository neuronRepository;
@@ -30,9 +34,9 @@ public class SpacedRepetitionService {
         Neuron neuron = neuronRepository.findById(neuronId)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found"));
 
-        // Check if already exists
         var existing = srRepository.findByNeuronId(neuronId);
         if (existing.isPresent()) {
+            log.debug("Neuron {} already in spaced repetition, returning existing item", neuronId);
             return toResponse(existing.get());
         }
 
@@ -41,11 +45,13 @@ public class SpacedRepetitionService {
         item.setNextReviewAt(LocalDateTime.now());
 
         SpacedRepetitionItem saved = srRepository.save(item);
+        log.info("Added neuron {} ('{}') to spaced repetition", neuronId, neuron.getTitle());
         return toResponse(saved);
     }
 
     public void removeItem(UUID neuronId) {
         srRepository.deleteByNeuronId(neuronId);
+        log.info("Removed neuron {} from spaced repetition", neuronId);
     }
 
     @Transactional(readOnly = true)
@@ -57,13 +63,13 @@ public class SpacedRepetitionService {
 
     @Transactional(readOnly = true)
     public List<SpacedRepetitionItemResponse> getAllItems() {
-        return srRepository.findAll().stream().map(this::toResponse).toList();
+        return srRepository.findAllWithNeuron().stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<SpacedRepetitionItemResponse> getReviewQueue() {
         return srRepository
-                .findByNextReviewAtLessThanEqualOrderByNextReviewAtAsc(LocalDateTime.now())
+                .findDueForReviewWithNeuron(LocalDateTime.now())
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -73,20 +79,25 @@ public class SpacedRepetitionService {
         SpacedRepetitionItem item = srRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
 
-        applySm2(item, quality);
-        item.setLastReviewedAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        applySm2(item, quality, now);
+        item.setLastReviewedAt(now);
 
         SpacedRepetitionItem saved = srRepository.save(item);
+        log.info("Review submitted for item {} (neuron {}): quality={}, nextInterval={}d, ef={}",
+                itemId, item.getNeuronId(), quality, item.getIntervalDays(), item.getEaseFactor());
         return toResponse(saved);
     }
 
     /**
      * SM-2 algorithm implementation.
-     * quality: 0-5 (0=complete blackout, 5=perfect recall)
+     *
+     * @param item    the spaced repetition item to update
+     * @param quality 0-5 (0=complete blackout, 5=perfect recall)
+     * @param now     current time, passed explicitly for testability
      */
-    private void applySm2(SpacedRepetitionItem item, int quality) {
+    void applySm2(SpacedRepetitionItem item, int quality, LocalDateTime now) {
         if (quality >= 3) {
-            // Correct response
             if (item.getRepetitions() == 0) {
                 item.setIntervalDays(1);
             } else if (item.getRepetitions() == 1) {
@@ -96,17 +107,16 @@ public class SpacedRepetitionService {
             }
             item.setRepetitions(item.getRepetitions() + 1);
         } else {
-            // Incorrect response — reset
             item.setRepetitions(0);
             item.setIntervalDays(1);
         }
 
-        // Update ease factor
         double ef = item.getEaseFactor() + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
         item.setEaseFactor(Math.max(1.3, ef));
 
-        // Schedule next review
-        item.setNextReviewAt(LocalDateTime.now().plusDays(item.getIntervalDays()));
+        item.setNextReviewAt(now.plusDays(item.getIntervalDays()));
+        log.debug("SM-2: quality={}, reps={}, interval={}d, ef={}", quality,
+                item.getRepetitions(), item.getIntervalDays(), item.getEaseFactor());
     }
 
     private SpacedRepetitionItemResponse toResponse(SpacedRepetitionItem item) {

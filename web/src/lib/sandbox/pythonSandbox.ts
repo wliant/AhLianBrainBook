@@ -64,7 +64,7 @@ finally:
     return {
       stdout: stdout || "",
       stderr: stderr || "",
-      error: stderr ? null : null,
+      error: null,
       duration,
     };
   } catch (err) {

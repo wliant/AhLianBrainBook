@@ -2,7 +2,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
-type VimModeState = "NORMAL" | "INSERT" | "VISUAL";
+type VimModeState = "NORMAL" | "INSERT";
 
 const vimPluginKey = new PluginKey("vimMode");
 
@@ -31,13 +31,11 @@ function moveByWord(state: EditorState, forward: boolean) {
   const text = state.doc.textBetween(0, state.doc.content.size, "\n", "\0");
 
   if (forward) {
-    // Move to next word boundary
     const afterCursor = text.slice(from);
     const match = afterCursor.match(/^\S*\s+\S?/);
     const offset = match ? match[0].length - (match[0].endsWith(" ") ? 0 : 1) : 1;
     return TextSelection.create(state.doc, resolvePos(state, from + Math.max(offset, 1)));
   } else {
-    // Move to previous word boundary
     const beforeCursor = text.slice(0, from);
     const match = beforeCursor.match(/\S+\s*$/);
     const offset = match ? match[0].length : 1;
@@ -45,35 +43,35 @@ function moveByWord(state: EditorState, forward: boolean) {
   }
 }
 
-function createModeIndicator(mode: VimModeState): DecorationSet {
-  // We'll render the mode indicator via a widget decoration at position 0
-  const widget = Decoration.widget(0, () => {
-    const el = document.createElement("div");
-    el.className = "vim-mode-indicator";
-    el.style.cssText =
-      "position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:50;" +
-      "padding:2px 12px;border-radius:4px;font-size:11px;font-family:monospace;font-weight:600;" +
-      "pointer-events:none;letter-spacing:0.05em;" +
-      (mode === "NORMAL"
-        ? "background:#3b82f6;color:white;"
-        : mode === "INSERT"
-          ? "background:#22c55e;color:white;"
-          : "background:#a855f7;color:white;");
-    el.textContent = `-- ${mode} --`;
-    return el;
-  }, { side: -1, key: "vim-mode" });
+/**
+ * Move cursor to the next or previous block node (simulates j/k vertical movement).
+ * In ProseMirror, vertical movement is done by traversing block boundaries.
+ */
+function moveToAdjacentBlock(state: EditorState, direction: "down" | "up") {
+  const { $from } = state.selection;
 
-  return DecorationSet.empty.add(
-    // Use a minimal doc to hold the decoration
-    undefined as unknown as import("@tiptap/pm/model").Node,
-    [widget]
-  );
+  if (direction === "down") {
+    const after = $from.after();
+    if (after < state.doc.content.size) {
+      const resolved = state.doc.resolve(Math.min(after + 1, state.doc.content.size));
+      return TextSelection.near(resolved);
+    }
+  } else {
+    const before = $from.before();
+    if (before > 0) {
+      const resolved = state.doc.resolve(Math.max(before - 1, 0));
+      return TextSelection.near(resolved);
+    }
+  }
+  return null;
 }
 
 export const VimMode = Extension.create({
   name: "vimMode",
 
   addProseMirrorPlugins() {
+    // Closure state for multi-key commands and yank buffer.
+    // These reset when the editor is destroyed/recreated (acceptable behavior).
     let pendingKey: string | null = null;
     let yankBuffer = "";
 
@@ -102,11 +100,8 @@ export const VimMode = Extension.create({
               el.style.cssText =
                 "position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:50;" +
                 "padding:2px 12px;border-radius:4px;font-size:11px;font-family:monospace;font-weight:600;" +
-                "pointer-events:none;letter-spacing:0.05em;" +
-                (mode === "NORMAL"
-                  ? "background:#3b82f6;color:white;"
-                  : "background:#a855f7;color:white;");
-              el.textContent = `-- ${mode} --`;
+                "pointer-events:none;letter-spacing:0.05em;background:#3b82f6;color:white;";
+              el.textContent = "-- NORMAL --";
               return el;
             }, { side: -1, key: "vim-mode-widget" });
 
@@ -120,8 +115,7 @@ export const VimMode = Extension.create({
             if (mode === "INSERT") {
               if (event.key === "Escape") {
                 event.preventDefault();
-                const tr = view.state.tr.setMeta(vimPluginKey, "NORMAL");
-                view.dispatch(tr);
+                view.dispatch(view.state.tr.setMeta(vimPluginKey, "NORMAL"));
                 return true;
               }
               return false;
@@ -138,7 +132,6 @@ export const VimMode = Extension.create({
                 pendingKey = null;
 
                 if (combo === "dd") {
-                  // Delete current line
                   event.preventDefault();
                   const { $from } = state.selection;
                   const lineStart = $from.start();
@@ -151,7 +144,6 @@ export const VimMode = Extension.create({
                 }
 
                 if (combo === "yy") {
-                  // Yank current line
                   event.preventDefault();
                   const { $from } = state.selection;
                   yankBuffer = state.doc.textBetween($from.start(), $from.end());
@@ -175,25 +167,14 @@ export const VimMode = Extension.create({
                 }
                 case "j": {
                   event.preventDefault();
-                  // Move down: use browser's default behavior via execCommand
-                  document.execCommand("", false, undefined);
-                  // Fallback: just move right to next line
-                  const { $from } = state.selection;
-                  const nextLine = $from.after();
-                  if (nextLine <= state.doc.content.size) {
-                    const resolved = state.doc.resolve(Math.min(nextLine + 1, state.doc.content.size));
-                    dispatch(state.tr.setSelection(TextSelection.near(resolved)));
-                  }
+                  const sel = moveToAdjacentBlock(state, "down");
+                  if (sel) dispatch(state.tr.setSelection(sel));
                   return true;
                 }
                 case "k": {
                   event.preventDefault();
-                  const { $from } = state.selection;
-                  const prevLine = $from.before();
-                  if (prevLine >= 0) {
-                    const resolved = state.doc.resolve(Math.max(prevLine - 1, 0));
-                    dispatch(state.tr.setSelection(TextSelection.near(resolved)));
-                  }
+                  const sel = moveToAdjacentBlock(state, "up");
+                  if (sel) dispatch(state.tr.setSelection(sel));
                   return true;
                 }
                 case "w": {
@@ -208,7 +189,6 @@ export const VimMode = Extension.create({
                 }
                 case "e": {
                   event.preventDefault();
-                  // Move to end of word (similar to w but stops at end)
                   dispatch(state.tr.setSelection(moveByWord(state, true)));
                   return true;
                 }
@@ -247,7 +227,6 @@ export const VimMode = Extension.create({
                 }
                 case "o": {
                   event.preventDefault();
-                  // Open line below and enter INSERT
                   const { $from: $o } = state.selection;
                   const endOfLine = $o.end();
                   const tr = state.tr.split(endOfLine);
@@ -257,7 +236,6 @@ export const VimMode = Extension.create({
                 }
                 case "O": {
                   event.preventDefault();
-                  // Open line above and enter INSERT
                   const { $from: $O } = state.selection;
                   const startOfLine = $O.start();
                   const tr = state.tr.split(startOfLine);
@@ -292,7 +270,7 @@ export const VimMode = Extension.create({
                   return true;
                 }
                 default:
-                  // Block most typing in NORMAL mode
+                  // Block typing in NORMAL mode (allow Ctrl/Meta/Alt combos through)
                   if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
                     event.preventDefault();
                     return true;

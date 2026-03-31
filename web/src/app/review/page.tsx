@@ -32,15 +32,17 @@ export default function ReviewPage() {
 
   const currentItem = queue[currentIndex];
 
+  const currentNeuronId = currentItem?.neuronId;
+
   useEffect(() => {
-    if (!currentItem) return;
+    if (!currentNeuronId) return;
 
     setLoadingNeuron(true);
     setShowAnswer(false);
     setNeuron(null);
     setSectionsDoc(null);
 
-    api.get<Neuron>(`/api/neurons/${currentItem.neuronId}`).then((n) => {
+    api.get<Neuron>(`/api/neurons/${currentNeuronId}`).then((n) => {
       const parsedJson =
         typeof n.contentJson === "string"
           ? JSON.parse(n.contentJson)
@@ -48,10 +50,11 @@ export default function ReviewPage() {
       setNeuron({ ...n, contentJson: parsedJson });
       setSectionsDoc(normalizeContent(parsedJson));
       setLoadingNeuron(false);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error("Failed to load neuron for review:", currentNeuronId, err);
       setLoadingNeuron(false);
     });
-  }, [currentItem]);
+  }, [currentNeuronId]);
 
   const handleRate = async (quality: number) => {
     if (!currentItem || submitting) return;
