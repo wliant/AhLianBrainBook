@@ -30,6 +30,8 @@ public class SearchController {
             @RequestParam(required = false) List<UUID> brainTagIds,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(searchService.search(query, brainId, clusterId, neuronTagIds, brainTagIds, page, size));
+        int clampedSize = Math.min(Math.max(size, 1), 100);
+        int clampedPage = Math.max(page, 0);
+        return ResponseEntity.ok(searchService.search(query, brainId, clusterId, neuronTagIds, brainTagIds, clampedPage, clampedSize));
     }
 }
