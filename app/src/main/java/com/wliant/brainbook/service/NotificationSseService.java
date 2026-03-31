@@ -20,7 +20,7 @@ public class NotificationSseService {
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     public SseEmitter createEmitter() {
-        SseEmitter emitter = new SseEmitter(0L); // no timeout for single-user app
+        SseEmitter emitter = new SseEmitter(300_000L); // 5 minute timeout, frontend auto-reconnects
         emitters.add(emitter);
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> emitters.remove(emitter));

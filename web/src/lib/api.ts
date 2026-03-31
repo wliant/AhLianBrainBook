@@ -30,6 +30,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         ...headers,
       },
       signal: controller.signal,
+      cache: method === "GET" ? "no-cache" as RequestCache : undefined,
     };
 
     if (body) {
