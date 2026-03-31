@@ -11,7 +11,7 @@ from helpers.page_helpers import navigate_to_neuron, unique_name
 
 def future_iso(hours: int = 24) -> str:
     """Return an ISO timestamp in the future."""
-    return (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    return (datetime.now(timezone.utc) + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 class TestRemindersAPI:

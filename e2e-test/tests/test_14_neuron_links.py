@@ -47,7 +47,7 @@ class TestNeuronLinksBrowser:
     def test_connections_panel_opens(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         open_connections_panel(pg)
-        expect(pg.get_by_text("Connections")).to_be_visible(timeout=5000)
+        expect(pg.get_by_role("heading", name="Connections")).to_be_visible(timeout=5000)
         expect(pg.get_by_test_id("add-link-btn")).to_be_visible(timeout=5000)
 
     def test_connections_panel_shows_links(self, page: Page, api: BrainBookAPI, two_neurons_in_cluster):

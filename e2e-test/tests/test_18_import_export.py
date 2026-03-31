@@ -13,7 +13,7 @@ class TestImportExport:
         brain, cluster, neuron = neuron_in_cluster
         export = api.export_brain(brain["id"])
 
-        assert export["name"] == brain["name"]
+        assert export["brain"]["name"] == brain["name"]
         assert "clusters" in export or "neurons" in export or "id" in export
 
     def test_export_contains_neurons(self, api: BrainBookAPI, neuron_in_cluster):
@@ -37,13 +37,20 @@ class TestImportExport:
         # Export
         export = api.export_brain(brain["id"])
 
-        # Modify name to avoid collision
-        export["name"] = unique_name("Imported Brain")
+        # Build import payload from export (different structure)
+        import_name = unique_name("Imported Brain")
+        import_payload = {
+            "name": import_name,
+            "description": export["brain"].get("description", ""),
+            "clusters": export.get("clusters", []),
+            "tags": export.get("tags", []),
+            "links": export.get("links", []),
+        }
 
         # Import
-        imported = api.import_brain(export)
+        imported = api.import_brain(import_payload)
         try:
-            assert imported["name"] == export["name"]
+            assert imported["name"] == import_name
             assert imported["id"] != brain["id"]
 
             # Verify imported brain has clusters

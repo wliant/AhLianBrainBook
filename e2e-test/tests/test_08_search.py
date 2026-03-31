@@ -63,7 +63,7 @@ class TestSearchViaAPI:
 
         try:
             result = wait_for_search_index(api, unique, expected_count=1, timeout=10)
-            assert any(n["id"] == neuron["id"] for n in result["results"])
+            assert any(n["neuron"]["id"] == neuron["id"] for n in result["results"])
         finally:
             api.permanent_delete_neuron(neuron["id"])
 

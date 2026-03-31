@@ -356,7 +356,7 @@ class BrainBookAPI:
 
     def get_reminder(self, neuron_id: str) -> dict | None:
         r = self.client.get(f"/api/neurons/{neuron_id}/reminder")
-        if r.status_code == 404:
+        if r.status_code == 404 or r.status_code == 204 or not r.content:
             return None
         r.raise_for_status()
         return r.json()

@@ -93,13 +93,13 @@ class TestNeuronFavoriteViaBrowser:
         page.get_by_test_id("toggle-favorite").click()
         # Wait for the API call to complete by checking server state
         expect(page.get_by_test_id("toggle-favorite")).to_be_visible()
-        page.wait_for_timeout(300)  # minimal wait for API round-trip
+        page.wait_for_timeout(1000)  # minimal wait for API round-trip
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isFavorite"] is True
 
         page.get_by_test_id("toggle-favorite").click()
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(1000)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isFavorite"] is False
@@ -112,13 +112,13 @@ class TestNeuronPinViaBrowser:
         navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
 
         page.get_by_test_id("toggle-pin").click()
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(1000)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isPinned"] is True
 
         page.get_by_test_id("toggle-pin").click()
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(1000)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isPinned"] is False

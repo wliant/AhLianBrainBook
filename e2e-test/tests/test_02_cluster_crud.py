@@ -21,14 +21,13 @@ class TestClusterCreateViaBrowser:
 
         cluster_name = unique_name("New Test Cluster")
 
-        # Brain page uses prompt() for cluster creation
-        page.on("dialog", lambda dialog: dialog.accept(cluster_name))
-
         navigate_to_brain(page, brain["id"])
 
         page.get_by_test_id("new-cluster-btn").click()
+        page.get_by_test_id("cluster-name-input").fill(cluster_name)
+        page.get_by_role("button", name="Create").click()
 
-        # Verify via API — poll until cluster appears
+        # Verify cluster appears on page
         expect(page.get_by_text(cluster_name)).to_be_visible(timeout=5000)
 
         clusters = api.list_clusters(brain["id"])

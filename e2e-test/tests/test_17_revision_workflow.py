@@ -60,7 +60,7 @@ class TestRevisionWorkflowBrowser:
 
         # Update content to something different
         new_content = json.dumps({"version": 2, "sections": [{"id": "s1", "type": "rich-text", "content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Changed after snapshot"}]}]}}]})
-        api.update_neuron_content(neuron["id"], new_content, "Changed after snapshot", neuron["version"] + 1)
+        api.update_neuron_content(neuron["id"], new_content, "Changed after snapshot", neuron["version"])
 
         navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
         open_history_panel(page)
