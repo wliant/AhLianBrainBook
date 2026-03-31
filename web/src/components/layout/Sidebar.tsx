@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Lightbulb,
+  Settings,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -171,6 +172,11 @@ export function Sidebar({
           </nav>
           <div className="flex-1" />
           <div className="flex flex-col items-center gap-1 border-t border-sidebar-border px-2 py-2">
+            <Link href="/settings">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
             <ThemeToggle />
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(false)}>
               <PanelLeftOpen className="h-4 w-4" />
@@ -281,7 +287,14 @@ export function Sidebar({
             </div>
           </ScrollArea>
 
-          <div className="border-t border-sidebar-border px-3 py-2">
+          <div className="border-t border-sidebar-border px-3 py-2 flex items-center gap-2">
+            <Link href="/settings">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+            <div className="flex-1" />
             <ThemeToggle />
           </div>
         </>

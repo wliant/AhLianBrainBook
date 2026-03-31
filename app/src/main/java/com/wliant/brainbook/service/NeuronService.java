@@ -33,15 +33,18 @@ public class NeuronService {
     private final BrainRepository brainRepository;
     private final ClusterRepository clusterRepository;
     private final TagService tagService;
+    private final SettingsService settingsService;
 
     public NeuronService(NeuronRepository neuronRepository,
                          BrainRepository brainRepository,
                          ClusterRepository clusterRepository,
-                         TagService tagService) {
+                         TagService tagService,
+                         SettingsService settingsService) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
         this.tagService = tagService;
+        this.settingsService = settingsService;
     }
 
     public List<NeuronResponse> getByClusterId(UUID clusterId) {
@@ -83,6 +86,7 @@ public class NeuronService {
         Cluster cluster = clusterRepository.findById(req.clusterId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + req.clusterId()));
 
+        String user = settingsService.getDisplayName();
         Neuron neuron = new Neuron();
         neuron.setBrain(brain);
         neuron.setCluster(cluster);
@@ -96,6 +100,8 @@ public class NeuronService {
         neuron.setArchived(false);
         neuron.setDeleted(false);
         neuron.setVersion(1);
+        neuron.setCreatedBy(user);
+        neuron.setLastUpdatedBy(user);
 
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
@@ -110,6 +116,7 @@ public class NeuronService {
         if (req.templateId() != null) neuron.setTemplateId(req.templateId());
         if (req.complexity() != null) neuron.setComplexity(req.complexity());
         neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -127,6 +134,7 @@ public class NeuronService {
         neuron.setContentText(req.contentText());
         neuron.setVersion(neuron.getVersion() + 1);
         neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -135,6 +143,7 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuron.setDeleted(true);
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         neuronRepository.save(neuron);
     }
 
@@ -142,6 +151,7 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuron.setArchived(true);
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -150,6 +160,7 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuron.setArchived(false);
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -164,6 +175,7 @@ public class NeuronService {
 
         neuron.setBrain(brain);
         neuron.setCluster(cluster);
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -172,6 +184,7 @@ public class NeuronService {
         Neuron original = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
 
+        String user = settingsService.getDisplayName();
         Neuron copy = new Neuron();
         copy.setBrain(original.getBrain());
         copy.setCluster(original.getCluster());
@@ -185,6 +198,8 @@ public class NeuronService {
         copy.setArchived(false);
         copy.setDeleted(false);
         copy.setVersion(1);
+        copy.setCreatedBy(user);
+        copy.setLastUpdatedBy(user);
 
         Neuron saved = neuronRepository.save(copy);
         return toResponse(saved);
@@ -194,6 +209,7 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuron.setFavorite(!neuron.isFavorite());
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -202,6 +218,7 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuron.setPinned(!neuron.isPinned());
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -220,6 +237,7 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuron.setDeleted(false);
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
     }
@@ -256,6 +274,8 @@ public class NeuronService {
                 neuron.getLastEditedAt(),
                 neuron.getCreatedAt(),
                 neuron.getUpdatedAt(),
+                neuron.getCreatedBy(),
+                neuron.getLastUpdatedBy(),
                 tags
         );
     }

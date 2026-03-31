@@ -8,6 +8,7 @@ import { useClusters } from "@/lib/hooks/useClusters";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { TagCombobox } from "@/components/tags/TagCombobox";
 import { BrainStats } from "@/components/brain/BrainStats";
+import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import type { Tag } from "@/types";
 
 export default function BrainPage({ params }: { params: Promise<{ brainId: string }> }) {
@@ -50,6 +51,16 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-2">{brain?.name || "Brain"}</h1>
+      {brain && (
+        <div className="mb-3">
+          <EntityMetadata
+            createdBy={brain.createdBy}
+            createdAt={brain.createdAt}
+            lastUpdatedBy={brain.lastUpdatedBy}
+            updatedAt={brain.updatedAt}
+          />
+        </div>
+      )}
 
       <div className="mb-4">
         <TagCombobox
