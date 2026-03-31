@@ -232,6 +232,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+K` / `Cmd+K` | Open search |
+| `Ctrl+N` | New neuron |
 | `Escape` | Go back / close panels |
 | `?` | Show keyboard shortcuts help dialog |
 | `Arrow Left/Right` | Navigate between neurons in thought viewer |

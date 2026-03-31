@@ -4,7 +4,7 @@
 
 | Service    | Technology      | Port(s)     | Purpose                        |
 |------------|-----------------|-------------|--------------------------------|
-| app        | Spring Boot 3.4 | 8080        | Backend REST API               |
+| app        | Spring Boot 3.5 | 8080        | Backend REST API               |
 | web        | Next.js 16      | 3000        | Frontend web application       |
 | postgres   | PostgreSQL 16   | 5432        | Primary database               |
 | minio      | MinIO           | 9000, 9001  | Object storage (attachments)   |
@@ -50,7 +50,10 @@ Production deployment configuration.
 | V8      | Add `complexity` (VARCHAR 20) column to neurons  |
 | V9      | Add `thoughts`, `thought_neuron_tags`, `thought_brain_tags` tables |
 | V10     | Add `reminders` and `notifications` tables with indexes |
-| V11     | Add `created_by`, `last_updated_by` to brains/clusters/neurons; add `app_settings` table with seeded default row; add `title` to neuron_revisions |
+| V11     | Add `created_by`, `last_updated_by` to brains/clusters/neurons; add `app_settings` table with seeded default row |
+| V12     | Add `title` column to neuron_revisions (renamed from duplicate V11) |
+| V13     | Add GIN index on `title` for full-text search (`idx_neurons_title_text`) |
+| V14     | Add `source` column (VARCHAR 20, default 'manual') to neuron_links — tracks manual vs editor wiki-link origins |
 
 ### Content Format (v2 — Sections)
 

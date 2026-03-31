@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-BrainBook — a personal technical notebook. Spring Boot 3.4.4 (Java 21) app, Next.js 16 (React 19, TypeScript) web, PostgreSQL 16, MinIO for file storage.
+BrainBook — a personal technical notebook. Spring Boot 3.5.13 (Java 21) app, Next.js 16 (React 19, TypeScript) web, PostgreSQL 16, MinIO for file storage.
 
 ## Environment Setup
 
@@ -49,7 +49,7 @@ npm run test:watch # watch mode
 ## Architecture
 
 ### Domain Model
-Brain → Cluster (nested tree via parent_id) → Neuron (rich text notes). Neurons support tags, attachments (MinIO), revisions (autosave/snapshot), links between neurons, favorites, pinning, and soft delete (trash).
+Brain → Cluster (nested tree via parent_id) → Neuron (rich text notes). Neurons support tags, attachments (MinIO), revisions (autosave/snapshot), links between neurons (manual + wiki-link `[[` syntax), favorites, pinning, and soft delete (trash). Cross-cutting features: Thoughts (tag-based filtered collections), Templates, Reminders, Notifications, AppSettings. Slash command menu (`/`) for inserting sections. Knowledge graph visualization. Import/export brains as JSON.
 
 ### App (`app/src/main/java/com/wliant/brainbook/`)
 Standard layered Spring Boot: `controller/` → `service/` → `repository/` → `model/`. DTOs in `dto/`, config in `config/` (CORS, MinIO client). Database migrations via Flyway in `src/main/resources/db/migration/`. Neuron content stored as JSONB with a separate plain-text column for full-text search indexing.

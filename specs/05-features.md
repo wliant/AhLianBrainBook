@@ -9,6 +9,8 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 - **Inline formatting:** Bold, italic, underline, strikethrough, inline code, highlight (multicolor)
 - **Block formatting:** Headings (H1–H3), bullet lists, ordered lists, task/checkbox lists (interactive, nestable), blockquotes, horizontal rules
 - **Rich content:** Tables (with header rows/cells), links (internal and external), images
+- **Wiki links:** `[[` syntax triggers autocomplete for linking to other neurons; creates `NeuronLink` records with `source='editor'`
+- **Slash command menu:** `/` triggers an insertable command menu for sections (code, math, diagram, callout, table, image, audio, divider) and formatting (headings, lists, blockquote)
 - **Code blocks:** Syntax-highlighted code blocks (via lowlight)
 - **Typography:** Smart quotes, em/en dashes (automatic)
 - **History:** Undo / redo
@@ -160,7 +162,8 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 ## 11. Neuron Links
 
 - Directed connections between neurons with optional metadata
-- Each link has: source neuron, target neuron, label (human-readable), link type (category like "references", "depends-on", "calls", "contains"), and weight (connection strength)
+- Each link has: source neuron, target neuron, label (human-readable), link type (category like "references", "depends-on", "calls", "contains"), weight (connection strength), and source origin (`manual` or `editor`)
+- **Wiki-link sync:** When neuron content is saved, `syncEditorLinks()` parses `contentJson` for `wikiLink` nodes, diffs against existing `source='editor'` links, and creates/deletes links accordingly. Manually created links (`source='manual'`) are never touched by the sync.
 - Unique constraint prevents duplicate source→target links
 - Links viewable in the **Connections Panel** on the neuron editor:
   - Incoming links (neurons that link TO this neuron)
@@ -336,6 +339,5 @@ Brain overview page displays aggregated statistics:
 
 The following features are under consideration but not yet implemented:
 
-- **Cross-references in content** — `[[Neuron Title]]` syntax in rich text sections with autocomplete popup when typing `[[`, rendering as styled links that navigate to the referenced neuron
 - **Layered/hierarchical graph view** — graph nodes grouped into collapsible cluster boxes, with drill-down navigation and cross-cluster edge summaries
 - **Node focus mode** — in graph view, highlight a selected node and dim all unrelated nodes, showing only direct connections

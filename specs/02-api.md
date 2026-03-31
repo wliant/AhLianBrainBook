@@ -458,6 +458,7 @@ List all links for a neuron (both incoming and outgoing).
     "label": "string | null",
     "linkType": "string | null",
     "weight": 1.0,
+    "source": "manual | editor",
     "createdAt": "2024-01-01T00:00:00"
   }
 ]
@@ -478,7 +479,8 @@ Create a link between two neurons.
   "targetNeuronId": "uuid",
   "label": "string?",
   "linkType": "string?",
-  "weight": 1.0
+  "weight": 1.0,
+  "source": "string?"
 }
 ```
 **Response:** `201 Created` — NeuronLinkResponse
