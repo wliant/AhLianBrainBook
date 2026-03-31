@@ -128,7 +128,7 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
             <select
               value={lang}
               onChange={handleLanguageChange}
-              className="text-xs bg-transparent border rounded px-1.5 py-0.5 outline-none"
+              className="text-xs bg-background text-foreground border rounded px-1.5 py-0.5 outline-none"
             >
               {LANGUAGES.map((l) => (
                 <option key={l} value={l}>
