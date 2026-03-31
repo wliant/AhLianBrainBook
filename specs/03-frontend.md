@@ -261,7 +261,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | `useTags()` | `tags`, `loading`, `addTagToNeuron`, `removeTagFromNeuron`, `addTagToBrain`, `removeTagFromBrain` | Tag management for neurons and brains |
 | `useThoughts()` | `thoughts`, `loading`, `createThought`, `updateThought`, `deleteThought` | CRUD thoughts |
 | `useNotifications()` | `notifications`, `unreadCount`, `markAsRead`, `markAllAsRead` | Notification polling and management |
-| `useSettings()` | `settings`, `loading`, `updateSettings` | App settings (display name, editor mode, max reminders) |
+| `useSettings()` | `settings`, `loading`, `updateDisplayName`, `updateMaxReminders` | App settings (display name, max reminders) |
 | `useSpacedRepetition()` | `queue`, `queueLoading`, `allItems`, `itemsLoading`, `addToReview`, `removeFromReview`, `submitReview`, `isInReview` | SM-2 spaced repetition management |
 | `useNeuronShares(neuronId)` | `shares`, `loading`, `createShare`, `revokeShare` | Token-based neuron sharing |
 | `useAudioRecorder()` | `isRecording`, `start`, `stop`, `audioBlob` | Audio recording via MediaRecorder API |
