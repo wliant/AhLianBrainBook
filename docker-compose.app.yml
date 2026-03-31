@@ -26,6 +26,24 @@ services:
       start_period: 30s
       retries: 3
 
+  intelligence-service:
+    build: ./intelligence-service
+    container_name: ${COMPOSE_PROJECT_NAME:-brainbook}-intelligence
+    ports:
+      - "${INTELLIGENCE_PORT:-18001}:8001"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
   web:
     build:
       context: ./web

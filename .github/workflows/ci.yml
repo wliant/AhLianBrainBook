@@ -50,6 +50,23 @@ jobs:
         working-directory: web
         run: npm run build
 
+  intelligence-service:
+    name: Intelligence Service Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        working-directory: intelligence-service
+        run: uv sync --dev
+
+      - name: Run tests
+        working-directory: intelligence-service
+        run: uv run pytest --tb=short -v
+
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
