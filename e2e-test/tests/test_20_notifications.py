@@ -26,18 +26,18 @@ class TestNotificationsAPI:
 
 class TestNotificationsBrowser:
     def test_notification_bell_visible(self, home: Page):
-        expect(home.get_by_test_id("notification-bell")).to_be_visible(timeout=5000)
+        expect(home.get_by_test_id("notification-bell").last).to_be_visible(timeout=5000)
 
     def test_notification_popover_opens(self, home: Page):
-        home.get_by_test_id("notification-bell").click()
+        home.get_by_test_id("notification-bell").last.click()
         expect(home.get_by_test_id("notification-popover")).to_be_visible(timeout=5000)
-        expect(home.get_by_text("Notifications")).to_be_visible()
+        expect(home.get_by_text("Notifications", exact=True)).to_be_visible()
 
     def test_empty_notifications_state(self, home: Page, api: BrainBookAPI):
         # Ensure all notifications are read first
         api.mark_all_notifications_read()
 
-        home.get_by_test_id("notification-bell").click()
+        home.get_by_test_id("notification-bell").last.click()
         expect(home.get_by_test_id("notification-popover")).to_be_visible(timeout=5000)
         # Should show either empty state or notification list
         popover = home.get_by_test_id("notification-popover")

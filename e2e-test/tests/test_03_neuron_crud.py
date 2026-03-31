@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -23,7 +24,7 @@ class TestNeuronCreateViaBrowser:
         page.wait_for_load_state("networkidle")
 
         # Should navigate to editor page
-        expect(page).to_have_url(lambda url: "/neuron/" in url, timeout=5000)
+        expect(page).to_have_url(re.compile(r".*/neuron/.*"), timeout=5000)
 
         # Title input should be visible with placeholder
         expect(page.get_by_test_id("neuron-title-input")).to_be_visible(timeout=5000)

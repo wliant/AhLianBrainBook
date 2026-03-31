@@ -13,7 +13,7 @@ class TestRevisionWorkflowBrowser:
     def test_history_panel_opens(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         open_history_panel(pg)
-        expect(pg.get_by_text("History")).to_be_visible(timeout=5000)
+        expect(pg.get_by_role("heading", name="History")).to_be_visible(timeout=5000)
         expect(pg.get_by_test_id("create-snapshot-btn")).to_be_visible(timeout=5000)
 
     def test_create_snapshot_via_ui(self, api: BrainBookAPI, neuron_on_page):
