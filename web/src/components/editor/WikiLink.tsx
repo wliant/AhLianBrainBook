@@ -3,6 +3,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
+import { PluginKey } from "@tiptap/pm/state";
 import Link from "next/link";
 import { createSuggestionRenderer } from "./suggestionRenderer";
 import type { NeuronSummary } from "@/types";
@@ -65,6 +66,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
     return [
       Suggestion<NeuronSummary>({
         editor: this.editor,
+        pluginKey: new PluginKey("wikiLink"),
         char: "[[",
         items: ({ query }) => {
           if (!query || query.length < 1) {

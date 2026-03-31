@@ -2,6 +2,7 @@
 
 import { Extension } from "@tiptap/core";
 import Suggestion from "@tiptap/suggestion";
+import { PluginKey } from "@tiptap/pm/state";
 import { createSuggestionRenderer } from "./suggestionRenderer";
 import type { SectionType } from "@/types";
 
@@ -49,6 +50,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
     return [
       Suggestion<SlashCommandItem>({
         editor: this.editor,
+        pluginKey: new PluginKey("slashCommand"),
         char: "/",
         startOfLine: false,
         items: ({ query }) => {
