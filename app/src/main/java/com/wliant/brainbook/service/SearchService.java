@@ -4,6 +4,10 @@ import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.dto.SearchResponse;
 import com.wliant.brainbook.dto.SearchResultItem;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
+import com.wliant.brainbook.model.Brain;
+import com.wliant.brainbook.model.Cluster;
+import com.wliant.brainbook.repository.BrainRepository;
+import com.wliant.brainbook.repository.ClusterRepository;
 import com.wliant.brainbook.repository.NeuronSearchRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -25,10 +30,15 @@ public class SearchService {
 
     private final NeuronSearchRepository neuronSearchRepository;
     private final NeuronService neuronService;
+    private final BrainRepository brainRepository;
+    private final ClusterRepository clusterRepository;
 
-    public SearchService(NeuronSearchRepository neuronSearchRepository, NeuronService neuronService) {
+    public SearchService(NeuronSearchRepository neuronSearchRepository, NeuronService neuronService,
+                         BrainRepository brainRepository, ClusterRepository clusterRepository) {
         this.neuronSearchRepository = neuronSearchRepository;
         this.neuronService = neuronService;
+        this.brainRepository = brainRepository;
+        this.clusterRepository = clusterRepository;
     }
 
     public SearchResponse search(String query, UUID brainId, UUID clusterId,
@@ -49,8 +59,17 @@ public class SearchService {
         List<UUID> ids = result.rows().stream()
                 .map(NeuronSearchRepository.SearchRow::id)
                 .toList();
-        Map<UUID, NeuronResponse> neuronMap = neuronService.getByIds(ids).stream()
+        List<NeuronResponse> neurons = neuronService.getByIds(ids);
+        Map<UUID, NeuronResponse> neuronMap = neurons.stream()
                 .collect(Collectors.toMap(NeuronResponse::id, Function.identity()));
+
+        // Batch-load brain and cluster names for context
+        Set<UUID> brainIds = neurons.stream().map(NeuronResponse::brainId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> clusterIds = neurons.stream().map(NeuronResponse::clusterId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, String> brainNames = brainRepository.findAllById(brainIds).stream()
+                .collect(Collectors.toMap(Brain::getId, Brain::getName));
+        Map<UUID, String> clusterNames = clusterRepository.findAllById(clusterIds).stream()
+                .collect(Collectors.toMap(Cluster::getId, Cluster::getName));
 
         List<SearchResultItem> items = result.rows().stream()
                 .map(row -> {
@@ -59,7 +78,9 @@ public class SearchService {
                         logger.warn("Search result references missing neuron id={}", row.id());
                         return null;
                     }
-                    return new SearchResultItem(neuron, row.highlight(), row.rank());
+                    return new SearchResultItem(neuron, row.highlight(), row.rank(),
+                            brainNames.get(neuron.brainId()),
+                            clusterNames.get(neuron.clusterId()));
                 })
                 .filter(Objects::nonNull)
                 .toList();

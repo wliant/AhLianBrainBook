@@ -19,11 +19,11 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 | 9 | Markdown & PDF export | P1 | DONE | | `MarkdownExportService` converts TipTap/sections JSON to Markdown. `ExportController` serves `/api/neurons/{id}/export/markdown` (text) and `/api/brains/{id}/export/markdown` (zip). Frontend export dropdown on neuron page. PDF via `window.print()` with `@media print` styles. |
 | 10 | Table of contents | P1 | DONE | | `TableOfContents.tsx` parses headings from rich-text sections, renders nested outline with click-to-scroll and IntersectionObserver active tracking. Toggleable panel on neuron page (mutual exclusion with other panels). `Ctrl+Shift+O` shortcut. `data-section-id` on SectionWrapper for scroll targeting. |
 | 11 | Hierarchical tags | P2 | TODO | | |
-| 12 | Cross-brain search | P2 | TODO | | |
-| 13 | Read-only sharing | P2 | TODO | | |
-| 14 | Plugin system | P2 | TODO | | |
-| 15 | Git-backed versioning | P2 | TODO | | |
-| 16 | OpenAPI docs | P2 | TODO | | |
+| 12 | Cross-brain search | P2 | DONE | | Search already worked globally (brainId optional). Added `brainName` and `clusterName` to `SearchResultItem` DTO. `SearchService` batch-loads brain/cluster names. Frontend shows "Brain > Cluster" breadcrumb on each search result. |
+| 13 | Read-only sharing | P2 | DONE | | `NeuronShare` entity with cryptographic token (32-byte hex via `SecureRandom`). `ShareController` at `/api/neurons/{id}/share` and `/api/shares/{token}`. Optional expiry. `ShareDialog.tsx` with generate/copy/revoke. Read-only page at `/shared/[token]` renders neuron content in view mode. V17 migration. |
+| 14 | Plugin system | P2 | WONTDO | | Deferred — architectural scope too large for current priorities. |
+| 15 | Git-backed versioning | P2 | WONTDO | | Deferred — requires JGit integration and revision backend refactor. |
+| 16 | OpenAPI docs | P2 | DONE | | `springdoc-openapi-starter-webmvc-ui:2.8.6`. `OpenApiConfig.java` with API metadata. Swagger UI auto-available at `/swagger-ui.html`, OpenAPI spec at `/api-docs`. |
 
 ## Performance Improvements
 
@@ -134,3 +134,28 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 - `extractHeadings()` walks `SectionsDocument.sections` → filters `rich-text` → parses TipTap `content.content` array for `heading` nodes.
 - Scroll targeting uses `[data-section-id]` attribute added to `SectionWrapper` root div, combined with `querySelectorAll("h1, h2, h3")` within the section.
 - `IntersectionObserver` with `rootMargin: "0px 0px -80% 0px"` highlights the currently visible heading.
+
+### Cross-Brain Search Context
+- `SearchResultItem` DTO now includes `brainName` and `clusterName` fields.
+- `SearchService` batch-loads `Brain` and `Cluster` entities for all search results in two queries (via `findAllById`), then maps IDs to names.
+- Frontend renders `brainName › clusterName` below the neuron title in each search result row.
+
+### Read-Only Sharing
+- `NeuronShare` entity stores a 64-char hex token generated via `java.security.SecureRandom` (32 bytes).
+- Tokens are looked up via `NeuronShareRepository.findByToken()` with a unique index on the `token` column.
+- Expiry is optional — `expires_at` can be null (never expires). Expired tokens return 404 via `ResourceNotFoundException`.
+- `ShareController` exposes: `POST /api/neurons/{id}/share`, `GET /api/shares/{token}` (public), `GET /api/neurons/{id}/shares`, `DELETE /api/shares/{id}`.
+- `SharedNeuronResponse` is a minimal read-only DTO: title, contentJson, tags, brainName, createdAt. No IDs exposed.
+- Frontend `ShareDialog.tsx` allows generating links with configurable expiry (1h, 24h, 7d, 30d, never), copying to clipboard, and revoking.
+- Shared page at `/shared/[token]` renders within AppShell. Uses `SectionList` with `viewMode={true}`.
+- `useNeuronShares` hook uses React Query with key `["neuron-shares", neuronId]`.
+- V17 migration creates `neuron_shares` table with cascade delete on neuron removal.
+
+### OpenAPI Documentation
+- `springdoc-openapi-starter-webmvc-ui:2.8.6` auto-discovers all `@RestController` endpoints.
+- `OpenApiConfig.java` provides API title, description, and version via `@Bean OpenAPI`.
+- Swagger UI at `/swagger-ui.html`, OpenAPI JSON at `/api-docs`.
+- No controller annotations needed — springdoc infers from `@RequestMapping`, `@GetMapping`, etc.
+
+### Flyway Migration Numbering (Updated)
+- V17 adds `neuron_shares` table. Next available migration number is **V18**.
