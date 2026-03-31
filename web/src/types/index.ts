@@ -119,6 +119,8 @@ export interface SearchResultItem {
   neuron: Neuron;
   highlight: string | null;
   rank: number;
+  brainName: string | null;
+  clusterName: string | null;
 }
 
 export interface NeuronSummary {
@@ -229,4 +231,19 @@ export interface BrainExport {
     linkType: string | null;
     weight: number | null;
   }>;
+}
+
+export interface NeuronShare {
+  id: string;
+  token: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface SharedNeuron {
+  title: string;
+  contentJson: string | null;
+  tags: Tag[];
+  brainName: string | null;
+  createdAt: string;
 }

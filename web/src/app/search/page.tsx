@@ -185,7 +185,14 @@ function SearchResultRow({ item }: { item: SearchResultItem }) {
     >
       <FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{item.neuron.title || "Untitled"}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="font-medium truncate">{item.neuron.title || "Untitled"}</p>
+        </div>
+        {(item.brainName || item.clusterName) && (
+          <p className="text-[11px] text-muted-foreground/70 truncate">
+            {[item.brainName, item.clusterName].filter(Boolean).join(" \u203A ")}
+          </p>
+        )}
         {item.highlight ? (
           <p
             className="text-xs text-muted-foreground line-clamp-2 [&_mark]:bg-yellow-200 [&_mark]:dark:bg-yellow-800 [&_mark]:rounded-sm [&_mark]:px-0.5"

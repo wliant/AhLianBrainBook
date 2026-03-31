@@ -4,7 +4,7 @@ import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap, Share2 } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
@@ -13,6 +13,7 @@ import { HistoryPanel } from "@/components/neuron/HistoryPanel";
 import { TableOfContents } from "@/components/neuron/TableOfContents";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
+import { ShareDialog } from "@/components/neuron/ShareDialog";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +52,7 @@ function NeuronPageContent({
   const [viewingRevisionDoc, setViewingRevisionDoc] = useState<SectionsDocument | null>(null);
   const [hasReminder, setHasReminder] = useState(false);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
@@ -358,6 +360,16 @@ function NeuronPageContent({
             )}
           />
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setShareDialogOpen(true)}
+          title="Share"
+          data-testid="toggle-share"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Export">
@@ -464,6 +476,11 @@ function NeuronPageContent({
         onOpenChange={setReminderDialogOpen}
         onReminderSaved={() => setHasReminder(true)}
         onReminderDeleted={() => setHasReminder(false)}
+      />
+      <ShareDialog
+        neuronId={neuronId}
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
       />
     </div>
   );
