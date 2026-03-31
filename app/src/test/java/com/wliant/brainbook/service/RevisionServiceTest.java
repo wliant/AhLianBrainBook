@@ -164,4 +164,47 @@ class RevisionServiceTest {
 
         assertThat(restored.version()).isEqualTo(neuron.version() + 1);
     }
+
+    @Test
+    void getRevision_returnsSingleRevision() {
+        NeuronResponse neuron = neuronService.create(
+                new NeuronRequest("Title", brainId, clusterId, "{\"k\":1}", "text", null, null));
+
+        RevisionResponse created = revisionService.createRevision(neuron.id());
+        RevisionResponse fetched = revisionService.getRevision(created.id());
+
+        assertThat(fetched.id()).isEqualTo(created.id());
+        assertThat(fetched.neuronId()).isEqualTo(neuron.id());
+        assertThat(fetched.revisionNumber()).isEqualTo(1);
+        assertThat(fetched.title()).isEqualTo("Title");
+    }
+
+    @Test
+    void getRevision_throwsForNonexistent() {
+        assertThatThrownBy(() -> revisionService.getRevision(UUID.randomUUID()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getRevisions_returnsNewestFirst() {
+        NeuronResponse neuron = neuronService.create(
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
+
+        revisionService.createRevision(neuron.id());
+        revisionService.createRevision(neuron.id());
+        revisionService.createRevision(neuron.id());
+
+        List<RevisionResponse> revisions = revisionService.getRevisions(neuron.id());
+
+        assertThat(revisions).hasSize(3);
+        assertThat(revisions.get(0).revisionNumber()).isEqualTo(3);
+        assertThat(revisions.get(1).revisionNumber()).isEqualTo(2);
+        assertThat(revisions.get(2).revisionNumber()).isEqualTo(1);
+    }
+
+    @Test
+    void restoreRevision_throwsForNonexistentRevision() {
+        assertThatThrownBy(() -> revisionService.restoreRevision(UUID.randomUUID()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
 }

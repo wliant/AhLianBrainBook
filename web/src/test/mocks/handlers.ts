@@ -101,6 +101,21 @@ export const handlers = [
   http.get(`${API_BASE}/api/neurons/favorites`, () => HttpResponse.json([])),
   http.get(`${API_BASE}/api/neurons/pinned`, () => HttpResponse.json([])),
 
+  // Revisions
+  http.get(`${API_BASE}/api/neurons/:neuronId/revisions`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/neurons/:neuronId/revisions`, ({ params }) =>
+    HttpResponse.json({
+      id: 'revision-1',
+      neuronId: params.neuronId,
+      revisionNumber: 1,
+      title: 'Snapshot',
+      contentJson: null,
+      contentText: null,
+      createdAt: '2024-01-01T00:00:00',
+    })
+  ),
+  http.delete(`${API_BASE}/api/revisions/:revisionId`, () => new HttpResponse(null, { status: 204 })),
+
   // Trash & Search
   http.get(`${API_BASE}/api/neurons/trash`, () => HttpResponse.json([])),
   http.get(`${API_BASE}/api/search`, () =>
