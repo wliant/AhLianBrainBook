@@ -260,7 +260,7 @@ export function Sidebar({
                   <ChevronsDownUp className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain}>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateBrain} data-testid="sidebar-create-brain-btn">
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -301,7 +301,7 @@ export function Sidebar({
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent data-testid="sidebar-dialog">
           <DialogHeader>
             <DialogTitle>
               {dialogMode === "create-brain" && "New Brain"}
@@ -316,9 +316,10 @@ export function Sidebar({
             onChange={(e) => setDialogValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleDialogSubmit()}
             autoFocus
+            data-testid="sidebar-dialog-input"
           />
           <DialogFooter>
-            <Button onClick={handleDialogSubmit}>
+            <Button onClick={handleDialogSubmit} data-testid="sidebar-dialog-submit">
               {dialogMode.startsWith("create") ? "Create" : "Save"}
             </Button>
           </DialogFooter>
@@ -339,6 +340,7 @@ export function Sidebar({
 
       {/* Sidebar */}
       <aside
+        data-testid="sidebar"
         className={cn(
           "flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
           // Desktop: static sidebar with collapse
@@ -414,12 +416,13 @@ function BrainItem({
   return (
     <div>
       <div
+        data-testid={`sidebar-brain-${brain.id}`}
         className={cn(
           "group flex items-center rounded-md px-2 py-1.5 text-sm",
           isActive && "bg-sidebar-accent"
         )}
       >
-        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded">
+        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded" data-testid={`sidebar-brain-toggle-${brain.id}`}>
           <ChevronRight
             className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-90")}
           />
@@ -434,17 +437,17 @@ function BrainItem({
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent rounded">
+            <button className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent rounded" data-testid={`sidebar-brain-menu-${brain.id}`}>
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onCreateCluster}>
+            <DropdownMenuItem onClick={onCreateCluster} data-testid={`sidebar-brain-new-cluster-${brain.id}`}>
               <Plus className="mr-2 h-3.5 w-3.5" /> New Cluster
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onClick={onRename} data-testid={`sidebar-brain-rename-${brain.id}`}>Rename</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
+            <DropdownMenuItem onClick={onDelete} className="text-destructive" data-testid={`sidebar-brain-delete-${brain.id}`}>
               <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -505,12 +508,13 @@ function ClusterItem({
   return (
     <div>
       <div
+        data-testid={`sidebar-cluster-${cluster.id}`}
         className={cn(
           "flex items-center rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
           isActive && !activeNeuronId && "bg-sidebar-accent font-medium"
         )}
       >
-        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded">
+        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded" data-testid={`sidebar-cluster-toggle-${cluster.id}`}>
           <ChevronRight
             className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
           />
@@ -545,6 +549,7 @@ function ClusterItem({
             <Link
               key={neuron.id}
               href={`/brain/${brainId}/cluster/${cluster.id}/neuron/${neuron.id}`}
+              data-testid={`sidebar-neuron-${neuron.id}`}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
                 activeNeuronId === neuron.id && "bg-sidebar-accent font-medium"

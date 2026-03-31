@@ -210,7 +210,7 @@ function NeuronPageContent({
     : breadcrumbItems;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-testid="neuron-editor-page">
       <Breadcrumb items={neuronBreadcrumbs} />
       <div className="flex items-center gap-2 border-b px-3 sm:px-6 py-2">
         {!viewMode && <SaveStatusIndicator status={saveStatus} />}
@@ -221,6 +221,7 @@ function NeuronPageContent({
           className="h-7 w-7"
           onClick={toggleViewMode}
           title={viewMode ? "Switch to Edit" : "Switch to View"}
+          data-testid="toggle-view-mode"
         >
           {viewMode ? (
             <Pencil className="h-4 w-4" />
@@ -234,6 +235,7 @@ function NeuronPageContent({
           className="h-7 w-7"
           onClick={toggleFavorite}
           title="Toggle Favorite"
+          data-testid="toggle-favorite"
         >
           <Star
             className={cn(
@@ -248,6 +250,7 @@ function NeuronPageContent({
           className="h-7 w-7"
           onClick={togglePin}
           title="Toggle Pin"
+          data-testid="toggle-pin"
         >
           <Pin
             className={cn(
@@ -262,6 +265,7 @@ function NeuronPageContent({
           className="h-7 w-7"
           onClick={() => setReminderDialogOpen(true)}
           title="Set Reminder"
+          data-testid="toggle-reminder"
         >
           <Bell
             className={cn(
@@ -276,6 +280,7 @@ function NeuronPageContent({
           className="h-7 w-7"
           onClick={toggleHistory}
           title="Toggle History"
+          data-testid="toggle-history"
         >
           <History
             className={cn(
@@ -290,6 +295,7 @@ function NeuronPageContent({
           className="h-7 w-7"
           onClick={toggleLinks}
           title="Toggle Connections"
+          data-testid="toggle-connections"
         >
           <Link2
             className={cn(
@@ -306,6 +312,7 @@ function NeuronPageContent({
               <button
                 onClick={() => { setViewingRevision(null); setViewingRevisionDoc(null); }}
                 className="w-full mb-4 px-3 py-2 text-sm bg-muted rounded-md text-muted-foreground hover:bg-muted/80 text-left"
+                data-testid="revision-banner"
               >
                 Viewing revision #{viewingRevision.revisionNumber} — click to dismiss
               </button>
@@ -337,6 +344,7 @@ function NeuronPageContent({
                   onChange={handleTitleChange}
                   placeholder="Untitled"
                   className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
+                  data-testid="neuron-title-input"
                 />
               )}
               <SectionList
@@ -403,7 +411,7 @@ export default function NeuronPage({
 function SaveStatusIndicator({ status }: { status: SaveStatus }) {
   if (status === "idle") return null;
   return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="save-status">
       {status === "saving" && (
         <>
           <Loader2 className="h-3 w-3 animate-spin" />

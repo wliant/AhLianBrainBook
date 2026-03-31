@@ -52,7 +52,7 @@ export function HistoryPanel({
   };
 
   return (
-    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0">
+    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0" data-testid="history-panel">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm">History</h3>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
@@ -66,6 +66,7 @@ export function HistoryPanel({
           size="sm"
           className="w-full justify-start gap-2"
           onClick={() => createSnapshot()}
+          data-testid="create-snapshot-btn"
         >
           <Plus className="h-3.5 w-3.5" /> Create Snapshot
         </Button>
@@ -85,6 +86,7 @@ export function HistoryPanel({
         {revisions.map((rev) => (
           <div
             key={rev.id}
+            data-testid={`revision-${rev.id}`}
             className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-accent text-sm"
           >
             <div className="flex-1 min-w-0">
@@ -99,6 +101,7 @@ export function HistoryPanel({
               onClick={() => onViewRevision(rev)}
               className="p-1 hover:bg-muted rounded opacity-0 group-hover:opacity-100"
               title="View"
+              data-testid={`view-revision-${rev.id}`}
             >
               <Eye className="h-3 w-3 text-muted-foreground" />
             </button>
@@ -106,6 +109,7 @@ export function HistoryPanel({
               onClick={() => setConfirmRestore(rev)}
               className="p-1 hover:bg-muted rounded opacity-0 group-hover:opacity-100"
               title="Restore"
+              data-testid={`restore-revision-${rev.id}`}
             >
               <Undo2 className="h-3 w-3 text-muted-foreground" />
             </button>
@@ -121,7 +125,7 @@ export function HistoryPanel({
       </div>
 
       <Dialog open={!!confirmRestore} onOpenChange={(open) => !open && setConfirmRestore(null)}>
-        <DialogContent>
+        <DialogContent data-testid="confirm-restore-dialog">
           <DialogHeader>
             <DialogTitle>Restore Revision</DialogTitle>
             <DialogDescription>

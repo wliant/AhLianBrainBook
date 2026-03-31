@@ -49,3 +49,49 @@ jobs:
       - name: Build
         working-directory: web
         run: npm run build
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start infrastructure
+        run: docker compose -f docker-compose.infra.yml up -d --wait
+
+      - name: Build and start application
+        run: docker compose -f docker-compose.infra.yml -f docker-compose.app.yml up -d --build --wait
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install E2E dependencies
+        working-directory: e2e-test
+        run: |
+          uv sync
+          uv run playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: e2e-test
+        env:
+          BASE_URL: http://localhost:13000
+          API_URL: http://localhost:18080
+          MINIO_ENDPOINT: localhost:19000
+          MINIO_ACCESS_KEY: brainbook
+          MINIO_SECRET_KEY: brainbook123
+          MINIO_BUCKET: brainbook-attachments
+          MINIO_SECURE: "false"
+        run: uv run pytest --tb=short -v
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: e2e-test/test-results/
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose -f docker-compose.infra.yml -f docker-compose.app.yml down -v

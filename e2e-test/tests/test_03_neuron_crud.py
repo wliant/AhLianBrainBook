@@ -7,40 +7,35 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from helpers.api_client import BrainBookAPI
-from helpers.page_helpers import navigate
-
-BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
+from helpers.page_helpers import navigate, navigate_to_neuron, navigate_to_cluster, wait_for_save, unique_name
 
 
 class TestNeuronCreateViaBrowser:
     def test_create_neuron_from_cluster_page(self, home: Page, api: BrainBookAPI, brain_with_cluster):
         brain, cluster = brain_with_cluster
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_cluster(page, brain["id"], cluster["id"])
 
         # Empty state should show
         expect(page.get_by_text("No neurons yet")).to_be_visible()
 
-        page.get_by_role("button", name="New Neuron").click()
+        page.get_by_test_id("new-neuron-btn").click()
         page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(1000)
 
         # Should navigate to editor page
-        assert "/neuron/" in page.url
+        expect(page).to_have_url(lambda url: "/neuron/" in url, timeout=5000)
 
         # Title input should be visible with placeholder
-        expect(page.get_by_placeholder("Untitled")).to_be_visible()
+        expect(page.get_by_test_id("neuron-title-input")).to_be_visible(timeout=5000)
 
     def test_new_neuron_appears_in_cluster_list(self, home: Page, api: BrainBookAPI, brain_with_cluster):
         brain, cluster = brain_with_cluster
-        neuron = api.create_neuron("Listed Neuron", brain["id"], cluster["id"])
+        neuron = api.create_neuron(unique_name("Listed Neuron"), brain["id"], cluster["id"])
 
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_cluster(page, brain["id"], cluster["id"])
 
-        expect(page.get_by_text("Listed Neuron")).to_be_visible()
+        expect(page.get_by_text(neuron["title"])).to_be_visible(timeout=5000)
 
         api.permanent_delete_neuron(neuron["id"])
 
@@ -49,15 +44,14 @@ class TestNeuronEditorViaBrowser:
     def test_edit_title(self, home: Page, api: BrainBookAPI, neuron_in_cluster):
         brain, cluster, neuron = neuron_in_cluster
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
 
-        title_input = page.get_by_placeholder("Untitled")
+        title_input = page.get_by_test_id("neuron-title-input")
         title_input.clear()
         title_input.fill("Updated Title")
 
-        # Wait for auto-save (1.5s debounce + network)
-        page.wait_for_timeout(3000)
+        # Wait for auto-save using the Saved indicator
+        wait_for_save(page)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["title"] == "Updated Title"
@@ -65,15 +59,14 @@ class TestNeuronEditorViaBrowser:
     def test_edit_content_autosaves(self, home: Page, api: BrainBookAPI, neuron_in_cluster):
         brain, cluster, neuron = neuron_in_cluster
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
 
         editor = page.locator(".ProseMirror")
         editor.click()
         editor.type("Hello E2E Test Content")
 
-        # Wait for debounced save
-        page.wait_for_timeout(3000)
+        # Wait for debounced save using the Saved indicator
+        wait_for_save(page)
 
         updated = api.get_neuron(neuron["id"])
         assert "Hello E2E Test Content" in (updated.get("contentText") or "")
@@ -81,31 +74,31 @@ class TestNeuronEditorViaBrowser:
     def test_save_status_indicator_shows_saved(self, home: Page, neuron_in_cluster):
         brain, cluster, neuron = neuron_in_cluster
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
 
         editor = page.locator(".ProseMirror")
         editor.click()
         editor.type("Trigger save")
 
-        expect(page.get_by_text("Saved")).to_be_visible(timeout=10000)
+        wait_for_save(page)
 
 
 class TestNeuronFavoriteViaBrowser:
     def test_toggle_favorite(self, home: Page, api: BrainBookAPI, neuron_in_cluster):
         brain, cluster, neuron = neuron_in_cluster
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
 
-        page.get_by_title("Toggle Favorite").click()
-        page.wait_for_timeout(500)
+        page.get_by_test_id("toggle-favorite").click()
+        # Wait for the API call to complete by checking server state
+        expect(page.get_by_test_id("toggle-favorite")).to_be_visible()
+        page.wait_for_timeout(300)  # minimal wait for API round-trip
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isFavorite"] is True
 
-        page.get_by_title("Toggle Favorite").click()
-        page.wait_for_timeout(500)
+        page.get_by_test_id("toggle-favorite").click()
+        page.wait_for_timeout(300)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isFavorite"] is False
@@ -115,17 +108,16 @@ class TestNeuronPinViaBrowser:
     def test_toggle_pin(self, home: Page, api: BrainBookAPI, neuron_in_cluster):
         brain, cluster, neuron = neuron_in_cluster
         page = home
-        page.goto(f"{BASE_URL}/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}")
-        page.wait_for_load_state("networkidle")
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
 
-        page.get_by_title("Toggle Pin").click()
-        page.wait_for_timeout(500)
+        page.get_by_test_id("toggle-pin").click()
+        page.wait_for_timeout(300)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isPinned"] is True
 
-        page.get_by_title("Toggle Pin").click()
-        page.wait_for_timeout(500)
+        page.get_by_test_id("toggle-pin").click()
+        page.wait_for_timeout(300)
 
         updated = api.get_neuron(neuron["id"])
         assert updated["isPinned"] is False
@@ -134,16 +126,16 @@ class TestNeuronPinViaBrowser:
 class TestNeuronClickThrough:
     def test_neuron_click_through_to_editor(self, page: Page, api: BrainBookAPI, brain_with_cluster):
         brain, cluster = brain_with_cluster
-        neuron = api.create_neuron("Click Through Neuron", brain["id"], cluster["id"])
+        neuron = api.create_neuron(unique_name("Click Through Neuron"), brain["id"], cluster["id"])
 
         # Verify link exists on cluster page
-        navigate(page, f"/brain/{brain['id']}/cluster/{cluster['id']}")
+        navigate_to_cluster(page, brain["id"], cluster["id"])
         link = page.locator(f"a[href*='/neuron/{neuron['id']}']")
         expect(link).to_be_visible()
 
         # Navigate directly to editor
-        navigate(page, f"/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}")
-        expect(page.get_by_placeholder("Untitled")).to_have_value("Click Through Neuron")
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
+        expect(page.get_by_test_id("neuron-title-input")).to_have_value(neuron["title"])
 
         api.permanent_delete_neuron(neuron["id"])
 
@@ -152,10 +144,10 @@ class TestNeuronAPIOperations:
     def test_optimistic_locking_conflict(self, api: BrainBookAPI, neuron_in_cluster):
         _, _, neuron = neuron_in_cluster
 
-        r1 = api.update_neuron_content(neuron["id"], '{"type":"doc"}', "content v1", neuron["version"])
+        r1 = api.update_neuron_content_raw(neuron["id"], '{"type":"doc"}', "content v1", neuron["version"])
         assert r1.status_code == 200
 
-        r2 = api.update_neuron_content(neuron["id"], '{"type":"doc"}', "content v2", neuron["version"])
+        r2 = api.update_neuron_content_raw(neuron["id"], '{"type":"doc"}', "content v2", neuron["version"])
         assert r2.status_code == 409
 
     def test_duplicate_neuron(self, api: BrainBookAPI, neuron_in_cluster):
@@ -169,11 +161,11 @@ class TestNeuronAPIOperations:
         api.permanent_delete_neuron(dup["id"])
 
     def test_move_neuron(self, api: BrainBookAPI):
-        brain_a = api.create_brain("Neuron Move A")
-        brain_b = api.create_brain("Neuron Move B")
-        cluster_a = api.create_cluster("Cluster A", brain_a["id"])
-        cluster_b = api.create_cluster("Cluster B", brain_b["id"])
-        neuron = api.create_neuron("Movable", brain_a["id"], cluster_a["id"])
+        brain_a = api.create_brain(unique_name("Neuron Move A"))
+        brain_b = api.create_brain(unique_name("Neuron Move B"))
+        cluster_a = api.create_cluster(unique_name("Cluster A"), brain_a["id"])
+        cluster_b = api.create_cluster(unique_name("Cluster B"), brain_b["id"])
+        neuron = api.create_neuron(unique_name("Movable"), brain_a["id"], cluster_a["id"])
 
         try:
             api.move_neuron(neuron["id"], brain_b["id"], cluster_b["id"])

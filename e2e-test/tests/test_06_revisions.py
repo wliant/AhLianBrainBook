@@ -13,12 +13,10 @@ class TestRevisionHistory:
 
         # Make several content updates
         content_v1 = json.dumps({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Version 1"}]}]})
-        r = api.update_neuron_content(neuron["id"], content_v1, "Version 1", neuron["version"])
-        assert r.status_code == 200
+        api.update_neuron_content(neuron["id"], content_v1, "Version 1", neuron["version"])
 
         content_v2 = json.dumps({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Version 2"}]}]})
-        r = api.update_neuron_content(neuron["id"], content_v2, "Version 2", neuron["version"] + 1)
-        assert r.status_code == 200
+        api.update_neuron_content(neuron["id"], content_v2, "Version 2", neuron["version"] + 1)
 
         # Check revisions exist
         revisions = api.list_revisions(neuron["id"])
@@ -43,16 +41,14 @@ class TestRevisionHistory:
 
         # Create content
         original_content = json.dumps({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Original"}]}]})
-        r = api.update_neuron_content(neuron["id"], original_content, "Original", neuron["version"])
-        assert r.status_code == 200
-        version_after = r.json()["version"]
+        result = api.update_neuron_content(neuron["id"], original_content, "Original", neuron["version"])
+        version_after = result["version"]
 
         revisions = api.list_revisions(neuron["id"])
         if len(revisions) > 0:
             # Update content again
             new_content = json.dumps({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Changed"}]}]})
-            r2 = api.update_neuron_content(neuron["id"], new_content, "Changed", version_after)
-            assert r2.status_code == 200
+            api.update_neuron_content(neuron["id"], new_content, "Changed", version_after)
 
             # Restore to first revision
             restored = api.restore_revision(revisions[-1]["id"])

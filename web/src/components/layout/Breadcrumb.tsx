@@ -12,7 +12,7 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <nav className="flex items-center gap-1 text-sm text-muted-foreground px-3 sm:px-6 py-2 border-b overflow-x-auto">
+    <nav className="flex items-center gap-1 text-sm text-muted-foreground px-3 sm:px-6 py-2 border-b overflow-x-auto" data-testid="breadcrumb">
       {items.map((item, i) => (
         <span key={item.href} className="flex items-center gap-1 shrink-0">
           {i > 0 && <ChevronRight className="h-3 w-3" />}

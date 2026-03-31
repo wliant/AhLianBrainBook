@@ -15,6 +15,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--tracing=retain-on-failure --screenshot=on --output=test-results"
 markers = [
     "browser: tests that interact with the browser UI",
     "api: tests that interact with the backend API directly",

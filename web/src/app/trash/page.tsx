@@ -49,13 +49,14 @@ export default function TrashPage() {
             <div
               key={neuron.id}
               className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent"
+              data-testid={`trash-item-${neuron.id}`}
             >
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="flex-1 truncate">{neuron.title || "Untitled"}</span>
-              <Button size="sm" variant="ghost" onClick={() => handleRestore(neuron.id)}>
+              <Button size="sm" variant="ghost" onClick={() => handleRestore(neuron.id)} data-testid={`trash-restore-${neuron.id}`}>
                 <RotateCcw className="h-3.5 w-3.5 mr-1" /> Restore
               </Button>
-              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handlePermanentDelete(neuron.id)}>
+              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handlePermanentDelete(neuron.id)} data-testid={`trash-delete-${neuron.id}`}>
                 <X className="h-3.5 w-3.5 mr-1" /> Delete
               </Button>
             </div>

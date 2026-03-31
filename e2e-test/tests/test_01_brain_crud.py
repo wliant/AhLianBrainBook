@@ -1,13 +1,12 @@
 """E2E tests for Brain CRUD operations via browser."""
 
-import os
+import warnings
 
 import pytest
 from playwright.sync_api import Page, expect
 
 from helpers.api_client import BrainBookAPI
-
-BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
+from helpers.page_helpers import navigate, unique_name
 
 
 @pytest.fixture
@@ -18,27 +17,24 @@ def cleanup_brains(api: BrainBookAPI):
     for brain_id in created:
         try:
             api.delete_brain(brain_id)
-        except Exception:
-            pass
+        except Exception as e:
+            warnings.warn(f"Cleanup failed for brain {brain_id}: {e}")
 
 
 class TestBrainCreateViaBrowser:
     def test_create_brain_from_sidebar(self, home: Page, api: BrainBookAPI, cleanup_brains: list):
         page = home
-        # The plus button is next to the "Brains" label
-        brains_section = page.locator("text=Brains").locator("..")
-        add_btn = brains_section.get_by_role("button")
-        add_btn.click()
+        page.get_by_test_id("sidebar-create-brain-btn").click()
 
         # Dialog should appear with "New Brain" title
-        expect(page.get_by_text("New Brain")).to_be_visible()
+        expect(page.get_by_test_id("sidebar-dialog")).to_be_visible(timeout=5000)
+        expect(page.get_by_text("New Brain")).to_be_visible(timeout=3000)
 
-        brain_name = "Browser Created Brain"
-        page.get_by_placeholder("Name...").fill(brain_name)
-        page.get_by_role("button", name="Create").click()
+        brain_name = unique_name("Browser Created Brain")
+        page.get_by_test_id("sidebar-dialog-input").fill(brain_name)
+        page.get_by_test_id("sidebar-dialog-submit").click()
 
-        page.wait_for_timeout(500)
-        expect(page.get_by_text(brain_name)).to_be_visible()
+        expect(page.get_by_text(brain_name)).to_be_visible(timeout=5000)
 
         # Verify via API
         brains = api.list_brains()
@@ -48,16 +44,13 @@ class TestBrainCreateViaBrowser:
 
     def test_create_brain_via_enter_key(self, home: Page, api: BrainBookAPI, cleanup_brains: list):
         page = home
-        brains_section = page.locator("text=Brains").locator("..")
-        add_btn = brains_section.get_by_role("button")
-        add_btn.click()
+        page.get_by_test_id("sidebar-create-brain-btn").click()
 
-        brain_name = "Enter Key Brain"
-        page.get_by_placeholder("Name...").fill(brain_name)
-        page.get_by_placeholder("Name...").press("Enter")
+        brain_name = unique_name("Enter Key Brain")
+        page.get_by_test_id("sidebar-dialog-input").fill(brain_name)
+        page.get_by_test_id("sidebar-dialog-input").press("Enter")
 
-        page.wait_for_timeout(500)
-        expect(page.get_by_text(brain_name)).to_be_visible()
+        expect(page.get_by_text(brain_name)).to_be_visible(timeout=5000)
 
         brains = api.list_brains()
         created = [b for b in brains if b["name"] == brain_name]
@@ -68,64 +61,50 @@ class TestBrainCreateViaBrowser:
 class TestBrainRenameViaBrowser:
     def test_rename_brain(self, home: Page, api: BrainBookAPI, cleanup_brains: list):
         page = home
-        brain = api.create_brain("Brain To Rename")
+        brain = api.create_brain(unique_name("Brain To Rename"))
         cleanup_brains.append(brain["id"])
 
         page.reload()
         page.wait_for_load_state("networkidle")
 
-        # Find the brain item container in sidebar and hover to reveal menu
-        brain_link = page.get_by_role("link", name="Brain To Rename")
-        brain_container = brain_link.locator("..")
-        brain_container.hover()
-
-        # The more button is the last button in the brain item group (dropdown trigger)
-        # It becomes visible on hover via group-hover:opacity-100
-        more_btn = brain_container.locator("button").last
-        more_btn.click(force=True)
+        # Open the brain context menu via data-testid
+        menu_btn = page.get_by_test_id(f"sidebar-brain-menu-{brain['id']}")
+        menu_btn.click(force=True)
 
         # Click Rename in dropdown
-        page.get_by_role("menuitem", name="Rename").click()
+        page.get_by_test_id(f"sidebar-brain-rename-{brain['id']}").click()
 
         # Dialog with "Rename Brain" title
-        expect(page.get_by_text("Rename Brain")).to_be_visible()
-        name_input = page.get_by_placeholder("Name...")
+        expect(page.get_by_text("Rename Brain")).to_be_visible(timeout=5000)
+        name_input = page.get_by_test_id("sidebar-dialog-input")
         name_input.clear()
-        name_input.fill("Renamed Brain")
-        page.get_by_role("button", name="Save").click()
+        renamed = unique_name("Renamed Brain")
+        name_input.fill(renamed)
+        page.get_by_test_id("sidebar-dialog-submit").click()
 
-        page.wait_for_timeout(500)
-        expect(page.get_by_text("Renamed Brain")).to_be_visible()
+        expect(page.get_by_text(renamed)).to_be_visible(timeout=5000)
 
         # Verify via API
         updated = api.get_brain(brain["id"])
-        assert updated["name"] == "Renamed Brain"
+        assert updated["name"] == renamed
 
 
 class TestBrainDeleteViaBrowser:
     def test_delete_brain(self, api: BrainBookAPI, page: Page):
-        brain = api.create_brain("Brain To Delete")
+        brain = api.create_brain(unique_name("Brain To Delete"))
 
-        page.goto(BASE_URL)
-        page.wait_for_load_state("networkidle")
+        navigate(page, "/")
 
-        sidebar = page.locator("aside")
-        brain_link = sidebar.locator(f"a[href='/brain/{brain['id']}']")
-        expect(brain_link).to_be_visible()
+        brain_item = page.get_by_test_id(f"sidebar-brain-{brain['id']}")
+        expect(brain_item).to_be_visible(timeout=5000)
 
-        brain_row = brain_link.locator("..")
-        brain_row.hover()
-        page.wait_for_timeout(300)
+        # Open the brain context menu
+        menu_btn = page.get_by_test_id(f"sidebar-brain-menu-{brain['id']}")
+        menu_btn.click(force=True)
 
-        # The dropdown trigger button has opacity-0 by default, visible on hover
-        more_btn = brain_row.locator("button:nth-child(3)")
-        more_btn.click(force=True)
-        page.wait_for_timeout(300)
+        page.get_by_test_id(f"sidebar-brain-delete-{brain['id']}").click()
 
-        page.get_by_role("menuitem", name="Delete").click()
-
-        page.wait_for_timeout(500)
-        expect(brain_link).not_to_be_visible()
+        expect(brain_item).not_to_be_visible(timeout=5000)
 
         brains = api.list_brains()
         assert not any(b["id"] == brain["id"] for b in brains)
@@ -133,7 +112,7 @@ class TestBrainDeleteViaBrowser:
 
 class TestBrainArchiveViaAPI:
     def test_archive_and_restore_brain(self, api: BrainBookAPI):
-        brain = api.create_brain("Archive Test Brain")
+        brain = api.create_brain(unique_name("Archive Test Brain"))
         try:
             archived = api.archive_brain(brain["id"])
             assert archived["isArchived"] is True
@@ -152,9 +131,9 @@ class TestBrainArchiveViaAPI:
 
 class TestBrainReorderViaAPI:
     def test_reorder_brains(self, api: BrainBookAPI):
-        b1 = api.create_brain("Reorder A")
-        b2 = api.create_brain("Reorder B")
-        b3 = api.create_brain("Reorder C")
+        b1 = api.create_brain(unique_name("Reorder A"))
+        b2 = api.create_brain(unique_name("Reorder B"))
+        b3 = api.create_brain(unique_name("Reorder C"))
         try:
             api.reorder_brains([b3["id"], b1["id"], b2["id"]])
 
@@ -169,5 +148,5 @@ class TestBrainReorderViaAPI:
             for b in [b1, b2, b3]:
                 try:
                     api.delete_brain(b["id"])
-                except Exception:
-                    pass
+                except Exception as e:
+                    warnings.warn(f"Cleanup failed for brain {b['id']}: {e}")

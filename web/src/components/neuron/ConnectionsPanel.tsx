@@ -32,7 +32,7 @@ export function ConnectionsPanel({
   };
 
   return (
-    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0">
+    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0" data-testid="connections-panel">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm">Connections</h3>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
@@ -46,6 +46,7 @@ export function ConnectionsPanel({
           size="sm"
           className="w-full justify-start gap-2"
           onClick={() => setDialogOpen(true)}
+          data-testid="add-link-btn"
         >
           <Plus className="h-3.5 w-3.5" /> Add Link
         </Button>
@@ -129,7 +130,7 @@ function LinkItem({
   const linkedNeuronId = isOutgoing ? link.targetNeuronId : link.sourceNeuronId;
 
   return (
-    <div className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-accent text-sm">
+    <div className="group flex items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-accent text-sm" data-testid={`link-item-${link.id}`}>
       {isOutgoing ? (
         <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
       ) : (
@@ -154,6 +155,7 @@ function LinkItem({
       <button
         onClick={(e) => { e.preventDefault(); onDelete(); }}
         className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-destructive/10 rounded"
+        data-testid={`delete-link-${link.id}`}
       >
         <X className="h-3 w-3 text-muted-foreground" />
       </button>
