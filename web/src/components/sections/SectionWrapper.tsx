@@ -1,7 +1,7 @@
 "use client";
 
 import type { Section } from "@/types";
-import { ChevronUp, ChevronDown, Trash2, GripVertical, Eye, Pencil } from "lucide-react";
+import { ChevronUp, ChevronDown, Trash2, GripVertical, Eye, Pencil, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -24,6 +24,7 @@ interface SectionWrapperProps {
   onMoveDown: () => void;
   onDelete: () => void;
   onTogglePreview?: () => void;
+  onAiAssist?: () => void;
   viewMode?: boolean;
   children: React.ReactNode;
 }
@@ -36,6 +37,7 @@ export function SectionWrapper({
   onMoveDown,
   onDelete,
   onTogglePreview,
+  onAiAssist,
   viewMode,
   children,
 }: SectionWrapperProps) {
@@ -58,6 +60,16 @@ export function SectionWrapper({
               title={isPreview ? "Switch to Edit" : "Switch to Preview"}
             >
               {isPreview ? <Pencil className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </button>
+          )}
+          {onAiAssist && (
+            <button
+              onClick={onAiAssist}
+              className="p-0.5 text-muted-foreground hover:text-purple-500"
+              title="AI Assist"
+              data-testid="ai-assist-btn"
+            >
+              <Sparkles className="h-3 w-3" />
             </button>
           )}
           <button

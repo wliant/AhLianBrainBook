@@ -108,7 +108,7 @@ function extractSectionText(section: Section): string {
   }
 }
 
-function extractTiptapText(content: Record<string, unknown>): string {
+export function extractTiptapText(content: Record<string, unknown>): string {
   if (!content) return "";
   const items = content.content as Array<Record<string, unknown>> | undefined;
   if (!items) return "";
