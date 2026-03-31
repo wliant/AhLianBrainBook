@@ -197,14 +197,30 @@ All lists render every item in the DOM. Neuron lists, sidebar brain/cluster tree
 
 ### P1 -- Important
 
-#### 4. N+1 Query Risk
+#### 4. N+1 Query in `NeuronService.toResponse()`
 
-`SearchService` and `ThoughtService.resolveNeurons()` fetch neurons then load related tags per-neuron. This creates N+1 queries when results are large.
+Every call to `toResponse(Neuron)` in `NeuronService` (line ~255) calls `tagService.getTagsForNeuron(neuron.getId())`, executing a separate DB query per neuron. List endpoints like `getByClusterId`, `getRecent`, `getFavorites`, `getTrash`, and `search` all trigger this -- a cluster with 50 neurons causes 51 queries. The same pattern exists in `ImportExportService.exportBrain()` (line ~74).
 
 **Recommendation:**
-- Use `JOIN FETCH` in JPQL or batch-fetch tags via `WHERE neuron_id IN (...)` in a single query
-- For search: build a single native query that joins `neuron_tags` and `tags` tables
-- Audit all service methods that return collections of neurons for lazy-loading traps
+- Add a repository method `findTagsByNeuronIdIn(Collection<UUID> neuronIds)` for batch fetching
+- Replace per-neuron tag loading with a single `WHERE neuron_id IN (...)` query, then map in Java
+- Audit `ThoughtService.resolveNeurons()` for the same pattern
+
+#### 4b. Search Pagination is Broken
+
+`SearchService` (lines ~37-47) fetches a page from the DB, then applies brain/cluster/tag filters **in Java**. This means: (a) results may be fewer than the requested page size, (b) `totalElements` count is wrong, (c) if most results are filtered out, the user sees empty pages even when matches exist.
+
+**Recommendation:**
+- Push all filters into the SQL query as WHERE clauses with optional joins on `neuron_tags` and `brain_tags`
+- Add `ts_rank` for relevance ordering and `ts_headline` for highlighted snippets in the same query
+
+#### 4c. BrainStatsService Loads All Neurons into Memory
+
+`BrainStatsService.getStats()` (line ~36) loads ALL neurons and ALL links for a brain into memory, then computes counts, complexity breakdown, and top-5 lists in Java.
+
+**Recommendation:**
+- Replace with aggregate SQL queries: `SELECT COUNT(*)`, `GROUP BY complexity`, `ORDER BY COUNT DESC LIMIT 5`
+- Use SQL `LIMIT 5` for recently-edited neurons instead of fetching all and streaming
 
 #### 5. Notification Polling Overhead
 
@@ -226,9 +242,10 @@ The backend sends no `Cache-Control`, `ETag`, or `Last-Modified` headers. The br
 
 `GraphCanvas.tsx` loads ALL neurons and ALL links for an entire brain at once. Dagre layout computation is O(V + E).
 
-**Impact:** A brain with 500+ neurons and 1000+ links will freeze the UI during layout computation and overwhelm the SVG renderer.
+**Impact:** A brain with 500+ neurons and 1000+ links will freeze the UI during layout computation and overwhelm the SVG renderer. Additionally, the `useMemo` dependencies include `focusedNode`, so changing focus re-runs the entire dagre layout (`applyClusteredLayout`) even though focus is a visual property, not a layout change.
 
 **Recommendation:**
+- Separate layout computation from focus/dimming state -- only recalculate layout when node/edge data changes, not on focus toggle
 - Show cluster-level overview by default (one node per cluster, edges = inter-cluster links)
 - Click to expand a cluster and show its neurons
 - For 1000+ nodes, switch to a WebGL renderer (e.g., `sigma.js` or `@xyflow/react` with a canvas renderer)
@@ -264,7 +281,15 @@ Uploaded images are served as-is (original resolution, original format). No thum
 - Generate thumbnails on upload (server-side) for list previews
 - Consider on-the-fly WebP conversion via an image proxy
 
-#### 11. TipTap Editor Re-initialization
+#### 11. No Response Compression
+No gzip/brotli compression configured. JSONB neuron content can be large, especially with rich sections and code blocks.
+
+**Recommendation:**
+- Add `server.compression.enabled: true` to `application.yml`
+- Configure mime types: `application/json`, `text/html`, `text/plain`
+- Set minimum response size: `server.compression.min-response-size: 1024`
+
+#### 12. TipTap Editor Re-initialization
 The TipTap editor is fully re-created (all extensions re-initialized) on every neuron navigation instead of reusing the instance.
 
 **Recommendation:**
@@ -297,11 +322,14 @@ The TipTap editor is fully re-created (all extensions re-initialized) on every n
 | P-1 | Client-side caching (React Query) | Performance | P0 | Medium |
 | P-2 | Server-side caching (Caffeine) | Performance | P0 | Medium |
 | P-3 | List virtualization | Performance | P0 | Medium |
-| P-4 | N+1 query elimination | Performance | P1 | Medium |
+| P-4 | N+1 query in NeuronService.toResponse() | Performance | P1 | Medium |
+| P-4b | Search pagination broken (Java-side filtering) | Performance | P1 | Medium |
+| P-4c | BrainStatsService loads all neurons into memory | Performance | P1 | Small |
 | P-5 | SSE notifications | Performance | P1 | Medium |
 | P-6 | HTTP caching headers | Performance | P1 | Small |
-| P-7 | Graph rendering at scale | Performance | P1 | Large |
+| P-7 | Graph rendering at scale + layout on focus | Performance | P1 | Large |
 | P-8 | Monaco bundle size | Performance | P1 | Medium |
 | P-9 | Connection pool tuning | Performance | P2 | Small |
 | P-10 | Image optimization | Performance | P2 | Medium |
-| P-11 | Editor instance reuse | Performance | P2 | Small |
+| P-11 | Response compression (gzip) | Performance | P2 | Small |
+| P-12 | Editor instance reuse | Performance | P2 | Small |
