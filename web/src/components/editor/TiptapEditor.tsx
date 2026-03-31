@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -25,6 +25,30 @@ import type { SectionType } from "@/types";
 
 const lowlight = createLowlight(common);
 
+// Static extensions cached at module level to avoid re-creation on each render
+const STATIC_EXTENSIONS = [
+  StarterKit.configure({ codeBlock: false }),
+  Underline,
+  LinkExtension.configure({
+    openOnClick: false,
+    HTMLAttributes: { class: "text-primary underline cursor-pointer" },
+  }),
+  Image.configure({
+    HTMLAttributes: { class: "max-w-full rounded-lg", loading: "lazy", decoding: "async" },
+  }),
+  Table.configure({ resizable: true }),
+  TableRow,
+  TableCell,
+  TableHeader,
+  InlineCheckbox,
+  Placeholder.configure({
+    placeholder: "Start writing... Use / for commands",
+  }),
+  Highlight,
+  CodeBlockLowlight.configure({ lowlight }),
+  Typography,
+];
+
 interface TiptapEditorProps {
   content: Record<string, unknown> | null;
   onUpdate: (json: Record<string, unknown>, text: string) => void;
@@ -36,45 +60,27 @@ interface TiptapEditorProps {
 
 export function TiptapEditor({ content, onUpdate, editable = true, onInsertSection, brainId, editorMode }: TiptapEditorProps) {
   const router = useRouter();
+  const isExternalUpdate = useRef(false);
+  const contentRef = useRef(content);
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+
+  const extensions = useMemo(() => [
+    ...STATIC_EXTENSIONS,
+    SlashCommand.configure({ onInsertSection }),
+    WikiLink.configure({ brainId }),
+    ...(editorMode === "vim" ? [VimMode] : []),
+  ], [onInsertSection, brainId, editorMode]);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        codeBlock: false,
-      }),
-      Underline,
-      LinkExtension.configure({
-        openOnClick: false,
-        HTMLAttributes: { class: "text-primary underline cursor-pointer" },
-      }),
-      Image.configure({
-        HTMLAttributes: { class: "max-w-full rounded-lg" },
-      }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableCell,
-      TableHeader,
-      InlineCheckbox,
-      Placeholder.configure({
-        placeholder: "Start writing... Use / for commands",
-      }),
-      Highlight,
-      CodeBlockLowlight.configure({ lowlight }),
-      Typography,
-      SlashCommand.configure({
-        onInsertSection,
-      }),
-      WikiLink.configure({
-        brainId,
-      }),
-      ...(editorMode === "vim" ? [VimMode] : []),
-    ],
+    extensions,
     content: content || undefined,
     editable,
     onUpdate: ({ editor }) => {
+      if (isExternalUpdate.current) return;
       const json = editor.getJSON() as Record<string, unknown>;
       const text = editor.getText();
-      onUpdate(json, text);
+      onUpdateRef.current(json, text);
     },
     editorProps: {
       attributes: {
@@ -84,6 +90,16 @@ export function TiptapEditor({ content, onUpdate, editable = true, onInsertSecti
     },
     immediatelyRender: false,
   });
+
+  // Reuse editor instance when content prop changes externally
+  useEffect(() => {
+    if (editor && content && content !== contentRef.current) {
+      isExternalUpdate.current = true;
+      editor.commands.setContent(content);
+      contentRef.current = content;
+      isExternalUpdate.current = false;
+    }
+  }, [editor, content]);
 
   useEffect(() => {
     if (editor) editor.setEditable(editable);
