@@ -22,6 +22,7 @@ import {
   X,
   GraduationCap,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
+import { api } from "@/lib/api";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { useThoughts } from "@/lib/hooks/useThoughts";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
@@ -62,6 +64,7 @@ export function Sidebar({
   const activeClusterId = params?.clusterId as string | undefined;
   const activeNeuronId = params?.neuronId as string | undefined;
 
+  const queryClient = useQueryClient();
   const { brains, createBrain, updateBrain, deleteBrain } = useBrains();
   const { thoughts, createThought, deleteThought } = useThoughts();
   const { queue } = useSpacedRepetition();
@@ -137,6 +140,9 @@ export function Sidebar({
       await createBrain(dialogValue.trim());
     } else if (dialogMode === "rename-brain" && editingBrainId) {
       await updateBrain(editingBrainId, dialogValue.trim());
+    } else if (dialogMode === "create-cluster" && editingBrainId) {
+      await api.post("/api/clusters", { name: dialogValue.trim(), brainId: editingBrainId });
+      queryClient.invalidateQueries({ queryKey: ["clusters", editingBrainId] });
     } else if (dialogMode === "create-thought") {
       await createThought({ name: dialogValue.trim(), neuronTagIds: [] });
     }

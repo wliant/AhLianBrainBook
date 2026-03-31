@@ -4,6 +4,14 @@ import { use, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { FolderOpen, Plus, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { TagCombobox } from "@/components/tags/TagCombobox";
@@ -19,6 +27,8 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
 
   const [description, setDescription] = useState(brain?.description || "");
   const [brainTags, setBrainTags] = useState<Tag[]>(brain?.tags || []);
+  const [clusterDialogOpen, setClusterDialogOpen] = useState(false);
+  const [clusterName, setClusterName] = useState("");
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -44,8 +54,10 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   };
 
   const handleNewCluster = async () => {
-    const name = prompt("Cluster name:");
-    if (name) await createCluster(name);
+    if (!clusterName.trim()) return;
+    await createCluster(clusterName.trim());
+    setClusterName("");
+    setClusterDialogOpen(false);
   };
 
   return (
@@ -89,7 +101,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
               <Network className="h-4 w-4 mr-1" /> Knowledge Graph
             </Button>
           </Link>
-          <Button size="sm" onClick={handleNewCluster} data-testid="new-cluster-btn">
+          <Button size="sm" onClick={() => setClusterDialogOpen(true)} data-testid="new-cluster-btn">
             <Plus className="h-4 w-4 mr-1" /> New Cluster
           </Button>
         </div>
@@ -114,6 +126,29 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
           ))}
         </div>
       )}
+      <Dialog open={clusterDialogOpen} onOpenChange={setClusterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Cluster</DialogTitle>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="Cluster name"
+            value={clusterName}
+            onChange={(e) => setClusterName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleNewCluster()}
+            data-testid="cluster-name-input"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClusterDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleNewCluster} disabled={!clusterName.trim()}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
