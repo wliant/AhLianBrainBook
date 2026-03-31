@@ -1,7 +1,5 @@
 """E2E tests for neuron links / connections."""
 
-import os
-
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -46,11 +44,11 @@ class TestNeuronLinksAPI:
 
 
 class TestNeuronLinksBrowser:
-    def test_connections_panel_opens(self, page: Page, neuron_on_page):
+    def test_connections_panel_opens(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         open_connections_panel(pg)
-        expect(pg.get_by_text("Connections")).to_be_visible()
-        expect(pg.get_by_test_id("add-link-btn")).to_be_visible()
+        expect(pg.get_by_text("Connections")).to_be_visible(timeout=5000)
+        expect(pg.get_by_test_id("add-link-btn")).to_be_visible(timeout=5000)
 
     def test_connections_panel_shows_links(self, page: Page, api: BrainBookAPI, two_neurons_in_cluster):
         brain, cluster, neuron_a, neuron_b = two_neurons_in_cluster
@@ -64,9 +62,9 @@ class TestNeuronLinksBrowser:
         finally:
             api.delete_neuron_link(link["id"])
 
-    def test_add_link_dialog_opens(self, page: Page, neuron_on_page):
+    def test_add_link_dialog_opens(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         open_connections_panel(pg)
         pg.get_by_test_id("add-link-btn").click()
         expect(pg.get_by_test_id("add-link-dialog")).to_be_visible(timeout=5000)
-        expect(pg.get_by_test_id("link-search-input")).to_be_visible()
+        expect(pg.get_by_test_id("link-search-input")).to_be_visible(timeout=5000)

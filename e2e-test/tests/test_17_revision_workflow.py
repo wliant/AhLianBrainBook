@@ -10,13 +10,13 @@ from helpers.page_helpers import navigate_to_neuron, open_history_panel, unique_
 
 
 class TestRevisionWorkflowBrowser:
-    def test_history_panel_opens(self, page: Page, neuron_on_page):
+    def test_history_panel_opens(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         open_history_panel(pg)
-        expect(pg.get_by_text("History")).to_be_visible()
-        expect(pg.get_by_test_id("create-snapshot-btn")).to_be_visible()
+        expect(pg.get_by_text("History")).to_be_visible(timeout=5000)
+        expect(pg.get_by_test_id("create-snapshot-btn")).to_be_visible(timeout=5000)
 
-    def test_create_snapshot_via_ui(self, page: Page, api: BrainBookAPI, neuron_on_page):
+    def test_create_snapshot_via_ui(self, api: BrainBookAPI, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         open_history_panel(pg)
 
@@ -39,7 +39,7 @@ class TestRevisionWorkflowBrowser:
 
         # Revision banner should appear
         expect(page.get_by_test_id("revision-banner")).to_be_visible(timeout=5000)
-        expect(page.get_by_text("Viewing revision")).to_be_visible()
+        expect(page.get_by_text("Viewing revision")).to_be_visible(timeout=5000)
 
     def test_dismiss_revision_banner(self, page: Page, api: BrainBookAPI, neuron_with_content):
         brain, cluster, neuron = neuron_with_content

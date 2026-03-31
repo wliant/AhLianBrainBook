@@ -68,14 +68,14 @@ class TestRemindersAPI:
 
 
 class TestRemindersBrowser:
-    def test_reminder_dialog_opens(self, page: Page, neuron_on_page):
+    def test_reminder_dialog_opens(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         pg.get_by_test_id("toggle-reminder").click()
         expect(pg.get_by_test_id("reminder-dialog")).to_be_visible(timeout=5000)
-        expect(pg.get_by_test_id("reminder-type-once")).to_be_visible()
-        expect(pg.get_by_test_id("reminder-type-recurring")).to_be_visible()
+        expect(pg.get_by_test_id("reminder-type-once")).to_be_visible(timeout=5000)
+        expect(pg.get_by_test_id("reminder-type-recurring")).to_be_visible(timeout=5000)
 
-    def test_reminder_dialog_save_disabled_without_time(self, page: Page, neuron_on_page):
+    def test_reminder_dialog_save_disabled_without_time(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         pg.get_by_test_id("toggle-reminder").click()
         expect(pg.get_by_test_id("reminder-dialog")).to_be_visible(timeout=5000)

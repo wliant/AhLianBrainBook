@@ -22,7 +22,7 @@ class TestKeyboardShortcuts:
         home.keyboard.press("Control+k")
         expect(home).to_have_url(lambda url: "/search" in url, timeout=5000)
 
-    def test_ctrl_b_applies_bold_in_editor(self, page: Page, neuron_on_page):
+    def test_ctrl_b_applies_bold_in_editor(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         editor = pg.locator(".ProseMirror")
         expect(editor).to_be_visible(timeout=5000)
@@ -34,7 +34,7 @@ class TestKeyboardShortcuts:
 
         expect(editor.locator("strong")).to_be_visible(timeout=3000)
 
-    def test_ctrl_z_undoes_in_editor(self, page: Page, neuron_on_page):
+    def test_ctrl_z_undoes_in_editor(self, neuron_on_page):
         pg, brain, cluster, neuron = neuron_on_page
         editor = pg.locator(".ProseMirror")
         expect(editor).to_be_visible(timeout=5000)
