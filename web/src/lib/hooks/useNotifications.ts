@@ -2,21 +2,53 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { AppNotification } from "@/types";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
-const DEFAULT_POLL_INTERVAL = 30_000;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const PAGE_SIZE = 20;
 
-export function useNotifications(options?: { pollInterval?: number }) {
-  const pollInterval = options?.pollInterval ?? DEFAULT_POLL_INTERVAL;
+export function useNotifications() {
   const queryClient = useQueryClient();
+  const eventSourceRef = useRef<EventSource | null>(null);
 
+  // SSE connection for real-time updates.
+  // Delayed start to allow page load (networkidle) to complete first,
+  // since an active EventSource connection keeps the network busy.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const es = new EventSource(`${API_BASE}/api/notifications/stream`);
+      eventSourceRef.current = es;
+
+      es.addEventListener("unread-count", (event) => {
+        const data = JSON.parse(event.data);
+        queryClient.setQueryData(["notifications", "unreadCount"], { count: data.count });
+      });
+
+      es.addEventListener("new-notification", (event) => {
+        const data = JSON.parse(event.data);
+        queryClient.setQueryData(["notifications", "unreadCount"], { count: data.count });
+        queryClient.invalidateQueries({ queryKey: ["notifications", "list"] });
+      });
+
+      es.onerror = () => {
+        // EventSource auto-reconnects on error. No special handling needed.
+      };
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [queryClient]);
+
+  // Initial unread count (also updated by SSE)
   const { data: unreadData } = useQuery({
     queryKey: ["notifications", "unreadCount"],
     queryFn: () => api.notifications.getUnreadCount(),
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: false,
+    staleTime: Infinity, // SSE keeps this fresh, no need to refetch
   });
   const unreadCount = unreadData?.count ?? 0;
 

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,9 +23,12 @@ public class NotificationService {
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     private final NotificationRepository notificationRepository;
+    private final NotificationSseService notificationSseService;
 
-    public NotificationService(NotificationRepository notificationRepository) {
+    public NotificationService(NotificationRepository notificationRepository,
+                                NotificationSseService notificationSseService) {
         this.notificationRepository = notificationRepository;
+        this.notificationSseService = notificationSseService;
     }
 
     @Transactional(readOnly = true)
@@ -46,12 +50,19 @@ public class NotificationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
         notification.setRead(true);
         notificationRepository.save(notification);
+        broadcastUnreadCount();
     }
 
     @Transactional
     public void markAllAsRead() {
         int updated = notificationRepository.markAllAsRead();
         log.info("Marked {} notification(s) as read", updated);
+        broadcastUnreadCount();
+    }
+
+    private void broadcastUnreadCount() {
+        long count = notificationRepository.countByIsReadFalse();
+        notificationSseService.broadcast("unread-count", Map.of("count", count));
     }
 
     @Transactional
@@ -74,6 +85,13 @@ public class NotificationService {
         notification.setMessage("Reminder: " + neuron.getTitle());
         notification.setRead(false);
         notificationRepository.save(notification);
+
+        long unreadCount = notificationRepository.countByIsReadFalse();
+        notificationSseService.broadcast("new-notification", Map.of(
+                "count", unreadCount,
+                "neuronTitle", neuron.getTitle(),
+                "message", notification.getMessage()
+        ));
     }
 
     private NotificationResponse toResponse(Notification n) {
