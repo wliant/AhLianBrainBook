@@ -7,12 +7,10 @@ import { useSettings } from "@/lib/hooks/useSettings";
 import { CheckCircle, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { settings, loading, updateDisplayName, updateEditorMode, updateMaxReminders } = useSettings();
+  const { settings, loading, updateDisplayName, updateMaxReminders } = useSettings();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [editorModeSaving, setEditorModeSaving] = useState(false);
-  const [editorModeSaved, setEditorModeSaved] = useState(false);
   const [maxReminders, setMaxReminders] = useState(10);
   const [maxRemindersSaving, setMaxRemindersSaving] = useState(false);
   const [maxRemindersSaved, setMaxRemindersSaved] = useState(false);
@@ -43,15 +41,6 @@ export default function SettingsPage() {
     setMaxRemindersSaving(false);
     setMaxRemindersSaved(true);
     setTimeout(() => setMaxRemindersSaved(false), 2000);
-  };
-
-  const handleEditorModeChange = async (mode: string) => {
-    setEditorModeSaving(true);
-    setEditorModeSaved(false);
-    await updateEditorMode(mode);
-    setEditorModeSaving(false);
-    setEditorModeSaved(true);
-    setTimeout(() => setEditorModeSaved(false), 2000);
   };
 
   if (loading) {
@@ -99,44 +88,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="border-t pt-6">
-          <label className="block text-sm font-medium mb-1.5">
-            Editor Mode
-          </label>
-          <p className="text-xs text-muted-foreground mb-3">
-            Choose your preferred editing style. Vim mode adds hjkl navigation, modal editing (Normal/Insert), and common Vim keybindings.
-          </p>
-          <div className="flex gap-2 items-center">
-            <div className="flex rounded-md border overflow-hidden">
-              <button
-                onClick={() => handleEditorModeChange("normal")}
-                disabled={editorModeSaving}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  settings?.editorMode === "normal"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background hover:bg-accent"
-                }`}
-                data-testid="editor-mode-normal"
-              >
-                Normal
-              </button>
-              <button
-                onClick={() => handleEditorModeChange("vim")}
-                disabled={editorModeSaving}
-                className={`px-4 py-2 text-sm font-medium border-l transition-colors ${
-                  settings?.editorMode === "vim"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background hover:bg-accent"
-                }`}
-                data-testid="editor-mode-vim"
-              >
-                Vim
-              </button>
-            </div>
-            {editorModeSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {editorModeSaved && <CheckCircle className="h-4 w-4 text-green-500" />}
-          </div>
-        </div>
         <div className="border-t pt-6">
           <label htmlFor="maxReminders" className="block text-sm font-medium mb-1.5">
             Max Reminders per Neuron

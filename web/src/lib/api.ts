@@ -190,7 +190,7 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName?: string; editorMode?: string; maxRemindersPerNeuron?: number }) =>
+    update: (body: { displayName?: string; maxRemindersPerNeuron?: number }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
   },
 

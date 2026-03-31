@@ -14,7 +14,7 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 | 4 | Spaced repetition | P1 | DONE | | `SpacedRepetitionItem` entity with SM-2 algorithm (ease factor, intervals, repetitions). `SpacedRepetitionController` at `/api/spaced-repetition` with CRUD + review endpoints. Review queue page at `/review` with card-based UI and quality rating (Again/Hard/Good/Easy). Sidebar "Review" nav with queue badge. SR toggle button on neuron toolbar. |
 | 5 | Keyboard-first workflow | P1 | DONE | | 12 shortcuts: `Ctrl+\` sidebar toggle, `Ctrl+Shift+F` search, `Ctrl+S` save, `Ctrl+[/]` prev/next neuron, `Alt+1-9` switch brains, `Ctrl+Shift+P` command palette, `Ctrl+Shift+O` table of contents. Uses `CustomEvent` for sidebar toggle, React Query cache for navigation. |
 | 6 | Command palette | P1 | DONE | | `CommandPalette.tsx` using `cmdk` library. Groups: Navigation (pages), Brains (with graph links), Actions (theme, sidebar, TOC, review). Triggered via `Ctrl+Shift+P`. Mounted in root layout. |
-| 7 | Vim editor mode | P1 | DONE | | Custom `VimMode` TipTap extension with NORMAL/INSERT modes via ProseMirror plugin. Supports hjkl, w/b word motions, i/a/A/o/O insert entry, dd/yy/p, 0/$. Mode indicator widget. Gated behind `editorMode` setting (V15 migration). Settings page toggle. |
+| 7 | Vim editor mode | P1 | REMOVED | | Removed — too shallow for real Vim users (no counts, visual mode, text objects). V15 migration added `editor_mode`; V19 drops it. |
 | 8 | Code execution / REPL | P1 | DONE | | JavaScript execution via sandboxed iframe with console capture and 5s timeout. Python execution via Pyodide (WebAssembly, lazy-loaded from CDN) with stdout/stderr capture. `CodeRunner` output panel with color-coded output. Run button in CodeSection for JS and Python. |
 | 9 | Markdown & PDF export | P1 | DONE | | `MarkdownExportService` converts TipTap/sections JSON to Markdown. `ExportController` serves `/api/neurons/{id}/export/markdown` (text) and `/api/brains/{id}/export/markdown` (zip). Frontend export dropdown on neuron page. PDF via `window.print()` with `@media print` styles. |
 | 10 | Table of contents | P1 | DONE | | `TableOfContents.tsx` parses headings from rich-text sections, renders nested outline with click-to-scroll and IntersectionObserver active tracking. Toggleable panel on neuron page (mutual exclusion with other panels). `Ctrl+Shift+O` shortcut. `data-section-id` on SectionWrapper for scroll targeting. |
@@ -49,7 +49,7 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 ## Implementation Memos
 
 ### Flyway Migration Numbering
-- V11 had a duplicate (`add_entity_metadata_and_settings` + `add_revision_title`). The revision title migration was renamed to **V12**. V15 adds `editor_mode` to `app_settings`. V16 adds `spaced_repetition_items` table. Next available migration number is **V17**.
+- V11 had a duplicate (`add_entity_metadata_and_settings` + `add_revision_title`). The revision title migration was renamed to **V12**. V15 added `editor_mode` to `app_settings` (removed in V19). V16 adds `spaced_repetition_items` table. Next available migration number is **V20**.
 
 ### Duplicate V11 migration (V12 rename)
 - Original `V11__add_revision_title.sql` was renamed to `V12__add_revision_title.sql` to resolve the Flyway conflict. If the database was already migrated with the old V11, Flyway will fail on startup because the checksum won't match. For existing deployments, either:
@@ -118,12 +118,8 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 - Data sources: brains from React Query cache (`queryClient.getQueryData`), static navigation pages, hardcoded actions.
 - Toggled via `CustomEvent("toggle-command-palette")` dispatched by `Ctrl+Shift+P`.
 
-### Vim Editor Mode
-- Custom TipTap `Extension.create()` with ProseMirror `Plugin` maintaining mode state (NORMAL/INSERT) in a `PluginKey`.
-- In NORMAL mode, `handleKeyDown` intercepts single keys and two-key combos (dd, yy). Single-char typing is blocked.
-- Mode indicator rendered via ProseMirror `DecorationSet` widget decoration at position 0.
-- Gated behind `AppSettings.editorMode` — conditionally included in TipTap extensions array.
-- `RichTextSection` reads `editorMode` from `useSettings()` and passes to `TiptapEditor`.
+### Vim Editor Mode (REMOVED)
+Feature removed. Too shallow for real Vim users (no counts, visual mode, text objects, macros). V19 migration drops the `editor_mode` column.
 
 ### Code Execution Sandboxing
 - JavaScript: sandboxed `<iframe>` with `sandbox="allow-scripts"`. Console methods overridden inside iframe to capture output. Communication via `postMessage`. Fresh iframe per execution. 5s timeout.

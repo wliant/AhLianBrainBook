@@ -58,13 +58,8 @@ No command palette exists. Technical users expect a way to fuzzy-search over all
 - Use fuzzy matching (e.g., `fuse.js` or `cmdk` library)
 - Show recent items at the top
 
-#### 7. Vim / Keyboard-Driven Editor Mode
-No Vim keybindings option.
-
-**Recommendation:**
-- Gate behind a setting in `AppSettings` (`editorMode: "normal" | "vim"`)
-- Use a ProseMirror Vim keymap plugin or TipTap extension
-- Persist preference in backend settings
+#### 7. ~~Vim / Keyboard-Driven Editor Mode~~ (REMOVED)
+Feature was implemented but removed — too shallow to be useful for real Vim users.
 
 #### 8. Code Execution / REPL
 Code sections (Monaco editor, 28 languages) are view-only -- code cannot be executed.

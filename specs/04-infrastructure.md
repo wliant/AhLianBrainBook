@@ -56,10 +56,11 @@ Production deployment configuration.
 | V12     | Add `title` column to neuron_revisions (renamed from duplicate V11) |
 | V13     | Add GIN index on `title` for full-text search (`idx_neurons_title_text`) |
 | V14     | Add `source` column (VARCHAR 20, default 'manual') to neuron_links — tracks manual vs editor wiki-link origins |
-| V15     | Add `editor_mode` column (VARCHAR 20, default 'normal') to app_settings |
+| V15     | Add `editor_mode` column to app_settings (later removed in V19) |
 | V16     | Add `spaced_repetition_items` table with SM-2 fields (ease_factor, interval_days, repetitions, next_review_at, last_reviewed_at), UNIQUE on neuron_id |
 | V17     | Add `neuron_shares` table with token-based sharing (token VARCHAR 64 UNIQUE, expires_at nullable) |
 | V18     | Drop UNIQUE constraint on reminders.neuron_id (allows multiple reminders per neuron); add `max_reminders_per_neuron` (default 10) to app_settings |
+| V19     | Drop `editor_mode` column from app_settings (vim mode feature removed) |
 
 ### Content Format (v2 — Sections)
 

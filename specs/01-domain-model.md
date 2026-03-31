@@ -263,7 +263,6 @@ Singleton application-wide settings. Contains one row seeded at migration time.
 |------------------------|-----------------|----------------------------|------------------------------------------|
 | id                     | UUID            | PK, auto-generated         | Unique identifier                        |
 | displayName            | String(100)     | NOT NULL, default 'user'   | User's display name                      |
-| editorMode             | String(20)      | NOT NULL, default 'normal' | Editor mode: `normal` or `vim`           |
 | maxRemindersPerNeuron  | int             | NOT NULL, default 10       | Max reminders per neuron (range 1–100)   |
 | createdAt              | LocalDateTime   | NOT NULL, auto-set         | Creation timestamp                       |
 | updatedAt              | LocalDateTime   | NOT NULL, auto-updated     | Last modification timestamp              |

@@ -11,14 +11,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @Transactional
 public class SettingsService {
 
     private static final Logger log = LoggerFactory.getLogger(SettingsService.class);
-    private static final List<String> ALLOWED_EDITOR_MODES = List.of("normal", "vim");
 
     private final AppSettingsRepository appSettingsRepository;
 
@@ -42,14 +39,6 @@ public class SettingsService {
         if (req.displayName() != null) {
             settings.setDisplayName(req.displayName());
         }
-        if (req.editorMode() != null) {
-            if (!ALLOWED_EDITOR_MODES.contains(req.editorMode())) {
-                throw new IllegalArgumentException(
-                        "Invalid editor mode: '" + req.editorMode() + "'. Allowed: " + ALLOWED_EDITOR_MODES);
-            }
-            settings.setEditorMode(req.editorMode());
-            log.info("Editor mode changed to '{}'", req.editorMode());
-        }
         if (req.maxRemindersPerNeuron() != null) {
             settings.setMaxRemindersPerNeuron(req.maxRemindersPerNeuron());
             log.info("Max reminders per neuron changed to {}", req.maxRemindersPerNeuron());
@@ -65,7 +54,6 @@ public class SettingsService {
     private AppSettingsResponse toResponse(AppSettings settings) {
         return new AppSettingsResponse(
                 settings.getDisplayName(),
-                settings.getEditorMode(),
                 settings.getMaxRemindersPerNeuron(),
                 settings.getCreatedAt(),
                 settings.getUpdatedAt()

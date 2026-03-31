@@ -268,7 +268,6 @@ Brain overview page displays aggregated statistics:
 ## 20. Settings
 
 - **Display name** — configurable user display name stored in `app_settings` (singleton row). Used as `createdBy` and `lastUpdatedBy` values when creating or editing brains, clusters, and neurons.
-- **Editor mode** — toggle between `normal` and `vim` editing modes. Vim mode adds hjkl navigation, modal editing (Normal/Insert mode), and common Vim keybindings in the TipTap rich text editor.
 - **Max reminders per neuron** — configurable limit (1–100, default 10) controlling how many reminders can be created per neuron.
 - Settings page accessible from sidebar navigation
 

@@ -144,7 +144,6 @@ Core editing experience with section-based content:
 ### Settings Page (`/settings`)
 
 - **Display name** — text input field for user's display name
-- **Editor mode** — toggle between Normal and Vim editing modes
 - **Max reminders per neuron** — number spinner (range 1–100, default 10)
 - Saves via `PATCH /api/settings`
 
@@ -384,7 +383,7 @@ interface Notification {
 }
 
 interface AppSettings {
-  displayName: string; editorMode: string;
+  displayName: string;
   maxRemindersPerNeuron: number;
   createdAt: string; updatedAt: string;
 }

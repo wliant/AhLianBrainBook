@@ -793,7 +793,6 @@ Get application settings.
 ```json
 {
   "displayName": "string",
-  "editorMode": "normal | vim",
   "maxRemindersPerNeuron": 10,
   "createdAt": "2024-01-01T00:00:00",
   "updatedAt": "2024-01-01T00:00:00"
@@ -807,11 +806,10 @@ Update application settings. All fields are optional (partial update).
 ```json
 {
   "displayName": "string?",
-  "editorMode": "normal | vim",
   "maxRemindersPerNeuron": 10
 }
 ```
-**Validation:** `displayName` max 100 chars, `editorMode` max 20 chars, `maxRemindersPerNeuron` range 1–100.
+**Validation:** `displayName` max 100 chars, `maxRemindersPerNeuron` range 1–100.
 **Response:** `200 OK` — AppSettingsResponse
 
 ---
