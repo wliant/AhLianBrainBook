@@ -20,6 +20,7 @@ const SHORTCUTS = [
   { keys: "Ctrl+[", description: "Previous neuron" },
   { keys: "Ctrl+]", description: "Next neuron" },
   { keys: "Alt+1-9", description: "Switch brain" },
+  { keys: "Ctrl+Shift+P", description: "Command palette" },
   { keys: "Ctrl+Shift+O", description: "Toggle table of contents" },
   { keys: "Escape", description: "Go back / close panel" },
   { keys: "?", description: "Show keyboard shortcuts" },
@@ -65,6 +66,13 @@ export function KeyboardShortcuts() {
       if (ctrlOrMeta && e.shiftKey && e.key === "F") {
         e.preventDefault();
         router.push("/search");
+        return;
+      }
+
+      // Ctrl+Shift+P for command palette
+      if (ctrlOrMeta && e.shiftKey && e.key === "P") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("toggle-command-palette"));
         return;
       }
 
