@@ -102,7 +102,7 @@ class BrainStatsServiceTest {
     void getStats_countsLinks() {
         NeuronResponse n1 = testDataFactory.createNeuron("N1", brainId, clusterId);
         NeuronResponse n2 = testDataFactory.createNeuron("N2", brainId, clusterId);
-        neuronLinkService.create(new NeuronLinkRequest(n1.id(), n2.id(), "link", "ref", null));
+        neuronLinkService.create(new NeuronLinkRequest(n1.id(), n2.id(), "link", "ref", null, null));
 
         BrainStatsResponse stats = brainStatsService.getStats(brainId);
 
@@ -132,8 +132,8 @@ class BrainStatsServiceTest {
         NeuronResponse n2 = testDataFactory.createNeuron("Leaf 1", brainId, clusterId);
         NeuronResponse n3 = testDataFactory.createNeuron("Leaf 2", brainId, clusterId);
 
-        neuronLinkService.create(new NeuronLinkRequest(n1.id(), n2.id(), "link", "ref", null));
-        neuronLinkService.create(new NeuronLinkRequest(n1.id(), n3.id(), "link", "ref", null));
+        neuronLinkService.create(new NeuronLinkRequest(n1.id(), n2.id(), "link", "ref", null, null));
+        neuronLinkService.create(new NeuronLinkRequest(n1.id(), n3.id(), "link", "ref", null, null));
 
         BrainStatsResponse stats = brainStatsService.getStats(brainId);
 

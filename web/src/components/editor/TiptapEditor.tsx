@@ -18,6 +18,9 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import Typography from "@tiptap/extension-typography";
 import { common, createLowlight } from "lowlight";
 import { Toolbar } from "./Toolbar";
+import { SlashCommand } from "./SlashCommand";
+import { WikiLink } from "./WikiLink";
+import type { SectionType } from "@/types";
 
 const lowlight = createLowlight(common);
 
@@ -25,9 +28,11 @@ interface TiptapEditorProps {
   content: Record<string, unknown> | null;
   onUpdate: (json: Record<string, unknown>, text: string) => void;
   editable?: boolean;
+  onInsertSection?: (type: SectionType) => void;
+  brainId?: string;
 }
 
-export function TiptapEditor({ content, onUpdate, editable = true }: TiptapEditorProps) {
+export function TiptapEditor({ content, onUpdate, editable = true, onInsertSection, brainId }: TiptapEditorProps) {
   const router = useRouter();
 
   const editor = useEditor({
@@ -54,6 +59,12 @@ export function TiptapEditor({ content, onUpdate, editable = true }: TiptapEdito
       Highlight,
       CodeBlockLowlight.configure({ lowlight }),
       Typography,
+      SlashCommand.configure({
+        onInsertSection,
+      }),
+      WikiLink.configure({
+        brainId,
+      }),
     ],
     content: content || undefined,
     editable,

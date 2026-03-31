@@ -4,6 +4,7 @@ import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.NeuronSummary;
 import com.wliant.brainbook.dto.ReminderRequest;
 import com.wliant.brainbook.dto.ReminderResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
@@ -63,6 +64,14 @@ public class NeuronController {
     @GetMapping("/trash")
     public ResponseEntity<List<NeuronResponse>> getTrash() {
         return ResponseEntity.ok(neuronService.getTrash());
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<NeuronSummary>> searchByTitle(
+            @RequestParam String title,
+            @RequestParam(required = false) UUID brainId,
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(neuronService.searchByTitle(title, brainId, limit));
     }
 
     @PostMapping

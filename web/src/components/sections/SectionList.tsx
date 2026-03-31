@@ -28,6 +28,7 @@ interface SectionListProps {
   onDocumentChange: (doc: SectionsDocument) => void;
   richTextTextsRef: React.MutableRefObject<Map<string, string>>;
   neuronId?: string;
+  brainId?: string;
   viewMode?: boolean;
 }
 
@@ -36,6 +37,7 @@ export function SectionList({
   onDocumentChange,
   richTextTextsRef,
   neuronId,
+  brainId,
   viewMode,
 }: SectionListProps) {
   const sections = document.sections;
@@ -136,7 +138,8 @@ export function SectionList({
 
   const renderSection = (section: Section, isEditing: boolean) => {
     switch (section.type) {
-      case "rich-text":
+      case "rich-text": {
+        const sectionIdx = sections.findIndex((s) => s.id === section.id);
         return (
           <RichTextSection
             section={section}
@@ -145,8 +148,11 @@ export function SectionList({
               updateSection(section.id, json);
             }}
             editing={isEditing}
+            onInsertSection={isEditing ? (type) => addSection(type, sectionIdx) : undefined}
+            brainId={brainId}
           />
         );
+      }
       case "code":
         return (
           <Suspense fallback={<SectionSkeleton />}>

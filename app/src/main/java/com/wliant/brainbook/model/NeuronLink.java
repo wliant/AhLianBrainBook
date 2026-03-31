@@ -46,6 +46,9 @@ public class NeuronLink {
     @Column(name = "weight")
     private Double weight = 1.0;
 
+    @Column(name = "source", nullable = false, length = 20)
+    private String source = "manual";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -70,6 +73,8 @@ public class NeuronLink {
     public void setLinkType(String linkType) { this.linkType = linkType; }
     public Double getWeight() { return weight; }
     public void setWeight(Double weight) { this.weight = weight; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

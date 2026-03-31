@@ -61,6 +61,7 @@ public class NeuronLinkService {
         link.setLabel(req.label());
         link.setLinkType(req.linkType());
         link.setWeight(req.weight() != null ? req.weight() : 1.0);
+        link.setSource(req.source() != null ? req.source() : "manual");
 
         NeuronLink saved = neuronLinkRepository.save(link);
         return toResponse(saved);
@@ -86,6 +87,7 @@ public class NeuronLinkService {
                 link.getLabel(),
                 link.getLinkType(),
                 link.getWeight(),
+                link.getSource(),
                 link.getCreatedAt()
         );
     }

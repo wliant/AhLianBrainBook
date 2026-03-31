@@ -70,7 +70,7 @@ class NeuronLinkControllerIntegrationTest {
 
     @Test
     void createLink_returns201() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "related", "ref", 1.0);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "related", "ref", 1.0, null);
 
         ResponseEntity<NeuronLinkResponse> response = restTemplate.postForEntity(
                 "/api/neuron-links", req, NeuronLinkResponse.class);
@@ -83,7 +83,7 @@ class NeuronLinkControllerIntegrationTest {
 
     @Test
     void createLink_selfLink_returns409() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId1, "self", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId1, "self", "ref", null, null);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
                 "/api/neuron-links", req, String.class);
@@ -93,7 +93,7 @@ class NeuronLinkControllerIntegrationTest {
 
     @Test
     void createLink_duplicateLink_returns409() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null);
         restTemplate.postForEntity("/api/neuron-links", req, NeuronLinkResponse.class);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
@@ -104,7 +104,7 @@ class NeuronLinkControllerIntegrationTest {
 
     @Test
     void getLinksForNeuron_returnsList() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null);
         restTemplate.postForEntity("/api/neuron-links", req, NeuronLinkResponse.class);
 
         ResponseEntity<List<NeuronLinkResponse>> response = restTemplate.exchange(
@@ -120,7 +120,7 @@ class NeuronLinkControllerIntegrationTest {
 
     @Test
     void getLinksForBrain_returnsList() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null);
         restTemplate.postForEntity("/api/neuron-links", req, NeuronLinkResponse.class);
 
         ResponseEntity<List<NeuronLinkResponse>> response = restTemplate.exchange(
@@ -136,7 +136,7 @@ class NeuronLinkControllerIntegrationTest {
 
     @Test
     void deleteLink_returns204() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null);
         NeuronLinkResponse created = restTemplate.postForEntity(
                 "/api/neuron-links", req, NeuronLinkResponse.class).getBody();
 

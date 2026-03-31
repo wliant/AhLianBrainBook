@@ -114,6 +114,19 @@ export interface SectionsDocument {
   sections: Section[];
 }
 
+export interface SearchResultItem {
+  neuron: Neuron;
+  highlight: string | null;
+  rank: number;
+}
+
+export interface NeuronSummary {
+  id: string;
+  title: string;
+  brainId: string;
+  clusterId: string;
+}
+
 export interface NeuronLink {
   id: string;
   sourceNeuronId: string;
@@ -125,6 +138,7 @@ export interface NeuronLink {
   label: string | null;
   linkType: string | null;
   weight: number | null;
+  source: string;
   createdAt: string;
 }
 

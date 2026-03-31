@@ -14,5 +14,6 @@ public record NeuronLinkResponse(
     String label,
     String linkType,
     Double weight,
+    String source,
     LocalDateTime createdAt
 ) { }
