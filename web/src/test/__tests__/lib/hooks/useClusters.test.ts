@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { useClusters } from '@/lib/hooks/useClusters';
 import { server } from '../../../mocks/server';
+import { createWrapper } from '../../../utils/createWrapper';
 import type { Cluster } from '@/types';
 
 const API_BASE = 'http://localhost:8080';
@@ -21,7 +22,7 @@ const makeCluster = (overrides: Partial<Cluster> = {}): Cluster => ({
 
 describe('useClusters', () => {
   it('returns empty clusters when brainId is null', async () => {
-    const { result } = renderHook(() => useClusters(null));
+    const { result } = renderHook(() => useClusters(null), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -41,7 +42,7 @@ describe('useClusters', () => {
       )
     );
 
-    const { result } = renderHook(() => useClusters('brain-1'));
+    const { result } = renderHook(() => useClusters('brain-1'), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);

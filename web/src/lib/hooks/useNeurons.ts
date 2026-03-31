@@ -1,32 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Neuron } from "@/types";
 
 export function useNeurons(clusterId: string | null) {
-  const [neurons, setNeurons] = useState<Neuron[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchNeurons = useCallback(async () => {
-    if (!clusterId) {
-      setNeurons([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await api.get<Neuron[]>(`/api/neurons/cluster/${clusterId}`);
-      setNeurons(data);
-    } catch (err) {
-      console.error("Failed to fetch neurons:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [clusterId]);
-
-  useEffect(() => {
-    fetchNeurons();
-  }, [fetchNeurons]);
+  const { data: neurons = [], isLoading: loading } = useQuery({
+    queryKey: ["neurons", clusterId],
+    queryFn: () => api.get<Neuron[]>(`/api/neurons/cluster/${clusterId}`),
+    enabled: !!clusterId,
+  });
 
   const createNeuron = async (title: string, brainId: string) => {
     if (!clusterId) return;
@@ -35,14 +20,18 @@ export function useNeurons(clusterId: string | null) {
       brainId,
       clusterId,
     });
-    setNeurons((prev) => [...prev, neuron]);
+    queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
     return neuron;
   };
 
   const deleteNeuron = async (id: string) => {
     await api.delete(`/api/neurons/${id}`);
-    setNeurons((prev) => prev.filter((n) => n.id !== id));
+    queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
   };
 
-  return { neurons, loading, createNeuron, deleteNeuron, refetch: fetchNeurons };
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
+  };
+
+  return { neurons, loading, createNeuron, deleteNeuron, refetch };
 }

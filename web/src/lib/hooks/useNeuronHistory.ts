@@ -1,37 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Neuron, NeuronRevision } from "@/types";
 
 export function useNeuronHistory(neuronId: string | null) {
-  const [revisions, setRevisions] = useState<NeuronRevision[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchRevisions = useCallback(async () => {
-    if (!neuronId) {
-      setRevisions([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await api.revisions.list(neuronId);
-      setRevisions(data);
-    } catch (err) {
-      console.error("Failed to fetch neuron history:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [neuronId]);
-
-  useEffect(() => {
-    fetchRevisions();
-  }, [fetchRevisions]);
+  const { data: revisions = [], isLoading: loading } = useQuery({
+    queryKey: ["neuronHistory", neuronId],
+    queryFn: () => api.revisions.list(neuronId!),
+    enabled: !!neuronId,
+  });
 
   const createSnapshot = async () => {
     if (!neuronId) return;
     const revision = await api.revisions.create(neuronId);
-    await fetchRevisions();
+    queryClient.invalidateQueries({ queryKey: ["neuronHistory", neuronId] });
     return revision;
   };
 
@@ -42,8 +27,12 @@ export function useNeuronHistory(neuronId: string | null) {
 
   const deleteRevision = async (revisionId: string) => {
     await api.revisions.delete(revisionId);
-    setRevisions((prev) => prev.filter((r) => r.id !== revisionId));
+    queryClient.invalidateQueries({ queryKey: ["neuronHistory", neuronId] });
   };
 
-  return { revisions, loading, createSnapshot, restoreRevision, deleteRevision, refetch: fetchRevisions };
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["neuronHistory", neuronId] });
+  };
+
+  return { revisions, loading, createSnapshot, restoreRevision, deleteRevision, refetch };
 }

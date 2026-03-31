@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import {
@@ -21,6 +21,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -504,6 +505,16 @@ function ClusterItem({
 }) {
   const { neurons } = useNeurons(isExpanded ? cluster.id : null);
   const childClusters = allClusters.filter((c) => c.parentClusterId === cluster.id);
+  const VIRTUAL_THRESHOLD = 20;
+  const neuronListRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: neurons.length,
+    getScrollElement: useCallback(() => neuronListRef.current, []),
+    estimateSize: useCallback(() => 28, []),
+    overscan: 5,
+    enabled: neurons.length > VIRTUAL_THRESHOLD,
+  });
 
   return (
     <div>
@@ -545,20 +556,52 @@ function ClusterItem({
               onToggleCluster={onToggleCluster}
             />
           ))}
-          {neurons.map((neuron) => (
-            <Link
-              key={neuron.id}
-              href={`/brain/${brainId}/cluster/${cluster.id}/neuron/${neuron.id}`}
-              data-testid={`sidebar-neuron-${neuron.id}`}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
-                activeNeuronId === neuron.id && "bg-sidebar-accent font-medium"
-              )}
+          {neurons.length > VIRTUAL_THRESHOLD ? (
+            <div
+              ref={neuronListRef}
+              className="overflow-auto"
+              style={{ maxHeight: `${Math.min(neurons.length, 50) * 28}px` }}
             >
-              <FileText className="h-3 w-3 shrink-0" />
-              <span className="truncate">{neuron.title || "Untitled"}</span>
-            </Link>
-          ))}
+              <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const neuron = neurons[virtualRow.index];
+                  return (
+                    <Link
+                      key={neuron.id}
+                      href={`/brain/${brainId}/cluster/${cluster.id}/neuron/${neuron.id}`}
+                      data-testid={`sidebar-neuron-${neuron.id}`}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent absolute left-0 right-0",
+                        activeNeuronId === neuron.id && "bg-sidebar-accent font-medium"
+                      )}
+                      style={{
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <FileText className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{neuron.title || "Untitled"}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            neurons.map((neuron) => (
+              <Link
+                key={neuron.id}
+                href={`/brain/${brainId}/cluster/${cluster.id}/neuron/${neuron.id}`}
+                data-testid={`sidebar-neuron-${neuron.id}`}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
+                  activeNeuronId === neuron.id && "bg-sidebar-accent font-medium"
+                )}
+              >
+                <FileText className="h-3 w-3 shrink-0" />
+                <span className="truncate">{neuron.title || "Untitled"}</span>
+              </Link>
+            ))
+          )}
         </div>
       )}
     </div>

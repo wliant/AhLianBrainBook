@@ -1,44 +1,37 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Brain } from "@/types";
 
 export function useBrains() {
-  const [brains, setBrains] = useState<Brain[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchBrains = useCallback(async () => {
-    try {
-      const data = await api.get<Brain[]>("/api/brains");
-      setBrains(data);
-    } catch (err) {
-      console.error("Failed to fetch brains:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchBrains();
-  }, [fetchBrains]);
+  const { data: brains = [], isLoading: loading } = useQuery({
+    queryKey: ["brains"],
+    queryFn: () => api.get<Brain[]>("/api/brains"),
+  });
 
   const createBrain = async (name: string, icon?: string, color?: string, description?: string) => {
     const brain = await api.post<Brain>("/api/brains", { name, icon, color, description });
-    setBrains((prev) => [...prev, brain]);
+    queryClient.invalidateQueries({ queryKey: ["brains"] });
     return brain;
   };
 
   const updateBrain = async (id: string, name: string, icon?: string, color?: string, description?: string) => {
     const brain = await api.patch<Brain>(`/api/brains/${id}`, { name, icon, color, description });
-    setBrains((prev) => prev.map((b) => (b.id === id ? brain : b)));
+    queryClient.invalidateQueries({ queryKey: ["brains"] });
     return brain;
   };
 
   const deleteBrain = async (id: string) => {
     await api.delete(`/api/brains/${id}`);
-    setBrains((prev) => prev.filter((b) => b.id !== id));
+    queryClient.invalidateQueries({ queryKey: ["brains"] });
   };
 
-  return { brains, loading, createBrain, updateBrain, deleteBrain, refetch: fetchBrains };
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["brains"] });
+  };
+
+  return { brains, loading, createBrain, updateBrain, deleteBrain, refetch };
 }

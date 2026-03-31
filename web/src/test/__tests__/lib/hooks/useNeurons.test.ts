@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { useNeurons } from '@/lib/hooks/useNeurons';
 import { server } from '../../../mocks/server';
+import { createWrapper } from '../../../utils/createWrapper';
 import type { Neuron } from '@/types';
 
 const API_BASE = 'http://localhost:8080';
@@ -28,7 +29,7 @@ const makeNeuron = (overrides: Partial<Neuron> = {}): Neuron => ({
 
 describe('useNeurons', () => {
   it('returns empty neurons when clusterId is null', async () => {
-    const { result } = renderHook(() => useNeurons(null));
+    const { result } = renderHook(() => useNeurons(null), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -48,7 +49,7 @@ describe('useNeurons', () => {
       )
     );
 
-    const { result } = renderHook(() => useNeurons('cluster-1'));
+    const { result } = renderHook(() => useNeurons('cluster-1'), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);

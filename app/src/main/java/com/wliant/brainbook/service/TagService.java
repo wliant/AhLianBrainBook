@@ -9,10 +9,18 @@ import com.wliant.brainbook.repository.NeuronRepository;
 import com.wliant.brainbook.repository.TagRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,6 +41,7 @@ public class TagService {
         this.brainRepository = brainRepository;
     }
 
+    @Cacheable("tags")
     public List<TagResponse> getAll() {
         return tagRepository.findAll().stream()
                 .map(this::toResponse)
@@ -45,6 +54,7 @@ public class TagService {
                 .collect(Collectors.toList());
     }
 
+    @CacheEvict(value = "tags", allEntries = true)
     public TagResponse create(TagRequest req) {
         Tag tag = new Tag();
         tag.setName(req.name());
@@ -53,6 +63,7 @@ public class TagService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = "tags", allEntries = true)
     public void delete(UUID id) {
         Tag tag = tagRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tag not found: " + id));
@@ -82,17 +93,26 @@ public class TagService {
 
     @SuppressWarnings("unchecked")
     public List<TagResponse> getTagsForNeuron(UUID neuronId) {
-        List<UUID> tagIds = entityManager.createNativeQuery(
-                        "SELECT tag_id FROM neuron_tags WHERE neuron_id = :neuronId")
-                .setParameter("neuronId", neuronId)
-                .getResultList();
+        return getTagsForNeurons(List.of(neuronId)).getOrDefault(neuronId, Collections.emptyList());
+    }
 
-        return tagIds.stream()
-                .map(tagId -> tagRepository.findById(tagId)
-                        .map(this::toResponse)
-                        .orElse(null))
-                .filter(t -> t != null)
-                .collect(Collectors.toList());
+    public Map<UUID, List<TagResponse>> getTagsForNeurons(Collection<UUID> neuronIds) {
+        if (neuronIds == null || neuronIds.isEmpty()) return Collections.emptyMap();
+
+        List<Object[]> rows = tagRepository.findTagsWithNeuronIds(neuronIds);
+        Map<UUID, List<TagResponse>> result = new HashMap<>();
+        for (Object[] row : rows) {
+            UUID neuronId = (UUID) row[0];
+            TagResponse tag = new TagResponse(
+                    (UUID) row[1],
+                    (String) row[2],
+                    (String) row[3],
+                    ((Timestamp) row[4]).toLocalDateTime(),
+                    ((Timestamp) row[5]).toLocalDateTime()
+            );
+            result.computeIfAbsent(neuronId, k -> new ArrayList<>()).add(tag);
+        }
+        return result;
     }
 
     public void addTagToBrain(UUID brainId, UUID tagId) {
@@ -116,19 +136,27 @@ public class TagService {
                 .executeUpdate();
     }
 
-    @SuppressWarnings("unchecked")
     public List<TagResponse> getTagsForBrain(UUID brainId) {
-        List<UUID> tagIds = entityManager.createNativeQuery(
-                        "SELECT tag_id FROM brain_tags WHERE brain_id = :brainId")
-                .setParameter("brainId", brainId)
-                .getResultList();
+        return getTagsForBrains(List.of(brainId)).getOrDefault(brainId, Collections.emptyList());
+    }
 
-        return tagIds.stream()
-                .map(tagId -> tagRepository.findById(tagId)
-                        .map(this::toResponse)
-                        .orElse(null))
-                .filter(t -> t != null)
-                .collect(Collectors.toList());
+    public Map<UUID, List<TagResponse>> getTagsForBrains(Collection<UUID> brainIds) {
+        if (brainIds == null || brainIds.isEmpty()) return Collections.emptyMap();
+
+        List<Object[]> rows = tagRepository.findTagsWithBrainIds(brainIds);
+        Map<UUID, List<TagResponse>> result = new HashMap<>();
+        for (Object[] row : rows) {
+            UUID brainId = (UUID) row[0];
+            TagResponse tag = new TagResponse(
+                    (UUID) row[1],
+                    (String) row[2],
+                    (String) row[3],
+                    ((Timestamp) row[4]).toLocalDateTime(),
+                    ((Timestamp) row[5]).toLocalDateTime()
+            );
+            result.computeIfAbsent(brainId, k -> new ArrayList<>()).add(tag);
+        }
+        return result;
     }
 
     private TagResponse toResponse(Tag tag) {

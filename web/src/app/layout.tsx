@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 
@@ -22,12 +23,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen antialiased font-sans">
-        <ThemeProvider>
-          <ErrorBoundary>
-            <AppShell>{children}</AppShell>
-            <KeyboardShortcuts />
-          </ErrorBoundary>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <ErrorBoundary>
+              <AppShell>{children}</AppShell>
+              <KeyboardShortcuts />
+            </ErrorBoundary>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

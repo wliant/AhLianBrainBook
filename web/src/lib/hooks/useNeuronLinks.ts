@@ -1,32 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { NeuronLink } from "@/types";
 
 export function useNeuronLinks(neuronId: string | null) {
-  const [links, setLinks] = useState<NeuronLink[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchLinks = useCallback(async () => {
-    if (!neuronId) {
-      setLinks([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await api.neuronLinks.getForNeuron<NeuronLink[]>(neuronId);
-      setLinks(data);
-    } catch (err) {
-      console.error("Failed to fetch neuron links:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [neuronId]);
-
-  useEffect(() => {
-    fetchLinks();
-  }, [fetchLinks]);
+  const { data: links = [], isLoading: loading } = useQuery({
+    queryKey: ["neuronLinks", neuronId],
+    queryFn: () => api.neuronLinks.getForNeuron<NeuronLink[]>(neuronId!),
+    enabled: !!neuronId,
+  });
 
   const createLink = async (
     sourceNeuronId: string,
@@ -40,14 +25,18 @@ export function useNeuronLinks(neuronId: string | null) {
       label,
       linkType,
     });
-    setLinks((prev) => [...prev, link]);
+    queryClient.invalidateQueries({ queryKey: ["neuronLinks", neuronId] });
     return link;
   };
 
   const deleteLink = async (id: string) => {
     await api.neuronLinks.delete(id);
-    setLinks((prev) => prev.filter((l) => l.id !== id));
+    queryClient.invalidateQueries({ queryKey: ["neuronLinks", neuronId] });
   };
 
-  return { links, loading, createLink, deleteLink, refetch: fetchLinks };
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["neuronLinks", neuronId] });
+  };
+
+  return { links, loading, createLink, deleteLink, refetch };
 }

@@ -1,27 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Thought } from "@/types";
 
 export function useThoughts() {
-  const [thoughts, setThoughts] = useState<Thought[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchThoughts = useCallback(async () => {
-    try {
-      const data = await api.thoughts.list();
-      setThoughts(data);
-    } catch (err) {
-      console.error("Failed to fetch thoughts:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchThoughts();
-  }, [fetchThoughts]);
+  const { data: thoughts = [], isLoading: loading } = useQuery({
+    queryKey: ["thoughts"],
+    queryFn: () => api.thoughts.list(),
+  });
 
   const createThought = async (body: {
     name: string;
@@ -32,7 +21,7 @@ export function useThoughts() {
     brainTagIds?: string[];
   }) => {
     const thought = await api.thoughts.create(body);
-    setThoughts((prev) => [...prev, thought]);
+    queryClient.invalidateQueries({ queryKey: ["thoughts"] });
     return thought;
   };
 
@@ -45,14 +34,18 @@ export function useThoughts() {
     brainTagIds?: string[];
   }) => {
     const thought = await api.thoughts.update(id, body);
-    setThoughts((prev) => prev.map((t) => (t.id === id ? thought : t)));
+    queryClient.invalidateQueries({ queryKey: ["thoughts"] });
     return thought;
   };
 
   const deleteThought = async (id: string) => {
     await api.thoughts.delete(id);
-    setThoughts((prev) => prev.filter((t) => t.id !== id));
+    queryClient.invalidateQueries({ queryKey: ["thoughts"] });
   };
 
-  return { thoughts, loading, createThought, updateThought, deleteThought, refetch: fetchThoughts };
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["thoughts"] });
+  };
+
+  return { thoughts, loading, createThought, updateThought, deleteThought, refetch };
 }

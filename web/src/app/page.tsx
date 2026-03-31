@@ -1,26 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Brain, FileText, Star, Pin, Clock, AlertCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Neuron } from "@/types";
 
 export default function Dashboard() {
-  const [recentNeurons, setRecentNeurons] = useState<Neuron[]>([]);
-  const [favoriteNeurons, setFavoriteNeurons] = useState<Neuron[]>([]);
-  const [pinnedNeurons, setPinnedNeurons] = useState<Neuron[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { data: recentNeurons = [], error: recentError } = useQuery({
+    queryKey: ["neurons", "recent"],
+    queryFn: () => api.get<Neuron[]>("/api/neurons/recent?limit=10"),
+  });
 
-  useEffect(() => {
-    Promise.all([
-      api.get<Neuron[]>("/api/neurons/recent?limit=10").then(setRecentNeurons),
-      api.get<Neuron[]>("/api/neurons/favorites").then(setFavoriteNeurons),
-      api.get<Neuron[]>("/api/neurons/pinned").then(setPinnedNeurons),
-    ]).catch(() => {
-      setError("Failed to load dashboard data. Is the backend running?");
-    });
-  }, []);
+  const { data: favoriteNeurons = [] } = useQuery({
+    queryKey: ["neurons", "favorites"],
+    queryFn: () => api.get<Neuron[]>("/api/neurons/favorites"),
+  });
+
+  const { data: pinnedNeurons = [] } = useQuery({
+    queryKey: ["neurons", "pinned"],
+    queryFn: () => api.get<Neuron[]>("/api/neurons/pinned"),
+  });
+
+  const error = recentError ? "Failed to load dashboard data. Is the backend running?" : null;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">

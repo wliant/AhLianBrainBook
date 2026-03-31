@@ -3,6 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { useBrains } from '@/lib/hooks/useBrains';
 import { server } from '../../../mocks/server';
+import { createWrapper } from '../../../utils/createWrapper';
 import type { Brain } from '@/types';
 
 const API_BASE = 'http://localhost:8080';
@@ -26,7 +27,7 @@ describe('useBrains', () => {
       http.get(`${API_BASE}/api/brains`, () => HttpResponse.json(mockBrains))
     );
 
-    const { result } = renderHook(() => useBrains());
+    const { result } = renderHook(() => useBrains(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -37,9 +38,14 @@ describe('useBrains', () => {
     expect(result.current.brains[1].name).toBe('Second Brain');
   });
 
-  it('createBrain adds brain to list', async () => {
+  it('createBrain triggers refetch', async () => {
+    let callCount = 0;
     server.use(
-      http.get(`${API_BASE}/api/brains`, () => HttpResponse.json([])),
+      http.get(`${API_BASE}/api/brains`, () => {
+        callCount++;
+        if (callCount === 1) return HttpResponse.json([]);
+        return HttpResponse.json([makeBrain({ name: 'New Brain' })]);
+      }),
       http.post(`${API_BASE}/api/brains`, async ({ request }) => {
         const body = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(makeBrain({ name: body.name as string }), {
@@ -48,7 +54,7 @@ describe('useBrains', () => {
       })
     );
 
-    const { result } = renderHook(() => useBrains());
+    const { result } = renderHook(() => useBrains(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -58,17 +64,25 @@ describe('useBrains', () => {
       await result.current.createBrain('New Brain');
     });
 
-    expect(result.current.brains).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.brains).toHaveLength(1);
+    });
     expect(result.current.brains[0].name).toBe('New Brain');
   });
 
-  it('deleteBrain removes brain from list', async () => {
+  it('deleteBrain triggers refetch', async () => {
     const mockBrains = [makeBrain(), makeBrain({ id: 'brain-2', name: 'Second Brain' })];
+    let callCount = 0;
     server.use(
-      http.get(`${API_BASE}/api/brains`, () => HttpResponse.json(mockBrains))
+      http.get(`${API_BASE}/api/brains`, () => {
+        callCount++;
+        if (callCount === 1) return HttpResponse.json(mockBrains);
+        return HttpResponse.json([mockBrains[1]]);
+      }),
+      http.delete(`${API_BASE}/api/brains/:id`, () => new HttpResponse(null, { status: 204 }))
     );
 
-    const { result } = renderHook(() => useBrains());
+    const { result } = renderHook(() => useBrains(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.brains).toHaveLength(2);
@@ -78,7 +92,9 @@ describe('useBrains', () => {
       await result.current.deleteBrain('brain-1');
     });
 
-    expect(result.current.brains).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.brains).toHaveLength(1);
+    });
     expect(result.current.brains[0].id).toBe('brain-2');
   });
 });

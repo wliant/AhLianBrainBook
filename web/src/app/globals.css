@@ -111,3 +111,33 @@
   width: 0.9em;
   height: 0.9em;
 }
+
+/* Print styles for PDF export */
+@media print {
+  /* Hide non-content elements */
+  aside,
+  nav,
+  .lg\:hidden,
+  [class*="border-b"],
+  [class*="NotificationBell"],
+  button,
+  [role="menubar"] {
+    display: none !important;
+  }
+
+  /* Show main content full-width */
+  main {
+    overflow: visible !important;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Ensure code blocks don't overflow */
+  pre, code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+  }
+}
