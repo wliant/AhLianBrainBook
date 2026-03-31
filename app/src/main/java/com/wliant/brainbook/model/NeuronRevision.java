@@ -42,6 +42,9 @@ public class NeuronRevision {
     @Column(name = "content_text", columnDefinition = "text")
     private String contentText;
 
+    @Column(name = "title", length = 500)
+    private String title;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -62,6 +65,8 @@ public class NeuronRevision {
     public void setContentJson(String contentJson) { this.contentJson = contentJson; }
     public String getContentText() { return contentText; }
     public void setContentText(String contentText) { this.contentText = contentText; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -41,9 +41,18 @@ public class RevisionService {
         return toResponse(revision);
     }
 
+    private static final int MAX_REVISIONS_PER_NEURON = 10;
+
     public RevisionResponse createRevision(UUID neuronId, String reason) {
         Neuron neuron = neuronRepository.findById(neuronId)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
+
+        // Enforce max limit: delete oldest if at capacity
+        long count = revisionRepository.countByNeuronId(neuronId);
+        if (count >= MAX_REVISIONS_PER_NEURON) {
+            revisionRepository.findTopByNeuronIdOrderByRevisionNumberAsc(neuronId)
+                    .ifPresent(revisionRepository::delete);
+        }
 
         int nextRevisionNumber = revisionRepository.findTopByNeuronIdOrderByRevisionNumberDesc(neuronId)
                 .map(r -> r.getRevisionNumber() + 1)
@@ -52,11 +61,18 @@ public class RevisionService {
         NeuronRevision revision = new NeuronRevision();
         revision.setNeuron(neuron);
         revision.setRevisionNumber(nextRevisionNumber);
+        revision.setTitle(neuron.getTitle());
         revision.setContentJson(neuron.getContentJson());
         revision.setContentText(neuron.getContentText());
 
         NeuronRevision saved = revisionRepository.save(revision);
         return toResponse(saved);
+    }
+
+    public void deleteRevision(UUID revisionId) {
+        NeuronRevision revision = revisionRepository.findById(revisionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Revision not found: " + revisionId));
+        revisionRepository.delete(revision);
     }
 
     public NeuronResponse restoreRevision(UUID revisionId) {
@@ -99,6 +115,7 @@ public class RevisionService {
                 revision.getId(),
                 revision.getNeuron() != null ? revision.getNeuron().getId() : revision.getNeuronId(),
                 revision.getRevisionNumber(),
+                revision.getTitle(),
                 revision.getContentJson(),
                 revision.getContentText(),
                 revision.getCreatedAt()

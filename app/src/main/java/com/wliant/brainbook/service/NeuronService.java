@@ -33,15 +33,18 @@ public class NeuronService {
     private final BrainRepository brainRepository;
     private final ClusterRepository clusterRepository;
     private final TagService tagService;
+    private final NeuronSnapshotSchedulerService snapshotScheduler;
 
     public NeuronService(NeuronRepository neuronRepository,
                          BrainRepository brainRepository,
                          ClusterRepository clusterRepository,
-                         TagService tagService) {
+                         TagService tagService,
+                         NeuronSnapshotSchedulerService snapshotScheduler) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
         this.tagService = tagService;
+        this.snapshotScheduler = snapshotScheduler;
     }
 
     public List<NeuronResponse> getByClusterId(UUID clusterId) {
@@ -128,6 +131,7 @@ public class NeuronService {
         neuron.setVersion(neuron.getVersion() + 1);
         neuron.setLastEditedAt(LocalDateTime.now());
         Neuron saved = neuronRepository.save(neuron);
+        snapshotScheduler.recordUpdate(id);
         return toResponse(saved);
     }
 

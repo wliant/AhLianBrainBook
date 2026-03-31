@@ -173,6 +173,20 @@ export const api = {
       request<void>(`/api/neurons/${neuronId}/reminder`, { method: "DELETE" }),
   },
 
+  // Revision endpoints
+  revisions: {
+    list: (neuronId: string) =>
+      request<import("@/types").NeuronRevision[]>(`/api/neurons/${neuronId}/revisions`),
+    get: (revisionId: string) =>
+      request<import("@/types").NeuronRevision>(`/api/revisions/${revisionId}`),
+    create: (neuronId: string) =>
+      request<import("@/types").NeuronRevision>(`/api/neurons/${neuronId}/revisions`, { method: "POST" }),
+    restore: (revisionId: string) =>
+      request<import("@/types").Neuron>(`/api/revisions/${revisionId}/restore`, { method: "POST" }),
+    delete: (revisionId: string) =>
+      request<void>(`/api/revisions/${revisionId}`, { method: "DELETE" }),
+  },
+
   // Notification endpoints
   notifications: {
     getAll: (page: number, size: number) =>

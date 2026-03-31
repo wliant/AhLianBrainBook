@@ -14,4 +14,8 @@ public interface NeuronRevisionRepository extends JpaRepository<NeuronRevision, 
     List<NeuronRevision> findByNeuronIdOrderByRevisionNumberDesc(UUID neuronId);
 
     Optional<NeuronRevision> findTopByNeuronIdOrderByRevisionNumberDesc(UUID neuronId);
+
+    Optional<NeuronRevision> findTopByNeuronIdOrderByRevisionNumberAsc(UUID neuronId);
+
+    long countByNeuronId(UUID neuronId);
 }
