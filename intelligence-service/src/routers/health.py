@@ -9,13 +9,18 @@ router = APIRouter()
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    ollama_status = "unavailable"
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{settings.ollama_base_url}/")
-            if resp.status_code == 200:
-                ollama_status = "ok"
-    except Exception:
-        pass
+    provider = settings.llm_provider.lower()
+    llm_status = "unavailable"
 
-    return HealthResponse(status="ok", ollama=ollama_status)
+    if provider == "anthropic":
+        llm_status = "ok" if settings.anthropic_api_key else "not_configured"
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{settings.ollama_base_url}/")
+                if resp.status_code == 200:
+                    llm_status = "ok"
+        except Exception:
+            pass
+
+    return HealthResponse(status="ok", llm_provider=provider, llm_status=llm_status)

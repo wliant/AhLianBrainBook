@@ -4,10 +4,10 @@ from typing import TypedDict
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 
 from src.config import settings
+from src.llm import get_llm, get_provider_name
 from src.schemas.section_author import (
     QuestionItem,
     SectionAuthorRequest,
@@ -146,11 +146,7 @@ def classify_intent(state: SectionAuthorState) -> dict:
 
 
 def invoke_llm(state: SectionAuthorState) -> dict:
-    llm = ChatOllama(
-        model=settings.ollama_model,
-        base_url=settings.ollama_base_url,
-        format="json",
-    )
+    llm = get_llm(format="json")
 
     messages = [SystemMessage(content=state["system_prompt"])]
 
@@ -382,7 +378,7 @@ async def invoke_section_author(request: SectionAuthorRequest) -> SectionAuthorR
         if "connection" in err_str or "refused" in err_str or "connect" in err_str:
             return SectionAuthorResponse(
                 response_type="message",
-                message="Cannot connect to the AI model server (Ollama). Please ensure it is running.",
+                message=f"Cannot connect to the AI model server ({get_provider_name()}). Please ensure it is running.",
                 message_severity="error",
             )
         raise

@@ -1,10 +1,9 @@
 from typing import TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 
-from src.config import settings
+from src.llm import get_llm
 
 
 class AgentState(TypedDict):
@@ -17,7 +16,7 @@ _compiled_graph = None
 def _get_graph():
     global _compiled_graph
     if _compiled_graph is None:
-        llm = ChatOllama(model=settings.ollama_model, base_url=settings.ollama_base_url)
+        llm = get_llm()
 
         def invoke_llm(state: AgentState) -> AgentState:
             response = llm.invoke(state["messages"])

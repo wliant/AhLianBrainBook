@@ -102,6 +102,7 @@ export function TiptapEditor({ content, onUpdate, editable = true, onInsertSecti
     if (editor) editor.setEditable(editable);
   }, [editor, editable]);
 
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;

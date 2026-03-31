@@ -60,7 +60,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             # Reset compiled graph so the patched LLM is used
@@ -86,7 +86,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -109,7 +109,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -130,7 +130,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -151,7 +151,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -172,7 +172,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -196,7 +196,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -216,7 +216,7 @@ class TestSectionAuthorEndpoint:
         mock_llm.invoke.return_value = mock_response
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=mock_llm,
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -230,12 +230,12 @@ class TestSectionAuthorEndpoint:
         assert data["message_severity"] == "error"
         assert "invalid" in data["message"].lower()
 
-    def test_ollama_connection_error(self, client):
+    def test_llm_connection_error(self, client):
         mock_llm = MagicMock()
         mock_llm.invoke.side_effect = ConnectionError("Connection refused")
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=mock_llm,
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -247,7 +247,7 @@ class TestSectionAuthorEndpoint:
         data = response.json()
         assert data["response_type"] == "message"
         assert data["message_severity"] == "error"
-        assert "ollama" in data["message"].lower()
+        assert "cannot connect" in data["message"].lower()
 
     def test_regenerate_flag(self, client):
         llm_output = {
@@ -259,7 +259,7 @@ class TestSectionAuthorEndpoint:
         mock_llm = _mock_llm_response(llm_output)
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=mock_llm,
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -299,7 +299,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
@@ -340,7 +340,7 @@ class TestSectionAuthorEndpoint:
         }
 
         with patch(
-            "src.agents.section_author.ChatOllama",
+            "src.agents.section_author.get_llm",
             return_value=_mock_llm_response(llm_output),
         ):
             with patch("src.agents.section_author._compiled_graph", None):
