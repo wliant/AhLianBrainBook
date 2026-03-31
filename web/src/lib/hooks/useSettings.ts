@@ -1,25 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AppSettings } from "@/types";
+import { useCallback } from "react";
 
 export function useSettings() {
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    api.settings.get().then((data) => {
-      setSettings(data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+  const { data: settings = null, isLoading: loading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.settings.get(),
+    staleTime: Infinity,
+  });
 
   const updateDisplayName = useCallback(async (displayName: string) => {
     const updated = await api.settings.update({ displayName });
-    setSettings(updated);
+    queryClient.invalidateQueries({ queryKey: ["settings"] });
     return updated;
-  }, []);
+  }, [queryClient]);
 
   return { settings, loading, updateDisplayName };
 }

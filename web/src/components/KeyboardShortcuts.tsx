@@ -1,17 +1,25 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Brain, Neuron } from "@/types";
 
 const SHORTCUTS = [
   { keys: "Ctrl+K", description: "Open search" },
   { keys: "Ctrl+N", description: "New neuron (on cluster page)" },
+  { keys: "Ctrl+\\", description: "Toggle sidebar" },
+  { keys: "Ctrl+Shift+F", description: "Global search (focus)" },
+  { keys: "Ctrl+S", description: "Force save / snapshot" },
+  { keys: "Ctrl+[", description: "Previous neuron" },
+  { keys: "Ctrl+]", description: "Next neuron" },
+  { keys: "Alt+1-9", description: "Switch brain" },
   { keys: "Escape", description: "Go back / close panel" },
   { keys: "?", description: "Show keyboard shortcuts" },
 ];
@@ -19,6 +27,8 @@ const SHORTCUTS = [
 export function KeyboardShortcuts() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const params = useParams();
+  const queryClient = useQueryClient();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -27,17 +37,76 @@ export function KeyboardShortcuts() {
         target.getAttribute("contenteditable") === "true" ||
         target.closest("[contenteditable]");
 
+      const ctrlOrMeta = e.ctrlKey || e.metaKey;
+
       // ? for help (only when not in input)
-      if (e.key === "?" && !isInput && !e.ctrlKey && !e.metaKey) {
+      if (e.key === "?" && !isInput && !ctrlOrMeta) {
         e.preventDefault();
         setOpen(true);
         return;
       }
 
       // Ctrl+K for search
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if (ctrlOrMeta && e.key === "k") {
         e.preventDefault();
         router.push("/search");
+        return;
+      }
+
+      // Ctrl+\ to toggle sidebar
+      if (ctrlOrMeta && e.key === "\\") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("toggle-sidebar"));
+        return;
+      }
+
+      // Ctrl+Shift+F for global search
+      if (ctrlOrMeta && e.shiftKey && e.key === "F") {
+        e.preventDefault();
+        router.push("/search");
+        return;
+      }
+
+      // Ctrl+S for force save
+      if (ctrlOrMeta && e.key === "s" && !e.shiftKey) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("force-save"));
+        return;
+      }
+
+      // Ctrl+[ / Ctrl+] for prev/next neuron
+      if (ctrlOrMeta && (e.key === "[" || e.key === "]") && !isInput) {
+        const clusterId = params?.clusterId as string | undefined;
+        const neuronId = params?.neuronId as string | undefined;
+        const brainId = params?.brainId as string | undefined;
+        if (!clusterId || !neuronId || !brainId) return;
+
+        const neurons = queryClient.getQueryData<Neuron[]>(["neurons", clusterId]);
+        if (!neurons || neurons.length < 2) return;
+
+        const currentIndex = neurons.findIndex((n) => n.id === neuronId);
+        if (currentIndex === -1) return;
+
+        const nextIndex = e.key === "]"
+          ? Math.min(currentIndex + 1, neurons.length - 1)
+          : Math.max(currentIndex - 1, 0);
+
+        if (nextIndex !== currentIndex) {
+          e.preventDefault();
+          router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${neurons[nextIndex].id}`);
+        }
+        return;
+      }
+
+      // Alt+1-9 for brain switching
+      if (e.altKey && !ctrlOrMeta && e.key >= "1" && e.key <= "9") {
+        const brains = queryClient.getQueryData<Brain[]>(["brains"]);
+        if (!brains) return;
+        const index = parseInt(e.key) - 1;
+        if (index < brains.length) {
+          e.preventDefault();
+          router.push(`/brain/${brains[index].id}`);
+        }
         return;
       }
 
@@ -48,7 +117,7 @@ export function KeyboardShortcuts() {
         }
       }
     },
-    [router, open]
+    [router, open, params, queryClient]
   );
 
   useEffect(() => {

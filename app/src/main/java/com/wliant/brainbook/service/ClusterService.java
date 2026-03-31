@@ -8,6 +8,8 @@ import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class ClusterService {
         this.settingsService = settingsService;
     }
 
+    @Cacheable(value = "clustersByBrain", key = "#brainId")
     public List<ClusterResponse> getByBrainId(UUID brainId) {
         return clusterRepository.findByBrainIdAndIsArchivedFalseOrderBySortOrder(brainId).stream()
                 .map(this::toResponse)
@@ -41,6 +44,7 @@ public class ClusterService {
         return toResponse(cluster);
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public ClusterResponse create(ClusterRequest req) {
         Brain brain = brainRepository.findById(req.brainId())
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + req.brainId()));
@@ -58,6 +62,7 @@ public class ClusterService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public ClusterResponse update(UUID id, ClusterRequest req) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
@@ -68,12 +73,14 @@ public class ClusterService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public void delete(UUID id) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
         clusterRepository.delete(cluster);
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public ClusterResponse archive(UUID id) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
@@ -83,6 +90,7 @@ public class ClusterService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public ClusterResponse restore(UUID id) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
@@ -92,10 +100,12 @@ public class ClusterService {
         return toResponse(saved);
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public void reorder(ReorderRequest req) {
         ReorderHelper.reorder(req, clusterRepository, Cluster::setSortOrder, "Cluster");
     }
 
+    @CacheEvict(value = "clustersByBrain", allEntries = true)
     public ClusterResponse move(UUID id, UUID targetBrainId) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));

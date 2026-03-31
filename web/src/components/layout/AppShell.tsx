@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Brain, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,15 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("toggle-sidebar", handleToggleSidebar);
+    return () => window.removeEventListener("toggle-sidebar", handleToggleSidebar);
+  }, [handleToggleSidebar]);
 
   return (
     <div className="flex h-[100dvh]">

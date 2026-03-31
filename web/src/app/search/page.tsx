@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import DOMPurify from "dompurify";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Search, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -110,31 +111,7 @@ export default function SearchPage() {
         <p className="text-muted-foreground text-center py-8">No results found</p>
       )}
 
-      <div className="space-y-1" role="list" aria-label="Search results">
-        {results.map((item) => (
-          <Link
-            key={item.neuron.id}
-            href={`/brain/${item.neuron.brainId}/cluster/${item.neuron.clusterId}/neuron/${item.neuron.id}`}
-            className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent transition-colors"
-            role="listitem"
-          >
-            <FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{item.neuron.title || "Untitled"}</p>
-              {item.highlight ? (
-                <p
-                  className="text-xs text-muted-foreground line-clamp-2 [&_mark]:bg-yellow-200 [&_mark]:dark:bg-yellow-800 [&_mark]:rounded-sm [&_mark]:px-0.5"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.highlight, { ALLOWED_TAGS: ["mark"] }) }}
-                />
-              ) : (
-                <p className="text-xs text-muted-foreground truncate">
-                  {item.neuron.contentText?.slice(0, 150) || "Empty note"}
-                </p>
-              )}
-            </div>
-          </Link>
-        ))}
-      </div>
+      <SearchResults results={results} />
 
       {!loading && searched && results.length > 0 && (
         <p className="text-xs text-muted-foreground text-center mt-4" aria-live="polite">
@@ -142,5 +119,84 @@ export default function SearchPage() {
         </p>
       )}
     </div>
+  );
+}
+
+const SEARCH_VIRTUAL_THRESHOLD = 30;
+const SEARCH_ITEM_HEIGHT = 60;
+
+function SearchResults({ results }: { results: SearchResultItem[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: results.length,
+    getScrollElement: useCallback(() => parentRef.current, []),
+    estimateSize: useCallback(() => SEARCH_ITEM_HEIGHT, []),
+    overscan: 5,
+    enabled: results.length > SEARCH_VIRTUAL_THRESHOLD,
+  });
+
+  if (results.length === 0) return null;
+
+  if (results.length <= SEARCH_VIRTUAL_THRESHOLD) {
+    return (
+      <div className="space-y-1" role="list" aria-label="Search results">
+        {results.map((item) => (
+          <SearchResultRow key={item.neuron.id} item={item} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={parentRef}
+      className="overflow-auto"
+      style={{ maxHeight: `${Math.min(results.length, 15) * SEARCH_ITEM_HEIGHT}px` }}
+      role="list"
+      aria-label="Search results"
+    >
+      <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={virtualRow.key}
+            role="listitem"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            <SearchResultRow item={results[virtualRow.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SearchResultRow({ item }: { item: SearchResultItem }) {
+  return (
+    <Link
+      href={`/brain/${item.neuron.brainId}/cluster/${item.neuron.clusterId}/neuron/${item.neuron.id}`}
+      className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent transition-colors"
+    >
+      <FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">{item.neuron.title || "Untitled"}</p>
+        {item.highlight ? (
+          <p
+            className="text-xs text-muted-foreground line-clamp-2 [&_mark]:bg-yellow-200 [&_mark]:dark:bg-yellow-800 [&_mark]:rounded-sm [&_mark]:px-0.5"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.highlight, { ALLOWED_TAGS: ["mark"] }) }}
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground truncate">
+            {item.neuron.contentText?.slice(0, 150) || "Empty note"}
+          </p>
+        )}
+      </div>
+    </Link>
   );
 }

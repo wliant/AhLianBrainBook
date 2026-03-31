@@ -3,6 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { useNeuronHistory } from '@/lib/hooks/useNeuronHistory';
 import { server } from '../../../mocks/server';
+import { createWrapper } from '../../../utils/createWrapper';
 import type { NeuronRevision } from '@/types';
 
 const API_BASE = 'http://localhost:8080';
@@ -20,7 +21,7 @@ const makeRevision = (overrides: Partial<NeuronRevision> = {}): NeuronRevision =
 
 describe('useNeuronHistory', () => {
   it('returns empty revisions when neuronId is null', async () => {
-    const { result } = renderHook(() => useNeuronHistory(null));
+    const { result } = renderHook(() => useNeuronHistory(null), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -40,7 +41,7 @@ describe('useNeuronHistory', () => {
       )
     );
 
-    const { result } = renderHook(() => useNeuronHistory('neuron-1'));
+    const { result } = renderHook(() => useNeuronHistory('neuron-1'), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -51,7 +52,7 @@ describe('useNeuronHistory', () => {
     expect(result.current.revisions[1].title).toBe('Second Snapshot');
   });
 
-  it('createSnapshot creates and refetches', async () => {
+  it('createSnapshot triggers refetch', async () => {
     const created = makeRevision({ id: 'new-revision', revisionNumber: 1 });
     server.use(
       http.get(`${API_BASE}/api/neurons/:neuronId/revisions`, () =>
@@ -62,7 +63,7 @@ describe('useNeuronHistory', () => {
       )
     );
 
-    const { result } = renderHook(() => useNeuronHistory('neuron-1'));
+    const { result } = renderHook(() => useNeuronHistory('neuron-1'), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -72,22 +73,30 @@ describe('useNeuronHistory', () => {
       await result.current.createSnapshot();
     });
 
-    expect(result.current.revisions).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.revisions).toHaveLength(1);
+    });
     expect(result.current.revisions[0].id).toBe('new-revision');
   });
 
-  it('deleteRevision removes from local state', async () => {
+  it('deleteRevision triggers refetch', async () => {
     const revisions = [
       makeRevision({ id: 'rev-1', revisionNumber: 1 }),
       makeRevision({ id: 'rev-2', revisionNumber: 2 }),
     ];
+    let callCount = 0;
     server.use(
-      http.get(`${API_BASE}/api/neurons/:neuronId/revisions`, () =>
-        HttpResponse.json(revisions)
+      http.get(`${API_BASE}/api/neurons/:neuronId/revisions`, () => {
+        callCount++;
+        if (callCount === 1) return HttpResponse.json(revisions);
+        return HttpResponse.json([revisions[1]]);
+      }),
+      http.delete(`${API_BASE}/api/neurons/:neuronId/revisions/:revisionId`, () =>
+        new HttpResponse(null, { status: 204 })
       )
     );
 
-    const { result } = renderHook(() => useNeuronHistory('neuron-1'));
+    const { result } = renderHook(() => useNeuronHistory('neuron-1'), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.revisions).toHaveLength(2);
@@ -97,7 +106,9 @@ describe('useNeuronHistory', () => {
       await result.current.deleteRevision('rev-1');
     });
 
-    expect(result.current.revisions).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.revisions).toHaveLength(1);
+    });
     expect(result.current.revisions[0].id).toBe('rev-2');
   });
 });

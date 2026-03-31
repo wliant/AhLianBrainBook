@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -70,10 +71,8 @@ public class NeuronService {
     }
 
     public List<NeuronResponse> getByClusterId(UUID clusterId) {
-        return neuronRepository.findByClusterIdAndIsDeletedFalseAndIsArchivedFalseOrderBySortOrderAsc(clusterId)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Neuron> neurons = neuronRepository.findByClusterIdAndIsDeletedFalseAndIsArchivedFalseOrderBySortOrderAsc(clusterId);
+        return toResponseBatch(neurons);
     }
 
     public NeuronResponse getById(UUID id) {
@@ -85,9 +84,8 @@ public class NeuronService {
     @Transactional(readOnly = true)
     public List<NeuronResponse> getByIds(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();
-        return neuronRepository.findAllById(ids).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Neuron> neurons = neuronRepository.findAllById(ids);
+        return toResponseBatch(neurons);
     }
 
     @Transactional(readOnly = true)
@@ -103,21 +101,17 @@ public class NeuronService {
     public List<NeuronResponse> getRecent(int limit) {
         Page<Neuron> page = neuronRepository.findByIsDeletedFalseAndIsArchivedFalseOrderByLastEditedAtDesc(
                 PageRequest.of(0, limit));
-        return page.getContent().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        return toResponseBatch(page.getContent());
     }
 
     public List<NeuronResponse> getFavorites() {
-        return neuronRepository.findByIsFavoriteTrueAndIsDeletedFalseOrderByUpdatedAtDesc().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Neuron> neurons = neuronRepository.findByIsFavoriteTrueAndIsDeletedFalseOrderByUpdatedAtDesc();
+        return toResponseBatch(neurons);
     }
 
     public List<NeuronResponse> getPinned() {
-        return neuronRepository.findByIsPinnedTrueAndIsDeletedFalseOrderByUpdatedAtDesc().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Neuron> neurons = neuronRepository.findByIsPinnedTrueAndIsDeletedFalseOrderByUpdatedAtDesc();
+        return toResponseBatch(neurons);
     }
 
     public NeuronResponse create(NeuronRequest req) {
@@ -371,9 +365,8 @@ public class NeuronService {
     }
 
     public List<NeuronResponse> getTrash() {
-        return neuronRepository.findByIsDeletedTrueOrderByUpdatedAtDesc().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Neuron> neurons = neuronRepository.findByIsDeletedTrueOrderByUpdatedAtDesc();
+        return toResponseBatch(neurons);
     }
 
     public NeuronResponse restoreFromTrash(UUID id) {
@@ -400,6 +393,28 @@ public class NeuronService {
             tags = Collections.emptyList();
         }
 
+        return toResponseWithTags(neuron, tags);
+    }
+
+    public List<NeuronResponse> toResponseBatch(List<Neuron> neurons) {
+        if (neurons == null || neurons.isEmpty()) return List.of();
+
+        List<UUID> neuronIds = neurons.stream().map(Neuron::getId).collect(Collectors.toList());
+        Map<UUID, List<TagResponse>> tagsByNeuron;
+        try {
+            tagsByNeuron = tagService.getTagsForNeurons(neuronIds);
+        } catch (Exception e) {
+            logger.error("Failed to batch fetch tags for {} neurons", neuronIds.size(), e);
+            tagsByNeuron = Collections.emptyMap();
+        }
+
+        Map<UUID, List<TagResponse>> finalTags = tagsByNeuron;
+        return neurons.stream()
+                .map(n -> toResponseWithTags(n, finalTags.getOrDefault(n.getId(), Collections.emptyList())))
+                .collect(Collectors.toList());
+    }
+
+    private NeuronResponse toResponseWithTags(Neuron neuron, List<TagResponse> tags) {
         return new NeuronResponse(
                 neuron.getId(),
                 neuron.getBrain() != null ? neuron.getBrain().getId() : neuron.getBrainId(),

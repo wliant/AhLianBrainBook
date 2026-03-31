@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
+import { createWrapper } from '../../utils/createWrapper';
 import type { Neuron } from '@/types';
 
 // Mock next/link to render a simple anchor
@@ -47,15 +48,17 @@ const importDashboard = async () => {
 
 describe('Dashboard (Home Page)', () => {
   it('renders BrainBook heading', async () => {
+    const Wrapper = createWrapper();
     const Dashboard = await importDashboard();
-    render(<Dashboard />);
+    render(<Wrapper><Dashboard /></Wrapper>);
 
     expect(screen.getByText('BrainBook')).toBeInTheDocument();
   });
 
   it('renders Recent section', async () => {
+    const Wrapper = createWrapper();
     const Dashboard = await importDashboard();
-    render(<Dashboard />);
+    render(<Wrapper><Dashboard /></Wrapper>);
 
     expect(screen.getByText('Recent')).toBeInTheDocument();
   });
@@ -72,8 +75,9 @@ describe('Dashboard (Home Page)', () => {
       )
     );
 
+    const Wrapper = createWrapper();
     const Dashboard = await importDashboard();
-    render(<Dashboard />);
+    render(<Wrapper><Dashboard /></Wrapper>);
 
     await waitFor(() => {
       expect(screen.getByText('My First Note')).toBeInTheDocument();

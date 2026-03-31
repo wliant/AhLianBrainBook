@@ -4,6 +4,8 @@ import com.wliant.brainbook.dto.AppSettingsRequest;
 import com.wliant.brainbook.dto.AppSettingsResponse;
 import com.wliant.brainbook.model.AppSettings;
 import com.wliant.brainbook.repository.AppSettingsRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,10 +24,12 @@ public class SettingsService {
         return toResponse(settings);
     }
 
+    @Cacheable("settings")
     public String getDisplayName() {
         return appSettingsRepository.findAll().getFirst().getDisplayName();
     }
 
+    @CacheEvict(value = "settings", allEntries = true)
     public AppSettingsResponse updateSettings(AppSettingsRequest req) {
         AppSettings settings = appSettingsRepository.findAll().getFirst();
         settings.setDisplayName(req.displayName());
