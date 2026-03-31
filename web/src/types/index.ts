@@ -242,7 +242,7 @@ export interface NeuronShare {
 
 export interface SharedNeuron {
   title: string;
-  contentJson: string;
+  contentJson: string | null;
   tags: Tag[];
   brainName: string | null;
   createdAt: string;

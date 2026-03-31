@@ -3,7 +3,6 @@ package com.wliant.brainbook.service;
 import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.dto.SearchResponse;
 import com.wliant.brainbook.dto.SearchResultItem;
-import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.repository.BrainRepository;

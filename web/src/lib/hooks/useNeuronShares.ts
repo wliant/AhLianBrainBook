@@ -14,6 +14,7 @@ export function useNeuronShares(neuronId: string | null) {
   });
 
   const createShare = async (expiresInHours: number | null) => {
+    if (!neuronId) throw new Error("neuronId is required");
     const body = expiresInHours ? { expiresInHours } : {};
     const share = await api.post<NeuronShare>(`/api/neurons/${neuronId}/share`, body);
     queryClient.invalidateQueries({ queryKey: ["neuron-shares", neuronId] });
