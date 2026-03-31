@@ -43,3 +43,23 @@ export function formatRelativeTime(dateStr: string): string {
   if (days < 7) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString();
 }
+
+/**
+ * Format a future date string as relative time (e.g., "in 3 days").
+ * Returns "Now" if the date is in the past or within the current minute.
+ */
+export function formatRelativeFuture(dateStr: string): string {
+  const now = Date.now();
+  const target = new Date(dateStr).getTime();
+  const diff = target - now;
+
+  if (diff <= 60_000) return "Now";
+
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 60) return `in ${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `in ${hours} hour${hours !== 1 ? "s" : ""}`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `in ${days} day${days !== 1 ? "s" : ""}`;
+  return new Date(dateStr).toLocaleDateString();
+}
