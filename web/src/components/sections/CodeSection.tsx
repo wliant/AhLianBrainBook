@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { Section } from "@/types";
-import Editor from "@monaco-editor/react";
 import { GripHorizontal, Play, Loader2 } from "lucide-react";
 import { CodeRunner } from "./CodeRunner";
+import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import type { ExecutionResult } from "@/lib/sandbox/types";
+import { useTheme } from "next-themes";
 
 const LANGUAGES = [
   "javascript",
@@ -45,10 +46,11 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
   const [output, setOutput] = useState<ExecutionResult | null>(null);
   const [running, setRunning] = useState(false);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const { resolvedTheme } = useTheme();
 
   const handleCodeChange = useCallback(
-    (value: string | undefined) => {
-      onUpdate({ code: value || "", language: lang, title });
+    (value: string) => {
+      onUpdate({ code: value, language: lang, title });
     },
     [onUpdate, lang, title]
   );
@@ -119,6 +121,7 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
   );
 
   const isRunnable = RUNNABLE_LANGUAGES.has(lang);
+  const viewHeight = editing ? `${editorHeight}px` : `${Math.max(40, (code.split("\n").length) * 20 + 16)}px`;
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -167,23 +170,13 @@ export function CodeSection({ section, onUpdate, editing = true }: CodeSectionPr
           </button>
         )}
       </div>
-      <Editor
-        height={editing ? `${editorHeight}px` : `${Math.max(40, (code.split("\n").length) * 20 + 16)}px`}
-        language={lang}
+      <CodeMirrorEditor
         value={code}
-        onChange={handleCodeChange}
-        theme="vs-dark"
-        options={{
-          minimap: { enabled: false },
-          fontSize: 13,
-          lineNumbers: "on",
-          scrollBeyondLastLine: false,
-          padding: { top: 8 },
-          automaticLayout: true,
-          readOnly: !editing,
-          domReadOnly: !editing,
-          ...(editing ? {} : { scrollbar: { vertical: "hidden", horizontal: "hidden" } }),
-        }}
+        onChange={editing ? handleCodeChange : undefined}
+        language={lang}
+        readOnly={!editing}
+        height={viewHeight}
+        darkMode={resolvedTheme === "dark"}
       />
       {editing && (
         <div
