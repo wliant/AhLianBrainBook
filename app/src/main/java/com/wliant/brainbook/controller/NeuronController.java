@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.WebRequest;
 
 import java.util.List;
 import java.util.List;
@@ -81,8 +82,13 @@ public class NeuronController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<NeuronResponse> getNeuron(@PathVariable UUID id) {
-        return ResponseEntity.ok(neuronService.getById(id));
+    public ResponseEntity<NeuronResponse> getNeuron(@PathVariable UUID id, WebRequest request) {
+        NeuronResponse neuron = neuronService.getById(id);
+        String etag = "\"" + neuron.version() + "\"";
+        if (request.checkNotModified(etag)) {
+            return null;
+        }
+        return ResponseEntity.ok().eTag(etag).body(neuron);
     }
 
     @PatchMapping("/{id}")
