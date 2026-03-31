@@ -350,24 +350,80 @@ class BrainBookAPI:
 
     def create_reminder(self, neuron_id: str, trigger_at: str, reminder_type: str = "ONCE", **kwargs) -> dict:
         body = {"reminderType": reminder_type, "triggerAt": trigger_at, **kwargs}
-        r = self.client.post(f"/api/neurons/{neuron_id}/reminder", json=body)
+        r = self.client.post(f"/api/neurons/{neuron_id}/reminders", json=body)
+        r.raise_for_status()
+        return r.json()
+
+    def list_reminders(self, neuron_id: str) -> list[dict]:
+        r = self.client.get(f"/api/neurons/{neuron_id}/reminders")
         r.raise_for_status()
         return r.json()
 
     def get_reminder(self, neuron_id: str) -> dict | None:
-        r = self.client.get(f"/api/neurons/{neuron_id}/reminder")
-        if r.status_code == 404 or r.status_code == 204 or not r.content:
-            return None
+        """Get first reminder for a neuron, or None if no reminders exist."""
+        reminders = self.list_reminders(neuron_id)
+        return reminders[0] if reminders else None
+
+    def update_reminder(self, neuron_id: str, reminder_id: str, **kwargs) -> dict:
+        r = self.client.put(f"/api/neurons/{neuron_id}/reminders/{reminder_id}", json=kwargs)
         r.raise_for_status()
         return r.json()
 
-    def update_reminder(self, neuron_id: str, **kwargs) -> dict:
-        r = self.client.put(f"/api/neurons/{neuron_id}/reminder", json=kwargs)
+    def delete_reminder(self, neuron_id: str, reminder_id: str):
+        r = self.client.delete(f"/api/neurons/{neuron_id}/reminders/{reminder_id}")
+        assert r.status_code == 204
+
+    # ── Thoughts ──
+
+    def create_thought(self, name: str, neuron_tag_ids: list[str],
+                       neuron_tag_mode: str = "any", description: str | None = None,
+                       brain_tag_ids: list[str] | None = None, brain_tag_mode: str = "any") -> dict:
+        body = {
+            "name": name,
+            "neuronTagIds": neuron_tag_ids,
+            "neuronTagMode": neuron_tag_mode,
+            "brainTagMode": brain_tag_mode,
+        }
+        if description is not None:
+            body["description"] = description
+        if brain_tag_ids is not None:
+            body["brainTagIds"] = brain_tag_ids
+        r = self.client.post("/api/thoughts", json=body)
         r.raise_for_status()
         return r.json()
 
-    def delete_reminder(self, neuron_id: str):
-        r = self.client.delete(f"/api/neurons/{neuron_id}/reminder")
+    def list_thoughts(self) -> list[dict]:
+        r = self.client.get("/api/thoughts")
+        r.raise_for_status()
+        return r.json()
+
+    def get_thought(self, thought_id: str) -> dict:
+        r = self.client.get(f"/api/thoughts/{thought_id}")
+        r.raise_for_status()
+        return r.json()
+
+    def update_thought(self, thought_id: str, **kwargs) -> dict:
+        r = self.client.patch(f"/api/thoughts/{thought_id}", json=kwargs)
+        r.raise_for_status()
+        return r.json()
+
+    def delete_thought(self, thought_id: str):
+        r = self.client.delete(f"/api/thoughts/{thought_id}")
+        assert r.status_code == 204
+
+    def get_thought_neurons(self, thought_id: str) -> list[dict]:
+        r = self.client.get(f"/api/thoughts/{thought_id}/neurons")
+        r.raise_for_status()
+        return r.json()
+
+    # ── Brain Tags ──
+
+    def add_tag_to_brain(self, brain_id: str, tag_id: str):
+        r = self.client.post(f"/api/tags/brains/{brain_id}/tags/{tag_id}")
+        r.raise_for_status()
+
+    def remove_tag_from_brain(self, brain_id: str, tag_id: str):
+        r = self.client.delete(f"/api/tags/brains/{brain_id}/tags/{tag_id}")
         assert r.status_code == 204
 
     # ── Notifications ──
