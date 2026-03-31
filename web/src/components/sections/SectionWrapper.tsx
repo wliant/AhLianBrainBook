@@ -42,7 +42,7 @@ export function SectionWrapper({
   const isPreview = !!section.meta?.preview;
 
   return (
-    <div className="group relative">
+    <div className="group relative" data-section-id={section.id}>
       {!viewMode && (
         <div
           className={cn(
