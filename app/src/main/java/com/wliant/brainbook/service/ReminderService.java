@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -22,10 +22,13 @@ public class ReminderService {
 
     private final ReminderRepository reminderRepository;
     private final NeuronRepository neuronRepository;
+    private final SettingsService settingsService;
 
-    public ReminderService(ReminderRepository reminderRepository, NeuronRepository neuronRepository) {
+    public ReminderService(ReminderRepository reminderRepository, NeuronRepository neuronRepository,
+                           SettingsService settingsService) {
         this.reminderRepository = reminderRepository;
         this.neuronRepository = neuronRepository;
+        this.settingsService = settingsService;
     }
 
     @Transactional
@@ -33,48 +36,52 @@ public class ReminderService {
         Neuron neuron = neuronRepository.findById(neuronId)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
 
-        // Upsert: reuse existing reminder or create new one
-        Reminder reminder = reminderRepository.findByNeuronId(neuronId)
-                .orElseGet(() -> {
-                    Reminder r = new Reminder();
-                    r.setNeuron(neuron);
-                    return r;
-                });
+        int maxReminders = settingsService.getMaxRemindersPerNeuron();
+        long currentCount = reminderRepository.countByNeuronId(neuronId);
+        if (currentCount >= maxReminders) {
+            throw new IllegalStateException(
+                    "Maximum number of reminders (" + maxReminders + ") reached for this neuron");
+        }
 
+        Reminder reminder = new Reminder();
+        reminder.setNeuron(neuron);
         applyRequest(reminder, req);
         reminder.setActive(true);
 
         Reminder saved = reminderRepository.save(reminder);
-        log.info("Created/updated reminder {} for neuron {} (type={}, triggerAt={})",
+        log.info("Created reminder {} for neuron {} (type={}, triggerAt={})",
                 saved.getId(), neuronId, req.reminderType(), req.triggerAt());
         return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
-    public Optional<ReminderResponse> getByNeuronId(UUID neuronId) {
-        return reminderRepository.findByNeuronId(neuronId).map(this::toResponse);
+    public List<ReminderResponse> listByNeuronId(UUID neuronId) {
+        return reminderRepository.findByNeuronIdOrderByCreatedAtDesc(neuronId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
-    public ReminderResponse update(UUID neuronId, ReminderRequest req) {
-        Reminder reminder = reminderRepository.findByNeuronId(neuronId)
-                .orElseThrow(() -> new ResourceNotFoundException("Reminder not found for neuron: " + neuronId));
+    public ReminderResponse update(UUID reminderId, ReminderRequest req) {
+        Reminder reminder = reminderRepository.findById(reminderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reminder not found: " + reminderId));
 
         applyRequest(reminder, req);
         reminder.setActive(true);
 
         Reminder saved = reminderRepository.save(reminder);
-        log.info("Updated reminder {} for neuron {} (type={}, triggerAt={})",
-                saved.getId(), neuronId, req.reminderType(), req.triggerAt());
+        log.info("Updated reminder {} (type={}, triggerAt={})",
+                saved.getId(), req.reminderType(), req.triggerAt());
         return toResponse(saved);
     }
 
     @Transactional
-    public void delete(UUID neuronId) {
-        Reminder reminder = reminderRepository.findByNeuronId(neuronId)
-                .orElseThrow(() -> new ResourceNotFoundException("Reminder not found for neuron: " + neuronId));
+    public void delete(UUID reminderId) {
+        Reminder reminder = reminderRepository.findById(reminderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reminder not found: " + reminderId));
         reminderRepository.delete(reminder);
-        log.info("Deleted reminder {} for neuron {}", reminder.getId(), neuronId);
+        log.info("Deleted reminder {}", reminderId);
     }
 
     private void applyRequest(Reminder reminder, ReminderRequest req) {

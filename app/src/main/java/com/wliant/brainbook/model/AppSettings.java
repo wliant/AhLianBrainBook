@@ -27,6 +27,9 @@ public class AppSettings {
     @Column(name = "editor_mode", nullable = false, length = 20)
     private String editorMode = "normal";
 
+    @Column(name = "max_reminders_per_neuron", nullable = false)
+    private int maxRemindersPerNeuron = 10;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -55,4 +58,6 @@ public class AppSettings {
     public void setEditorMode(String editorMode) { this.editorMode = editorMode; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public int getMaxRemindersPerNeuron() { return maxRemindersPerNeuron; }
+    public void setMaxRemindersPerNeuron(int maxRemindersPerNeuron) { this.maxRemindersPerNeuron = maxRemindersPerNeuron; }
 }

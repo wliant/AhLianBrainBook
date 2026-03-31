@@ -155,22 +155,22 @@ export const api = {
 
   // Reminder endpoints
   reminders: {
-    get: (neuronId: string) =>
-      request<import("@/types").Reminder | undefined>(`/api/neurons/${neuronId}/reminder`),
+    list: (neuronId: string) =>
+      request<import("@/types").Reminder[]>(`/api/neurons/${neuronId}/reminders`),
     create: (neuronId: string, body: {
       reminderType: string;
       triggerAt: string;
       recurrencePattern?: string | null;
       recurrenceInterval?: number | null;
-    }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminder`, { method: "POST", body }),
-    update: (neuronId: string, body: {
+    }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminders`, { method: "POST", body }),
+    update: (neuronId: string, reminderId: string, body: {
       reminderType: string;
       triggerAt: string;
       recurrencePattern?: string | null;
       recurrenceInterval?: number | null;
-    }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminder`, { method: "PUT", body }),
-    delete: (neuronId: string) =>
-      request<void>(`/api/neurons/${neuronId}/reminder`, { method: "DELETE" }),
+    }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminders/${reminderId}`, { method: "PUT", body }),
+    delete: (neuronId: string, reminderId: string) =>
+      request<void>(`/api/neurons/${neuronId}/reminders/${reminderId}`, { method: "DELETE" }),
   },
 
   // Revision endpoints
@@ -190,7 +190,7 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName?: string; editorMode?: string }) =>
+    update: (body: { displayName?: string; editorMode?: string; maxRemindersPerNeuron?: number }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
   },
 

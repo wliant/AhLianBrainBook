@@ -24,5 +24,10 @@ export function useSettings() {
     queryClient.invalidateQueries({ queryKey: ["settings"] });
   }, [queryClient]);
 
-  return { settings, loading, updateDisplayName, updateEditorMode };
+  const updateMaxReminders = useCallback(async (maxRemindersPerNeuron: number) => {
+    await api.settings.update({ maxRemindersPerNeuron });
+    queryClient.invalidateQueries({ queryKey: ["settings"] });
+  }, [queryClient]);
+
+  return { settings, loading, updateDisplayName, updateEditorMode, updateMaxReminders };
 }
