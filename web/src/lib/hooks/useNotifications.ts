@@ -27,9 +27,11 @@ export function useNotifications(options?: { pollInterval?: number }) {
   });
   const error = queryError ? (queryError instanceof Error ? queryError.message : "Failed to load notifications") : null;
 
-  const fetchNotifications = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["notifications", "list"] });
-    queryClient.refetchQueries({ queryKey: ["notifications", "list"] });
+  const fetchNotifications = useCallback(async () => {
+    await queryClient.fetchQuery({
+      queryKey: ["notifications", "list"],
+      queryFn: () => api.notifications.getAll(0, PAGE_SIZE),
+    });
   }, [queryClient]);
 
   const markAsRead = useCallback(async (id: string) => {
