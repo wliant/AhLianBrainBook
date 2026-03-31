@@ -1,5 +1,9 @@
 server:
   port: 8080
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/xml,text/html,text/plain,text/css,application/javascript
 
 spring:
   datasource:
@@ -7,6 +11,13 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:brainbook}
     password: ${SPRING_DATASOURCE_PASSWORD:brainbook}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      connection-timeout: 10000
+      leak-detection-threshold: 30000
   jpa:
     hibernate:
       ddl-auto: validate
