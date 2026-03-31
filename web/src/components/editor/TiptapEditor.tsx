@@ -20,6 +20,7 @@ import { common, createLowlight } from "lowlight";
 import { Toolbar } from "./Toolbar";
 import { SlashCommand } from "./SlashCommand";
 import { WikiLink } from "./WikiLink";
+import { VimMode } from "./VimMode";
 import type { SectionType } from "@/types";
 
 const lowlight = createLowlight(common);
@@ -30,9 +31,10 @@ interface TiptapEditorProps {
   editable?: boolean;
   onInsertSection?: (type: SectionType) => void;
   brainId?: string;
+  editorMode?: string;
 }
 
-export function TiptapEditor({ content, onUpdate, editable = true, onInsertSection, brainId }: TiptapEditorProps) {
+export function TiptapEditor({ content, onUpdate, editable = true, onInsertSection, brainId, editorMode }: TiptapEditorProps) {
   const router = useRouter();
 
   const editor = useEditor({
@@ -65,6 +67,7 @@ export function TiptapEditor({ content, onUpdate, editable = true, onInsertSecti
       WikiLink.configure({
         brainId,
       }),
+      ...(editorMode === "vim" ? [VimMode] : []),
     ],
     content: content || undefined,
     editable,

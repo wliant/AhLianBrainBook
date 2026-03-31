@@ -50,6 +50,7 @@ export interface Neuron {
 
 export interface AppSettings {
   displayName: string;
+  editorMode: string;
   createdAt: string;
   updatedAt: string;
 }

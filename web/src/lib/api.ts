@@ -190,7 +190,7 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName: string }) =>
+    update: (body: { displayName?: string; editorMode?: string }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
   },
 
