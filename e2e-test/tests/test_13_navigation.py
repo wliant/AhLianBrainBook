@@ -41,9 +41,17 @@ class TestBrainNavigation:
     def test_brain_list_in_sidebar(self, home: Page, api: BrainBookAPI):
         brain = api.create_brain(unique_name("Sidebar Nav Brain"))
         try:
+            # Bypass browser HTTP cache for brains API (has Cache-Control: max-age=60)
+            def bust_cache(route):
+                route.fetch(headers={**route.request.headers, "cache-control": "no-cache"})
+                response = route.fetch()
+                route.fulfill(response=response, headers={**response.headers, "cache-control": "no-store"})
+
+            home.route("**/api/brains", bust_cache)
             home.reload()
             home.wait_for_load_state("networkidle")
             expect(home.get_by_test_id(f"sidebar-brain-{brain['id']}")).to_be_visible(timeout=5000)
+            home.unroute("**/api/brains")
         finally:
             api.delete_brain(brain["id"])
 
