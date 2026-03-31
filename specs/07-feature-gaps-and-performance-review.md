@@ -10,48 +10,19 @@ Current stack: Spring Boot 3.5.13 (Java 21), Next.js 16 (React 19), PostgreSQL 1
 
 ## Part 1: Feature Gaps for Technical Learners
 
-### P0 -- Critical Missing Features
+### P0 -- Critical Missing Features (IMPLEMENTED)
 
-#### 1. Slash Command Menu
+#### 1. Slash Command Menu -- DONE
 
-The editor placeholder says "Use / for commands" but no slash command menu exists. Technical users expect a `/` menu to quickly insert content blocks.
+Implemented via `SlashCommand.tsx` TipTap extension using `@tiptap/suggestion`. Supports 9 format commands (headings, lists, blockquote, code block, divider) and 7 section insertion commands (code editor, math, diagram, callout, image, table, audio) that create new sections via parent `SectionList` callback. Shared rendering via `SuggestionDropdown` component with full keyboard navigation and accessibility.
 
-**Current state:** `web/src/components/editor/TiptapEditor.tsx` uses TipTap with Placeholder extension showing the hint, but no Suggestion extension is configured.
+#### 2. Bidirectional Linking & Backlinks -- DONE
 
-**Recommendation:**
-- Add TipTap `Suggestion` extension with a `/` trigger
-- Menu items: code block, math block, diagram (Mermaid), callout, divider, image, table, audio
-- Add markdown input rules for common patterns (`# ` for headings, `` ``` `` for code blocks, `- [ ]` for checklists)
+Implemented via `WikiLink.tsx` TipTap node extension with `[[` autocomplete trigger. Searches neurons by title via `GET /api/neurons/search?title=query`. On content save, `NeuronService.syncEditorLinks()` auto-syncs wiki link references to the `neuron_links` table (with `source='editor'` to distinguish from manual links). ConnectionsPanel renames incoming links to "Backlinks" and shows a "wiki" badge on editor-created links. V14 migration adds the `source` column.
 
-#### 2. Bidirectional Linking & Backlinks
+#### 3. Search with Highlighting & Relevance Ranking -- DONE
 
-NeuronLinks exist in the backend (`NeuronLinkController`, `NeuronLink` model with source/target/label/type/weight) but there is no way to create links from within the editor. No `[[neuron title]]` syntax. No backlinks panel.
-
-**Current state:**
-- Backend: Full CRUD for neuron links at `/api/neuron-links`
-- Frontend: `ConnectionsPanel.tsx` shows links but requires manual creation via dialog
-- No inline linking from editor content
-
-**Recommendation:**
-- Add `[[` autocomplete in TipTap that searches neurons by title and inserts an internal link (`/brain/{brainId}/cluster/{clusterId}/neuron/{neuronId}`)
-- Auto-create a `NeuronLink` when a `[[]]` link is inserted
-- Add a "Backlinks" section to the neuron page showing all neurons that link to the current one
-- Add a search endpoint: `GET /api/neurons/search?title=query` for fast title autocomplete
-
-#### 3. Search with Highlighting & Relevance Ranking
-
-Search returns results but doesn't highlight matched terms or show relevance ranking. No search-as-you-type.
-
-**Current state:**
-- Backend: `SearchService` uses PostgreSQL `to_tsvector`/`plainto_tsquery` with a GIN index
-- Frontend: `search/page.tsx` shows results with a 150-char preview, no highlighting
-- No debounced input -- search requires explicit submission
-
-**Recommendation:**
-- Backend: Return `ts_headline('english', content_text, query)` for highlighted snippets with `<mark>` tags
-- Backend: Order results by `ts_rank(to_tsvector('english', content_text), query)` descending
-- Frontend: Render highlighted HTML snippets (sanitized)
-- Frontend: Add debounced search-as-you-type (300ms debounce)
+Implemented via `NeuronSearchRepository` with dynamic native SQL that pushes all filters (brain, cluster, neuron tags, brain tags) into the query — fixing the broken Java-side filtering and pagination. Uses `ts_rank()` for relevance ordering (title weighted 2x) and `ts_headline()` for `<mark>`-tagged highlighted snippets. V13 migration adds GIN index on title. Frontend uses debounced search-as-you-type (300ms via `useDebounce` hook), renders sanitized highlights via DOMPurify (only `<mark>` allowed), and shows error/loading states with proper accessibility attributes. Also fixes P-4b (search pagination broken).
 
 ---
 
@@ -303,9 +274,9 @@ The TipTap editor is fully re-created (all extensions re-initialized) on every n
 
 | # | Item | Type | Priority | Effort |
 |---|------|------|----------|--------|
-| 1 | Slash command menu | Feature | P0 | Medium |
-| 2 | Bidirectional linking & backlinks | Feature | P0 | Large |
-| 3 | Search highlighting & ranking | Feature | P0 | Medium |
+| 1 | ~~Slash command menu~~ | Feature | P0 | DONE |
+| 2 | ~~Bidirectional linking & backlinks~~ | Feature | P0 | DONE |
+| 3 | ~~Search highlighting & ranking~~ | Feature | P0 | DONE |
 | 4 | Spaced repetition | Feature | P1 | Large |
 | 5 | Keyboard-first workflow | Feature | P1 | Medium |
 | 6 | Command palette | Feature | P1 | Medium |
@@ -323,7 +294,7 @@ The TipTap editor is fully re-created (all extensions re-initialized) on every n
 | P-2 | Server-side caching (Caffeine) | Performance | P0 | Medium |
 | P-3 | List virtualization | Performance | P0 | Medium |
 | P-4 | N+1 query in NeuronService.toResponse() | Performance | P1 | Medium |
-| P-4b | Search pagination broken (Java-side filtering) | Performance | P1 | Medium |
+| P-4b | ~~Search pagination broken (Java-side filtering)~~ | Performance | P1 | DONE |
 | P-4c | BrainStatsService loads all neurons into memory | Performance | P1 | Small |
 | P-5 | SSE notifications | Performance | P1 | Medium |
 | P-6 | HTTP caching headers | Performance | P1 | Small |
