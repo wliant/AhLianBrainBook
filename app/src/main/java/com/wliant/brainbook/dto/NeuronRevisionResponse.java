@@ -7,6 +7,7 @@ public record NeuronRevisionResponse(
         UUID id,
         UUID neuronId,
         int revisionNumber,
+        String title,
         String contentJson,
         String contentText,
         LocalDateTime createdAt

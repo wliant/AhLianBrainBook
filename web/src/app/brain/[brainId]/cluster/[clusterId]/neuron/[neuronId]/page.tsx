@@ -3,12 +3,13 @@
 import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Brain, Cluster, Neuron, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell } from "lucide-react";
+import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
+import { HistoryPanel } from "@/components/neuron/HistoryPanel";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
 import { Button } from "@/components/ui/button";
@@ -36,12 +37,16 @@ function NeuronPageContent({
   const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
   const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
   const [showLinks, setShowLinks] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [viewingRevision, setViewingRevision] = useState<NeuronRevision | null>(null);
+  const [viewingRevisionDoc, setViewingRevisionDoc] = useState<SectionsDocument | null>(null);
   const [hasReminder, setHasReminder] = useState(false);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
   const richTextTextsRef = useRef<Map<string, string>>(new Map());
+  const viewRevisionTextsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     api.get<Neuron>(`/api/neurons/${neuronId}`).then((n) => {
@@ -143,6 +148,55 @@ function NeuronPageContent({
     setNeuron((prev) => (prev ? { ...prev, isPinned: !prev.isPinned } : prev));
   };
 
+  const toggleLinks = () => {
+    setShowLinks((prev) => {
+      if (!prev) setShowHistory(false);
+      return !prev;
+    });
+  };
+
+  const toggleHistory = () => {
+    setShowHistory((prev) => {
+      if (!prev) {
+        setShowLinks(false);
+      } else {
+        setViewingRevision(null);
+        setViewingRevisionDoc(null);
+      }
+      return !prev;
+    });
+  };
+
+  const closeHistory = () => {
+    setShowHistory(false);
+    setViewingRevision(null);
+    setViewingRevisionDoc(null);
+  };
+
+  const handleViewRevision = (revision: NeuronRevision) => {
+    setViewingRevision(revision);
+    const parsed =
+      typeof revision.contentJson === "string"
+        ? JSON.parse(revision.contentJson)
+        : revision.contentJson;
+    setViewingRevisionDoc(normalizeContent(parsed));
+  };
+
+  const handleRestore = async (revision: NeuronRevision) => {
+    const restored = await api.revisions.restore(revision.id);
+    const parsedJson =
+      typeof restored.contentJson === "string"
+        ? JSON.parse(restored.contentJson as string)
+        : restored.contentJson;
+    const doc = normalizeContent(parsedJson);
+    setNeuron({ ...restored, contentJson: parsedJson });
+    setSectionsDoc(doc);
+    latestDoc.current = doc;
+    versionRef.current = restored.version;
+    setViewingRevision(null);
+    setViewingRevisionDoc(null);
+  };
+
   if (!neuron || !sectionsDoc) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -220,7 +274,21 @@ function NeuronPageContent({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => setShowLinks(!showLinks)}
+          onClick={toggleHistory}
+          title="Toggle History"
+        >
+          <History
+            className={cn(
+              "h-4 w-4",
+              showHistory && "text-blue-400"
+            )}
+          />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={toggleLinks}
           title="Toggle Connections"
         >
           <Link2
@@ -233,32 +301,53 @@ function NeuronPageContent({
       </div>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 overflow-auto p-4 sm:p-6 max-w-4xl mx-auto w-full">
-          <div className="mb-4">
-            <EntityMetadata
-              createdBy={neuron.createdBy}
-              createdAt={neuron.createdAt}
-              lastUpdatedBy={neuron.lastUpdatedBy}
-              updatedAt={neuron.updatedAt}
-            />
-          </div>
-          {viewMode ? (
-          <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
-        ) : (
-          <input
-            type="text"
-            value={title}
-            onChange={handleTitleChange}
-            placeholder="Untitled"
-            className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
-          />
-        )}
-        <SectionList
-          document={sectionsDoc}
-          onDocumentChange={handleDocumentChange}
-          richTextTextsRef={richTextTextsRef}
-          neuronId={neuronId}
-          viewMode={viewMode}
-        />
+          {viewingRevision && viewingRevisionDoc ? (
+            <>
+              <button
+                onClick={() => { setViewingRevision(null); setViewingRevisionDoc(null); }}
+                className="w-full mb-4 px-3 py-2 text-sm bg-muted rounded-md text-muted-foreground hover:bg-muted/80 text-left"
+              >
+                Viewing revision #{viewingRevision.revisionNumber} — click to dismiss
+              </button>
+              <h1 className="text-3xl font-bold mb-4">{viewingRevision.title || "Untitled"}</h1>
+              <SectionList
+                document={viewingRevisionDoc}
+                onDocumentChange={() => {}}
+                richTextTextsRef={viewRevisionTextsRef}
+                neuronId={neuronId}
+                viewMode={true}
+              />
+            </>
+          ) : (
+            <>
+              <div className="mb-4">
+                <EntityMetadata
+                  createdBy={neuron.createdBy}
+                  createdAt={neuron.createdAt}
+                  lastUpdatedBy={neuron.lastUpdatedBy}
+                  updatedAt={neuron.updatedAt}
+                />
+              </div>
+              {viewMode ? (
+                <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
+              ) : (
+                <input
+                  type="text"
+                  value={title}
+                  onChange={handleTitleChange}
+                  placeholder="Untitled"
+                  className="w-full text-3xl font-bold border-none outline-none mb-4 bg-transparent"
+                />
+              )}
+              <SectionList
+                document={sectionsDoc}
+                onDocumentChange={handleDocumentChange}
+                richTextTextsRef={richTextTextsRef}
+                neuronId={neuronId}
+                viewMode={viewMode}
+              />
+            </>
+          )}
         </div>
         {showLinks && (
           <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
@@ -266,6 +355,16 @@ function NeuronPageContent({
               neuronId={neuronId}
               brainId={brainId}
               onClose={() => setShowLinks(false)}
+            />
+          </div>
+        )}
+        {showHistory && (
+          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+            <HistoryPanel
+              neuronId={neuronId}
+              onClose={closeHistory}
+              onViewRevision={handleViewRevision}
+              onRestore={handleRestore}
             />
           </div>
         )}

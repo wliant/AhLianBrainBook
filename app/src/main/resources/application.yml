@@ -41,6 +41,11 @@ management:
     health:
       show-details: when-authorized
 
+app:
+  neuron:
+    snapshot:
+      idle-minutes: 60
+
 logging:
   level:
     com.wliant.brainbook: DEBUG

@@ -75,11 +75,10 @@ export interface NeuronRevision {
   id: string;
   neuronId: string;
   revisionNumber: number;
+  title: string | null;
   contentJson: Record<string, unknown> | null;
   contentText: string | null;
   createdAt: string;
-  reason: string;
-  snapshotName: string | null;
 }
 
 export interface Template {

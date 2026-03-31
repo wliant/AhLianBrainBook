@@ -33,17 +33,20 @@ public class NeuronService {
     private final BrainRepository brainRepository;
     private final ClusterRepository clusterRepository;
     private final TagService tagService;
+    private final NeuronSnapshotSchedulerService snapshotScheduler;
     private final SettingsService settingsService;
 
     public NeuronService(NeuronRepository neuronRepository,
                          BrainRepository brainRepository,
                          ClusterRepository clusterRepository,
                          TagService tagService,
+                         NeuronSnapshotSchedulerService snapshotScheduler,
                          SettingsService settingsService) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
         this.tagService = tagService;
+        this.snapshotScheduler = snapshotScheduler;
         this.settingsService = settingsService;
     }
 
@@ -136,6 +139,7 @@ public class NeuronService {
         neuron.setLastEditedAt(LocalDateTime.now());
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
+        snapshotScheduler.recordUpdate(id);
         return toResponse(saved);
     }
 
