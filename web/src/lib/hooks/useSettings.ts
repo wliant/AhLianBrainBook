@@ -15,10 +15,14 @@ export function useSettings() {
   });
 
   const updateDisplayName = useCallback(async (displayName: string) => {
-    const updated = await api.settings.update({ displayName });
+    await api.settings.update({ displayName });
     queryClient.invalidateQueries({ queryKey: ["settings"] });
-    return updated;
   }, [queryClient]);
 
-  return { settings, loading, updateDisplayName };
+  const updateEditorMode = useCallback(async (editorMode: string) => {
+    await api.settings.update({ editorMode });
+    queryClient.invalidateQueries({ queryKey: ["settings"] });
+  }, [queryClient]);
+
+  return { settings, loading, updateDisplayName, updateEditorMode };
 }

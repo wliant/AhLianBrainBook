@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export const metadata: Metadata = {
   title: "BrainBook",
@@ -28,6 +29,7 @@ export default function RootLayout({
             <ErrorBoundary>
               <AppShell>{children}</AppShell>
               <KeyboardShortcuts />
+              <CommandPalette />
             </ErrorBoundary>
           </ThemeProvider>
         </QueryProvider>

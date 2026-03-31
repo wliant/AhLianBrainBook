@@ -50,6 +50,7 @@ export interface Neuron {
 
 export interface AppSettings {
   displayName: string;
+  editorMode: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -177,6 +178,18 @@ export interface Thought {
   updatedAt: string;
   neuronTags: Tag[];
   brainTags: Tag[];
+}
+
+export interface SpacedRepetitionItem {
+  id: string;
+  neuronId: string;
+  neuronTitle: string;
+  easeFactor: number;
+  intervalDays: number;
+  repetitions: number;
+  nextReviewAt: string;
+  lastReviewedAt: string | null;
+  createdAt: string;
 }
 
 export interface BrainExport {

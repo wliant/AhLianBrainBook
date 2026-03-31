@@ -190,7 +190,7 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName: string }) =>
+    update: (body: { displayName?: string; editorMode?: string }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
   },
 
@@ -204,5 +204,24 @@ export const api = {
       request<void>(`/api/notifications/${id}/read`, { method: "POST" }),
     markAllAsRead: () =>
       request<void>("/api/notifications/read-all", { method: "POST" }),
+  },
+
+  // Spaced Repetition endpoints
+  spacedRepetition: {
+    addItem: (neuronId: string) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${neuronId}`, { method: "POST" }),
+    removeItem: (neuronId: string) =>
+      request<void>(`/api/spaced-repetition/items/${neuronId}`, { method: "DELETE" }),
+    getItem: (neuronId: string) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${neuronId}`),
+    getAllItems: () =>
+      request<import("@/types").SpacedRepetitionItem[]>("/api/spaced-repetition/items"),
+    getQueue: () =>
+      request<import("@/types").SpacedRepetitionItem[]>("/api/spaced-repetition/queue"),
+    submitReview: (itemId: string, quality: number) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${itemId}/review`, {
+        method: "POST",
+        body: { quality },
+      }),
   },
 };

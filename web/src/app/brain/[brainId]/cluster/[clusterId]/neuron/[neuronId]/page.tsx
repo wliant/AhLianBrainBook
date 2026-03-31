@@ -4,14 +4,16 @@ import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
 import { HistoryPanel } from "@/components/neuron/HistoryPanel";
+import { TableOfContents } from "@/components/neuron/TableOfContents";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
+import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -44,10 +46,12 @@ function NeuronPageContent({
   const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
   const [showLinks, setShowLinks] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showToc, setShowToc] = useState(false);
   const [viewingRevision, setViewingRevision] = useState<NeuronRevision | null>(null);
   const [viewingRevisionDoc, setViewingRevisionDoc] = useState<SectionsDocument | null>(null);
   const [hasReminder, setHasReminder] = useState(false);
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
@@ -156,7 +160,7 @@ function NeuronPageContent({
 
   const toggleLinks = () => {
     setShowLinks((prev) => {
-      if (!prev) setShowHistory(false);
+      if (!prev) { setShowHistory(false); setShowToc(false); }
       return !prev;
     });
   };
@@ -165,6 +169,7 @@ function NeuronPageContent({
     setShowHistory((prev) => {
       if (!prev) {
         setShowLinks(false);
+        setShowToc(false);
       } else {
         setViewingRevision(null);
         setViewingRevisionDoc(null);
@@ -172,6 +177,19 @@ function NeuronPageContent({
       return !prev;
     });
   };
+
+  const toggleToc = useCallback(() => {
+    setShowToc((prev) => {
+      if (!prev) { setShowLinks(false); setShowHistory(false); }
+      return !prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = () => toggleToc();
+    window.addEventListener("toggle-toc", handler);
+    return () => window.removeEventListener("toggle-toc", handler);
+  }, [toggleToc]);
 
   const closeHistory = () => {
     setShowHistory(false);
@@ -284,6 +302,21 @@ function NeuronPageContent({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
+          onClick={() => isInReview(neuronId) ? removeFromReview(neuronId) : addToReview(neuronId)}
+          title={isInReview(neuronId) ? "Remove from Review" : "Add to Review"}
+          data-testid="toggle-sr"
+        >
+          <GraduationCap
+            className={cn(
+              "h-4 w-4",
+              isInReview(neuronId) && "fill-purple-400 text-purple-400"
+            )}
+          />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
           onClick={toggleHistory}
           title="Toggle History"
           data-testid="toggle-history"
@@ -292,6 +325,21 @@ function NeuronPageContent({
             className={cn(
               "h-4 w-4",
               showHistory && "text-blue-400"
+            )}
+          />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={toggleToc}
+          title="Toggle Table of Contents"
+          data-testid="toggle-toc"
+        >
+          <List
+            className={cn(
+              "h-4 w-4",
+              showToc && "text-blue-400"
             )}
           />
         </Button>
@@ -382,6 +430,14 @@ function NeuronPageContent({
             </>
           )}
         </div>
+        {showToc && sectionsDoc && (
+          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+            <TableOfContents
+              document={sectionsDoc}
+              onClose={() => setShowToc(false)}
+            />
+          </div>
+        )}
         {showLinks && (
           <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
             <ConnectionsPanel
