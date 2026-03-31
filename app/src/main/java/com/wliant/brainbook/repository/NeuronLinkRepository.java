@@ -24,4 +24,6 @@ public interface NeuronLinkRepository extends JpaRepository<NeuronLink, UUID> {
     List<NeuronLink> findAllByBrainId(@Param("brainId") UUID brainId);
 
     Optional<NeuronLink> findBySourceNeuronIdAndTargetNeuronId(UUID sourceNeuronId, UUID targetNeuronId);
+
+    List<NeuronLink> findBySourceNeuronIdAndSource(UUID sourceNeuronId, String source);
 }

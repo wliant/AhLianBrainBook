@@ -3,7 +3,7 @@ package com.wliant.brainbook.dto;
 import java.util.List;
 
 public record SearchResponse(
-        List<NeuronResponse> results,
+        List<SearchResultItem> results,
         long totalCount
 ) {
 }

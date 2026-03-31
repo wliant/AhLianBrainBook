@@ -83,7 +83,7 @@ export function ConnectionsPanel({
         {incoming.length > 0 && (
           <div>
             <h4 className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase">
-              Incoming ({incoming.length})
+              Backlinks ({incoming.length})
             </h4>
             {incoming.map((link) => (
               <LinkItem
@@ -144,6 +144,11 @@ function LinkItem({
       {link.linkType && (
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
           {link.linkType}
+        </span>
+      )}
+      {link.source === "editor" && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 shrink-0">
+          wiki
         </span>
       )}
       <button

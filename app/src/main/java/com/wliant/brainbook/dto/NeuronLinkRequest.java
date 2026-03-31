@@ -18,5 +18,8 @@ public record NeuronLinkRequest(
     @Size(max = 50, message = "Link type must be at most 50 characters")
     String linkType,
 
-    Double weight
+    Double weight,
+
+    @Size(max = 20, message = "Source must be at most 20 characters")
+    String source
 ) { }

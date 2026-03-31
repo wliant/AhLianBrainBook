@@ -344,6 +344,7 @@ function NeuronPageContent({
                 onDocumentChange={handleDocumentChange}
                 richTextTextsRef={richTextTextsRef}
                 neuronId={neuronId}
+                brainId={brainId}
                 viewMode={viewMode}
               />
             </>

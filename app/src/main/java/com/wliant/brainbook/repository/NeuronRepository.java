@@ -28,6 +28,8 @@ public interface NeuronRepository extends JpaRepository<Neuron, UUID> {
 
     List<Neuron> findByIsArchivedTrueAndIsDeletedFalseOrderByUpdatedAtDesc();
 
+    List<Neuron> findByTitleContainingIgnoreCaseAndIsDeletedFalse(String title, org.springframework.data.domain.Pageable pageable);
+
     @Query(value = "SELECT * FROM neurons n " +
             "WHERE n.is_deleted = false " +
             "AND (to_tsvector('english', coalesce(n.content_text, '')) @@ plainto_tsquery('english', :query) " +

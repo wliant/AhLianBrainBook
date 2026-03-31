@@ -71,7 +71,7 @@ class ImportExportServiceTest {
 
         // Add a second neuron and link
         NeuronResponse neuron2 = testDataFactory.createNeuron("Neuron 2", brainId, chain.cluster().id());
-        neuronLinkService.create(new NeuronLinkRequest(neuronId, neuron2.id(), "related", "ref", 1.0));
+        neuronLinkService.create(new NeuronLinkRequest(neuronId, neuron2.id(), "related", "ref", 1.0, null));
 
         BrainExportDto export = importExportService.exportBrain(brainId);
 
@@ -186,7 +186,7 @@ class ImportExportServiceTest {
         TagResponse tag = testDataFactory.createTag("Spring");
         tagService.addTagToNeuron(chain.neuron().id(), tag.id());
         neuronLinkService.create(new NeuronLinkRequest(
-                chain.neuron().id(), neuron2.id(), "link", "ref", null));
+                chain.neuron().id(), neuron2.id(), "link", "ref", null, null));
 
         // Export
         BrainExportDto export = importExportService.exportBrain(brainId);

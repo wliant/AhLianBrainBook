@@ -2,29 +2,33 @@ package com.wliant.brainbook.service;
 
 import com.wliant.brainbook.dto.NeuronResponse;
 import com.wliant.brainbook.dto.SearchResponse;
-import com.wliant.brainbook.dto.TagResponse;
-import com.wliant.brainbook.model.Neuron;
-import com.wliant.brainbook.repository.NeuronRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import com.wliant.brainbook.dto.SearchResultItem;
+import com.wliant.brainbook.exception.ResourceNotFoundException;
+import com.wliant.brainbook.repository.NeuronSearchRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class SearchService {
 
-    private final NeuronRepository neuronRepository;
-    private final NeuronService neuronService;
-    private final TagService tagService;
+    private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
 
-    public SearchService(NeuronRepository neuronRepository, NeuronService neuronService, TagService tagService) {
-        this.neuronRepository = neuronRepository;
+    private final NeuronSearchRepository neuronSearchRepository;
+    private final NeuronService neuronService;
+
+    public SearchService(NeuronSearchRepository neuronSearchRepository, NeuronService neuronService) {
+        this.neuronSearchRepository = neuronSearchRepository;
         this.neuronService = neuronService;
-        this.tagService = tagService;
     }
 
     public SearchResponse search(String query, UUID brainId, UUID clusterId,
@@ -34,32 +38,32 @@ public class SearchService {
             return new SearchResponse(List.of(), 0);
         }
 
-        Page<Neuron> results = neuronRepository.search(query, PageRequest.of(page, size));
+        NeuronSearchRepository.SearchResult result = neuronSearchRepository.search(
+                query, brainId, clusterId, neuronTagIds, brainTagIds, page, size);
 
-        List<NeuronResponse> filtered = results.getContent().stream()
-                .filter(n -> brainId == null || brainId.equals(n.getBrainId()))
-                .filter(n -> clusterId == null || clusterId.equals(n.getClusterId()))
-                .map(n -> neuronService.getById(n.getId()))
-                .filter(n -> matchesNeuronTags(n, neuronTagIds))
-                .filter(n -> matchesBrainTags(n.brainId(), brainTagIds))
-                .collect(Collectors.toList());
+        if (result.rows().isEmpty()) {
+            return new SearchResponse(List.of(), result.totalCount());
+        }
 
-        return new SearchResponse(filtered, results.getTotalElements());
-    }
+        // Batch fetch all neurons to avoid N+1 queries
+        List<UUID> ids = result.rows().stream()
+                .map(NeuronSearchRepository.SearchRow::id)
+                .toList();
+        Map<UUID, NeuronResponse> neuronMap = neuronService.getByIds(ids).stream()
+                .collect(Collectors.toMap(NeuronResponse::id, Function.identity()));
 
-    private boolean matchesNeuronTags(NeuronResponse neuron, List<UUID> neuronTagIds) {
-        if (neuronTagIds == null || neuronTagIds.isEmpty()) return true;
-        Set<UUID> neuronTags = neuron.tags().stream()
-                .map(TagResponse::id)
-                .collect(Collectors.toSet());
-        return neuronTags.containsAll(neuronTagIds);
-    }
+        List<SearchResultItem> items = result.rows().stream()
+                .map(row -> {
+                    NeuronResponse neuron = neuronMap.get(row.id());
+                    if (neuron == null) {
+                        logger.warn("Search result references missing neuron id={}", row.id());
+                        return null;
+                    }
+                    return new SearchResultItem(neuron, row.highlight(), row.rank());
+                })
+                .filter(Objects::nonNull)
+                .toList();
 
-    private boolean matchesBrainTags(UUID brainId, List<UUID> brainTagIds) {
-        if (brainTagIds == null || brainTagIds.isEmpty()) return true;
-        Set<UUID> tags = tagService.getTagsForBrain(brainId).stream()
-                .map(TagResponse::id)
-                .collect(Collectors.toSet());
-        return tags.containsAll(brainTagIds);
+        return new SearchResponse(items, result.totalCount());
     }
 }

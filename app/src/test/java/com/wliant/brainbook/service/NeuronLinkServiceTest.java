@@ -59,7 +59,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void create_savesLink() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "related", "association", 0.8);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "related", "association", 0.8, null);
 
         NeuronLinkResponse response = neuronLinkService.create(req);
 
@@ -74,7 +74,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void create_withNullWeight_defaultsToOne() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null);
 
         NeuronLinkResponse response = neuronLinkService.create(req);
 
@@ -83,7 +83,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void create_throwsOnSelfLink() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId1, "self", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId1, "self", "ref", null, null);
 
         assertThatThrownBy(() -> neuronLinkService.create(req))
                 .isInstanceOf(ConflictException.class)
@@ -92,7 +92,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void create_throwsOnDuplicateLink() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null);
         neuronLinkService.create(req);
 
         assertThatThrownBy(() -> neuronLinkService.create(req))
@@ -102,7 +102,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void create_throwsOnNonexistentSource() {
-        NeuronLinkRequest req = new NeuronLinkRequest(UUID.randomUUID(), neuronId2, "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(UUID.randomUUID(), neuronId2, "link", "ref", null, null);
 
         assertThatThrownBy(() -> neuronLinkService.create(req))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -110,7 +110,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void create_throwsOnNonexistentTarget() {
-        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, UUID.randomUUID(), "link", "ref", null);
+        NeuronLinkRequest req = new NeuronLinkRequest(neuronId1, UUID.randomUUID(), "link", "ref", null, null);
 
         assertThatThrownBy(() -> neuronLinkService.create(req))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -118,7 +118,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void getLinksForNeuron_returnsLinks() {
-        neuronLinkService.create(new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null));
+        neuronLinkService.create(new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null));
 
         List<NeuronLinkResponse> links = neuronLinkService.getLinksForNeuron(neuronId1);
 
@@ -134,7 +134,7 @@ class NeuronLinkServiceTest {
 
     @Test
     void getLinksForBrain_returnsLinks() {
-        neuronLinkService.create(new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null));
+        neuronLinkService.create(new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null));
 
         List<NeuronLinkResponse> links = neuronLinkService.getLinksForBrain(brainId);
 
@@ -144,7 +144,7 @@ class NeuronLinkServiceTest {
     @Test
     void delete_removesLink() {
         NeuronLinkResponse created = neuronLinkService.create(
-                new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null));
+                new NeuronLinkRequest(neuronId1, neuronId2, "link", "ref", null, null));
 
         neuronLinkService.delete(created.id());
 

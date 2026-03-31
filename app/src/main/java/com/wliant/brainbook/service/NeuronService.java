@@ -4,6 +4,7 @@ import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.NeuronSummary;
 import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.dto.TagResponse;
 import com.wliant.brainbook.exception.ConflictException;
@@ -11,17 +12,27 @@ import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.Neuron;
+import com.wliant.brainbook.model.NeuronLink;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
+import com.wliant.brainbook.repository.NeuronLinkRepository;
 import com.wliant.brainbook.repository.NeuronRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -29,25 +40,33 @@ import java.util.stream.Collectors;
 @Transactional
 public class NeuronService {
 
+    private static final Logger logger = LoggerFactory.getLogger(NeuronService.class);
+
     private final NeuronRepository neuronRepository;
     private final BrainRepository brainRepository;
     private final ClusterRepository clusterRepository;
+    private final NeuronLinkRepository neuronLinkRepository;
     private final TagService tagService;
     private final NeuronSnapshotSchedulerService snapshotScheduler;
     private final SettingsService settingsService;
+    private final ObjectMapper objectMapper;
 
     public NeuronService(NeuronRepository neuronRepository,
                          BrainRepository brainRepository,
                          ClusterRepository clusterRepository,
+                         NeuronLinkRepository neuronLinkRepository,
                          TagService tagService,
                          NeuronSnapshotSchedulerService snapshotScheduler,
-                         SettingsService settingsService) {
+                         SettingsService settingsService,
+                         ObjectMapper objectMapper) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
+        this.neuronLinkRepository = neuronLinkRepository;
         this.tagService = tagService;
         this.snapshotScheduler = snapshotScheduler;
         this.settingsService = settingsService;
+        this.objectMapper = objectMapper;
     }
 
     public List<NeuronResponse> getByClusterId(UUID clusterId) {
@@ -61,6 +80,24 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         return toResponse(neuron);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NeuronResponse> getByIds(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return neuronRepository.findAllById(ids).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<NeuronSummary> searchByTitle(String title, UUID brainId, int limit) {
+        List<Neuron> neurons = neuronRepository.findByTitleContainingIgnoreCaseAndIsDeletedFalse(
+                title, PageRequest.of(0, limit));
+        return neurons.stream()
+                .filter(n -> brainId == null || brainId.equals(n.getBrainId()))
+                .map(n -> new NeuronSummary(n.getId(), n.getTitle(), n.getBrainId(), n.getClusterId()))
+                .collect(Collectors.toList());
     }
 
     public List<NeuronResponse> getRecent(int limit) {
@@ -140,7 +177,109 @@ public class NeuronService {
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         snapshotScheduler.recordUpdate(id);
+        syncEditorLinks(id, req.contentJson());
         return toResponse(saved);
+    }
+
+    void syncEditorLinks(UUID sourceNeuronId, String contentJson) {
+        if (contentJson == null || contentJson.isBlank()) return;
+
+        Set<UUID> referencedIds = extractWikiLinkIds(contentJson);
+
+        List<NeuronLink> existingEditorLinks = neuronLinkRepository.findBySourceNeuronIdAndSource(
+                sourceNeuronId, "editor");
+
+        Set<UUID> existingTargetIds = existingEditorLinks.stream()
+                .map(NeuronLink::getTargetNeuronId)
+                .collect(Collectors.toSet());
+
+        // Determine new targets to link
+        List<UUID> newTargetIds = referencedIds.stream()
+                .filter(id -> !existingTargetIds.contains(id) && !id.equals(sourceNeuronId))
+                .toList();
+
+        if (!newTargetIds.isEmpty()) {
+            Neuron source = neuronRepository.findById(sourceNeuronId).orElse(null);
+            if (source == null) {
+                logger.warn("syncEditorLinks: source neuron not found id={}", sourceNeuronId);
+                return;
+            }
+
+            // Batch fetch all targets in one query
+            Map<UUID, Neuron> targetMap = neuronRepository.findAllById(newTargetIds).stream()
+                    .collect(Collectors.toMap(Neuron::getId, n -> n));
+
+            for (UUID targetId : newTargetIds) {
+                Neuron target = targetMap.get(targetId);
+                if (target == null) {
+                    logger.debug("syncEditorLinks: target neuron not found id={}, skipping", targetId);
+                    continue;
+                }
+                // Check for existing link (manual or editor) to avoid unique constraint violation
+                if (neuronLinkRepository.findBySourceNeuronIdAndTargetNeuronId(sourceNeuronId, targetId).isEmpty()) {
+                    NeuronLink link = new NeuronLink();
+                    link.setSourceNeuron(source);
+                    link.setTargetNeuron(target);
+                    link.setLinkType("references");
+                    link.setSource("editor");
+                    neuronLinkRepository.save(link);
+                }
+            }
+
+            logger.debug("syncEditorLinks: created {} new editor links from neuron {}",
+                    newTargetIds.size(), sourceNeuronId);
+        }
+
+        // Delete editor links that are no longer referenced
+        List<NeuronLink> toDelete = existingEditorLinks.stream()
+                .filter(link -> !referencedIds.contains(link.getTargetNeuronId()))
+                .toList();
+        if (!toDelete.isEmpty()) {
+            neuronLinkRepository.deleteAll(toDelete);
+            logger.debug("syncEditorLinks: removed {} stale editor links from neuron {}",
+                    toDelete.size(), sourceNeuronId);
+        }
+    }
+
+    Set<UUID> extractWikiLinkIds(String contentJson) {
+        Set<UUID> ids = new HashSet<>();
+        try {
+            JsonNode root = objectMapper.readTree(contentJson);
+            extractWikiLinkIdsRecursive(root, ids);
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to parse content JSON for wiki link extraction: {}",
+                    contentJson.substring(0, Math.min(100, contentJson.length())), e);
+        }
+        return ids;
+    }
+
+    private void extractWikiLinkIdsRecursive(JsonNode node, Set<UUID> ids) {
+        if (node == null) return;
+
+        if (node.has("type") && "wikiLink".equals(node.get("type").asText())) {
+            JsonNode attrs = node.get("attrs");
+            if (attrs != null && attrs.has("neuronId")) {
+                String neuronIdStr = attrs.get("neuronId").asText();
+                try {
+                    ids.add(UUID.fromString(neuronIdStr));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Invalid UUID in wiki link: {}", neuronIdStr);
+                }
+            }
+        }
+
+        if (node.has("content") && node.get("content").isArray()) {
+            for (JsonNode child : node.get("content")) {
+                extractWikiLinkIdsRecursive(child, ids);
+            }
+        }
+        if (node.has("sections") && node.get("sections").isArray()) {
+            for (JsonNode section : node.get("sections")) {
+                if (section.has("content")) {
+                    extractWikiLinkIdsRecursive(section.get("content"), ids);
+                }
+            }
+        }
     }
 
     public void delete(UUID id) {
@@ -257,6 +396,7 @@ public class NeuronService {
         try {
             tags = tagService.getTagsForNeuron(neuron.getId());
         } catch (Exception e) {
+            logger.error("Failed to fetch tags for neuron id={}", neuron.getId(), e);
             tags = Collections.emptyList();
         }
 
