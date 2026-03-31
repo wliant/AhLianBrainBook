@@ -413,6 +413,15 @@ function QuestionForm({
                   {opt}
                 </label>
               ))}
+              <input
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm bg-background mt-1"
+                value={q.options.includes(answers[q.id] as string) ? "" : (answers[q.id] as string) ?? ""}
+                onChange={(e) =>
+                  onAnswerChange({ ...answers, [q.id]: e.target.value })
+                }
+                placeholder="Or type your own answer..."
+              />
             </div>
           )}
           {q.inputType === "multi-select" && q.options && (
@@ -436,6 +445,24 @@ function QuestionForm({
                   </label>
                 );
               })}
+              <input
+                type="text"
+                className="w-full border rounded px-2 py-1 text-sm bg-background mt-1"
+                value={(() => {
+                  const selected = (answers[q.id] as string[] | undefined) ?? [];
+                  const custom = selected.find((v) => !q.options!.includes(v));
+                  return custom ?? "";
+                })()}
+                onChange={(e) => {
+                  const selected = (answers[q.id] as string[] | undefined) ?? [];
+                  const withoutCustom = selected.filter((v) => q.options!.includes(v));
+                  const next = e.target.value
+                    ? [...withoutCustom, e.target.value]
+                    : withoutCustom;
+                  onAnswerChange({ ...answers, [q.id]: next });
+                }}
+                placeholder="Or type your own answer..."
+              />
             </div>
           )}
           {q.inputType === "free-text" && (
