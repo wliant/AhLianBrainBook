@@ -36,7 +36,7 @@ public class RevisionController {
 
     @PostMapping("/neurons/{neuronId}/revisions")
     public ResponseEntity<RevisionResponse> createRevision(@PathVariable UUID neuronId) {
-        return ResponseEntity.ok(revisionService.createRevision(neuronId, "manual"));
+        return ResponseEntity.ok(revisionService.createRevision(neuronId));
     }
 
     @PostMapping("/revisions/{revisionId}/restore")

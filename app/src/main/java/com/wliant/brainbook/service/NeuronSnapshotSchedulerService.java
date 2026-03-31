@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -18,17 +19,20 @@ public class NeuronSnapshotSchedulerService {
     private static final Logger log = LoggerFactory.getLogger(NeuronSnapshotSchedulerService.class);
 
     private final RevisionService revisionService;
+    private final Clock clock;
+    private final long idleMinutes;
     private final ConcurrentHashMap<UUID, LocalDateTime> pendingSnapshots = new ConcurrentHashMap<>();
 
-    @Value("${app.neuron.snapshot.idle-minutes:60}")
-    private long idleMinutes;
-
-    public NeuronSnapshotSchedulerService(RevisionService revisionService) {
+    public NeuronSnapshotSchedulerService(RevisionService revisionService,
+                                           Clock clock,
+                                           @Value("${app.neuron.snapshot.idle-minutes:60}") long idleMinutes) {
         this.revisionService = revisionService;
+        this.clock = clock;
+        this.idleMinutes = idleMinutes;
     }
 
     public void recordUpdate(UUID neuronId) {
-        pendingSnapshots.put(neuronId, LocalDateTime.now());
+        pendingSnapshots.put(neuronId, LocalDateTime.now(clock));
     }
 
     @Scheduled(fixedRate = 60000)
@@ -37,7 +41,10 @@ public class NeuronSnapshotSchedulerService {
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        log.debug("Processing {} pending neuron snapshot(s)", pendingSnapshots.size());
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        int snapshotCount = 0;
 
         for (Map.Entry<UUID, LocalDateTime> entry : pendingSnapshots.entrySet()) {
             UUID neuronId = entry.getKey();
@@ -48,7 +55,8 @@ public class NeuronSnapshotSchedulerService {
                 boolean removed = pendingSnapshots.remove(neuronId, lastUpdate);
                 if (removed) {
                     try {
-                        revisionService.createRevision(neuronId, "auto");
+                        revisionService.createRevision(neuronId);
+                        snapshotCount++;
                         log.info("Auto-snapshot created for neuron {}", neuronId);
                     } catch (Exception e) {
                         log.error("Failed to create auto-snapshot for neuron {}: {}", neuronId, e.getMessage(), e);
@@ -56,5 +64,15 @@ public class NeuronSnapshotSchedulerService {
                 }
             }
         }
+
+        if (snapshotCount > 0) {
+            log.info("Auto-snapshot processing completed: {} created, {} still pending",
+                    snapshotCount, pendingSnapshots.size());
+        }
+    }
+
+    /** Visible for testing. */
+    int getPendingCount() {
+        return pendingSnapshots.size();
     }
 }

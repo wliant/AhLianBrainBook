@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Brain, Cluster, Neuron, SectionsDocument } from "@/types";
+import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
 import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
@@ -13,7 +13,6 @@ import { HistoryPanel } from "@/components/neuron/HistoryPanel";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { NeuronRevision } from "@/types";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
