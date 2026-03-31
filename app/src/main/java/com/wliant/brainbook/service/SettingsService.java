@@ -50,14 +50,23 @@ public class SettingsService {
             settings.setEditorMode(req.editorMode());
             log.info("Editor mode changed to '{}'", req.editorMode());
         }
+        if (req.maxRemindersPerNeuron() != null) {
+            settings.setMaxRemindersPerNeuron(req.maxRemindersPerNeuron());
+            log.info("Max reminders per neuron changed to {}", req.maxRemindersPerNeuron());
+        }
         AppSettings saved = appSettingsRepository.save(settings);
         return toResponse(saved);
+    }
+
+    public int getMaxRemindersPerNeuron() {
+        return appSettingsRepository.findAll().getFirst().getMaxRemindersPerNeuron();
     }
 
     private AppSettingsResponse toResponse(AppSettings settings) {
         return new AppSettingsResponse(
                 settings.getDisplayName(),
                 settings.getEditorMode(),
+                settings.getMaxRemindersPerNeuron(),
                 settings.getCreatedAt(),
                 settings.getUpdatedAt()
         );

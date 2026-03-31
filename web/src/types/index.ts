@@ -51,6 +51,7 @@ export interface Neuron {
 export interface AppSettings {
   displayName: string;
   editorMode: string;
+  maxRemindersPerNeuron: number;
   createdAt: string;
   updatedAt: string;
 }

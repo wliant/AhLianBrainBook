@@ -73,9 +73,10 @@ export function Sidebar({
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [thoughtsExpanded, setThoughtsExpanded] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"create-brain" | "rename-brain" | "create-cluster" | "create-thought">("create-brain");
+  const [dialogMode, setDialogMode] = useState<"create-brain" | "rename-brain" | "create-cluster" | "rename-cluster" | "create-thought">("create-brain");
   const [dialogValue, setDialogValue] = useState("");
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
+  const [editingClusterId, setEditingClusterId] = useState<string | null>(null);
   const initialPathname = useRef(pathname);
 
   // Auto-close mobile sidebar on navigation (skip initial mount)
@@ -128,6 +129,14 @@ export function Sidebar({
     setDialogOpen(true);
   };
 
+  const handleRenameCluster = (cluster: ClusterType) => {
+    setDialogMode("rename-cluster");
+    setDialogValue(cluster.name);
+    setEditingBrainId(cluster.brainId);
+    setEditingClusterId(cluster.id);
+    setDialogOpen(true);
+  };
+
   const handleCreateThought = () => {
     setDialogMode("create-thought");
     setDialogValue("");
@@ -142,6 +151,9 @@ export function Sidebar({
       await updateBrain(editingBrainId, dialogValue.trim());
     } else if (dialogMode === "create-cluster" && editingBrainId) {
       await api.post("/api/clusters", { name: dialogValue.trim(), brainId: editingBrainId });
+      queryClient.invalidateQueries({ queryKey: ["clusters", editingBrainId] });
+    } else if (dialogMode === "rename-cluster" && editingClusterId && editingBrainId) {
+      await api.patch(`/api/clusters/${editingClusterId}`, { name: dialogValue.trim() });
       queryClient.invalidateQueries({ queryKey: ["clusters", editingBrainId] });
     } else if (dialogMode === "create-thought") {
       await createThought({ name: dialogValue.trim(), neuronTagIds: [] });
@@ -313,6 +325,7 @@ export function Sidebar({
                   onRename={() => handleRenameBrain(brain)}
                   onDelete={() => deleteBrain(brain.id)}
                   onCreateCluster={() => handleCreateCluster(brain.id)}
+                  onRenameCluster={handleRenameCluster}
                 />
               ))}
             </div>
@@ -338,6 +351,7 @@ export function Sidebar({
               {dialogMode === "create-brain" && "New Brain"}
               {dialogMode === "rename-brain" && "Rename Brain"}
               {dialogMode === "create-cluster" && "New Cluster"}
+              {dialogMode === "rename-cluster" && "Rename Cluster"}
               {dialogMode === "create-thought" && "New Thought"}
             </DialogTitle>
           </DialogHeader>
@@ -429,6 +443,7 @@ function BrainItem({
   onRename,
   onDelete,
   onCreateCluster,
+  onRenameCluster,
 }: {
   brain: BrainType;
   isExpanded: boolean;
@@ -441,6 +456,7 @@ function BrainItem({
   onRename: () => void;
   onDelete: () => void;
   onCreateCluster: () => void;
+  onRenameCluster: (cluster: ClusterType) => void;
 }) {
   const { clusters } = useClusters(isExpanded ? brain.id : null);
 
@@ -502,6 +518,7 @@ function BrainItem({
                 expandedClusters={expandedClusters}
                 onToggle={() => onToggleCluster(cluster.id)}
                 onToggleCluster={onToggleCluster}
+                onRenameCluster={onRenameCluster}
               />
             ))}
         </div>
@@ -521,6 +538,7 @@ function ClusterItem({
   expandedClusters,
   onToggle,
   onToggleCluster,
+  onRenameCluster,
 }: {
   cluster: ClusterType;
   brainId: string;
@@ -532,6 +550,7 @@ function ClusterItem({
   expandedClusters: Set<string>;
   onToggle: () => void;
   onToggleCluster: (id: string) => void;
+  onRenameCluster: (cluster: ClusterType) => void;
 }) {
   const { neurons } = useNeurons(isExpanded ? cluster.id : null);
   const childClusters = allClusters.filter((c) => c.parentClusterId === cluster.id);
@@ -551,7 +570,7 @@ function ClusterItem({
       <div
         data-testid={`sidebar-cluster-${cluster.id}`}
         className={cn(
-          "flex items-center rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
+          "group/cluster flex items-center rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
           isActive && !activeNeuronId && "bg-sidebar-accent font-medium"
         )}
       >
@@ -567,6 +586,16 @@ function ClusterItem({
           <FolderOpen className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{cluster.name}</span>
         </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-0.5 opacity-0 group-hover/cluster:opacity-100 hover:bg-sidebar-accent rounded">
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onRenameCluster(cluster)}>Rename</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {isExpanded && (
@@ -584,6 +613,7 @@ function ClusterItem({
               expandedClusters={expandedClusters}
               onToggle={() => onToggleCluster(child.id)}
               onToggleCluster={onToggleCluster}
+              onRenameCluster={onRenameCluster}
             />
           ))}
           {neurons.length > VIRTUAL_THRESHOLD ? (

@@ -12,7 +12,9 @@ import java.util.UUID;
 @Repository
 public interface ReminderRepository extends JpaRepository<Reminder, UUID> {
 
-    Optional<Reminder> findByNeuronId(UUID neuronId);
+    List<Reminder> findByNeuronIdOrderByCreatedAtDesc(UUID neuronId);
+
+    long countByNeuronId(UUID neuronId);
 
     List<Reminder> findByIsActiveTrueAndTriggerAtLessThanEqual(LocalDateTime now);
 }

@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -152,28 +153,28 @@ public class NeuronController {
 
     // Reminder endpoints
 
-    @PostMapping("/{id}/reminder")
+    @PostMapping("/{id}/reminders")
     public ResponseEntity<ReminderResponse> createReminder(@PathVariable UUID id,
                                                             @Valid @RequestBody ReminderRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reminderService.create(id, req));
     }
 
-    @GetMapping("/{id}/reminder")
-    public ResponseEntity<ReminderResponse> getReminder(@PathVariable UUID id) {
-        Optional<ReminderResponse> reminder = reminderService.getByNeuronId(id);
-        return reminder.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.noContent().build());
+    @GetMapping("/{id}/reminders")
+    public ResponseEntity<List<ReminderResponse>> listReminders(@PathVariable UUID id) {
+        return ResponseEntity.ok(reminderService.listByNeuronId(id));
     }
 
-    @PutMapping("/{id}/reminder")
+    @PutMapping("/{id}/reminders/{reminderId}")
     public ResponseEntity<ReminderResponse> updateReminder(@PathVariable UUID id,
+                                                            @PathVariable UUID reminderId,
                                                             @Valid @RequestBody ReminderRequest req) {
-        return ResponseEntity.ok(reminderService.update(id, req));
+        return ResponseEntity.ok(reminderService.update(reminderId, req));
     }
 
-    @DeleteMapping("/{id}/reminder")
-    public ResponseEntity<Void> deleteReminder(@PathVariable UUID id) {
-        reminderService.delete(id);
+    @DeleteMapping("/{id}/reminders/{reminderId}")
+    public ResponseEntity<Void> deleteReminder(@PathVariable UUID id,
+                                                @PathVariable UUID reminderId) {
+        reminderService.delete(reminderId);
         return ResponseEntity.noContent().build();
     }
 }

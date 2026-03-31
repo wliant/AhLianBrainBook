@@ -12,7 +12,7 @@ import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
 import { HistoryPanel } from "@/components/neuron/HistoryPanel";
 import { TableOfContents } from "@/components/neuron/TableOfContents";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
-import { ReminderDialog } from "@/components/neuron/ReminderDialog";
+import { ReminderPanel } from "@/components/neuron/ReminderPanel";
 import { ShareDialog } from "@/components/neuron/ShareDialog";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ function NeuronPageContent({
   const [viewingRevision, setViewingRevision] = useState<NeuronRevision | null>(null);
   const [viewingRevisionDoc, setViewingRevisionDoc] = useState<SectionsDocument | null>(null);
   const [hasReminder, setHasReminder] = useState(false);
-  const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -75,8 +75,8 @@ function NeuronPageContent({
       latestDoc.current = doc;
     });
     api.reminders
-      .get(neuronId)
-      .then((r) => setHasReminder(!!r))
+      .list(neuronId)
+      .then((list) => setHasReminder(list.length > 0))
       .catch(() => setHasReminder(false));
     Promise.all([
       api.get<Brain>(`/api/brains/${brainId}`),
@@ -162,7 +162,7 @@ function NeuronPageContent({
 
   const toggleLinks = () => {
     setShowLinks((prev) => {
-      if (!prev) { setShowHistory(false); setShowToc(false); }
+      if (!prev) { setShowHistory(false); setShowToc(false); setShowReminder(false); }
       return !prev;
     });
   };
@@ -172,6 +172,7 @@ function NeuronPageContent({
       if (!prev) {
         setShowLinks(false);
         setShowToc(false);
+        setShowReminder(false);
       } else {
         setViewingRevision(null);
         setViewingRevisionDoc(null);
@@ -182,10 +183,17 @@ function NeuronPageContent({
 
   const toggleToc = useCallback(() => {
     setShowToc((prev) => {
-      if (!prev) { setShowLinks(false); setShowHistory(false); }
+      if (!prev) { setShowLinks(false); setShowHistory(false); setShowReminder(false); }
       return !prev;
     });
   }, []);
+
+  const toggleReminder = () => {
+    setShowReminder((prev) => {
+      if (!prev) { setShowLinks(false); setShowHistory(false); setShowToc(false); }
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     const handler = () => toggleToc();
@@ -289,14 +297,15 @@ function NeuronPageContent({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => setReminderDialogOpen(true)}
+          onClick={toggleReminder}
           title="Set Reminder"
           data-testid="toggle-reminder"
         >
           <Bell
             className={cn(
               "h-4 w-4",
-              hasReminder && "fill-orange-400 text-orange-400"
+              hasReminder && "fill-orange-400 text-orange-400",
+              showReminder && !hasReminder && "text-blue-400"
             )}
           />
         </Button>
@@ -469,14 +478,16 @@ function NeuronPageContent({
             />
           </div>
         )}
+        {showReminder && (
+          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+            <ReminderPanel
+              neuronId={neuronId}
+              onClose={() => setShowReminder(false)}
+              onReminderChange={setHasReminder}
+            />
+          </div>
+        )}
       </div>
-      <ReminderDialog
-        neuronId={neuronId}
-        open={reminderDialogOpen}
-        onOpenChange={setReminderDialogOpen}
-        onReminderSaved={() => setHasReminder(true)}
-        onReminderDeleted={() => setHasReminder(false)}
-      />
       <ShareDialog
         neuronId={neuronId}
         open={shareDialogOpen}
