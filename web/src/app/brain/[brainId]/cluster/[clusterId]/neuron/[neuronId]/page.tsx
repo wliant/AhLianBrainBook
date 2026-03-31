@@ -9,6 +9,7 @@ import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
+import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -232,6 +233,14 @@ function NeuronPageContent({
       </div>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 overflow-auto p-4 sm:p-6 max-w-4xl mx-auto w-full">
+          <div className="mb-4">
+            <EntityMetadata
+              createdBy={neuron.createdBy}
+              createdAt={neuron.createdAt}
+              lastUpdatedBy={neuron.lastUpdatedBy}
+              updatedAt={neuron.updatedAt}
+            />
+          </div>
           {viewMode ? (
           <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
         ) : (

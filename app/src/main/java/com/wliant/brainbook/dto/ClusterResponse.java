@@ -11,6 +11,8 @@ public record ClusterResponse(
         int sortOrder,
         boolean isArchived,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String createdBy,
+        String lastUpdatedBy
 ) {
 }

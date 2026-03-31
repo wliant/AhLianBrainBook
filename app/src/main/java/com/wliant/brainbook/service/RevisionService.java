@@ -22,11 +22,14 @@ public class RevisionService {
 
     private final NeuronRevisionRepository revisionRepository;
     private final NeuronRepository neuronRepository;
+    private final SettingsService settingsService;
 
     public RevisionService(NeuronRevisionRepository revisionRepository,
-                           NeuronRepository neuronRepository) {
+                           NeuronRepository neuronRepository,
+                           SettingsService settingsService) {
         this.revisionRepository = revisionRepository;
         this.neuronRepository = neuronRepository;
+        this.settingsService = settingsService;
     }
 
     public List<RevisionResponse> getRevisions(UUID neuronId) {
@@ -70,6 +73,7 @@ public class RevisionService {
         neuron.setContentText(revision.getContentText());
         neuron.setVersion(neuron.getVersion() + 1);
         neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
 
         return new NeuronResponse(
@@ -90,6 +94,8 @@ public class RevisionService {
                 saved.getLastEditedAt(),
                 saved.getCreatedAt(),
                 saved.getUpdatedAt(),
+                saved.getCreatedBy(),
+                saved.getLastUpdatedBy(),
                 Collections.emptyList()
         );
     }

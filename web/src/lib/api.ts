@@ -173,6 +173,13 @@ export const api = {
       request<void>(`/api/neurons/${neuronId}/reminder`, { method: "DELETE" }),
   },
 
+  // Settings endpoints
+  settings: {
+    get: () => request<import("@/types").AppSettings>("/api/settings"),
+    update: (body: { displayName: string }) =>
+      request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
+  },
+
   // Notification endpoints
   notifications: {
     getAll: (page: number, size: number) =>

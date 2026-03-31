@@ -36,6 +36,7 @@ public class ImportExportService {
     private final TagRepository tagRepository;
     private final NeuronLinkRepository neuronLinkRepository;
     private final TagService tagService;
+    private final SettingsService settingsService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -45,13 +46,15 @@ public class ImportExportService {
                                NeuronRepository neuronRepository,
                                TagRepository tagRepository,
                                NeuronLinkRepository neuronLinkRepository,
-                               TagService tagService) {
+                               TagService tagService,
+                               SettingsService settingsService) {
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
         this.neuronRepository = neuronRepository;
         this.tagRepository = tagRepository;
         this.neuronLinkRepository = neuronLinkRepository;
         this.tagService = tagService;
+        this.settingsService = settingsService;
     }
 
     // -----------------------------------------------------------------------
@@ -119,11 +122,14 @@ public class ImportExportService {
 
     public BrainResponse importBrain(BrainImportDto dto) {
         // 1. Create brain
+        String user = settingsService.getDisplayName();
         Brain brain = new Brain();
         brain.setName(dto.name());
         brain.setDescription(dto.description());
         brain.setSortOrder(0);
         brain.setArchived(false);
+        brain.setCreatedBy(user);
+        brain.setLastUpdatedBy(user);
         brain = brainRepository.save(brain);
         UUID brainId = brain.getId();
 
@@ -148,6 +154,8 @@ public class ImportExportService {
                 cluster.setName(ic.name());
                 cluster.setSortOrder(ic.sortOrder());
                 cluster.setArchived(false);
+                cluster.setCreatedBy(user);
+                cluster.setLastUpdatedBy(user);
                 cluster = clusterRepository.save(cluster);
                 if (ic.tempId() != null) {
                     tempIdToClusterId.put(ic.tempId(), cluster.getId());
@@ -188,6 +196,8 @@ public class ImportExportService {
                     neuron.setArchived(false);
                     neuron.setFavorite(false);
                     neuron.setPinned(false);
+                    neuron.setCreatedBy(user);
+                    neuron.setLastUpdatedBy(user);
                     neuron = neuronRepository.save(neuron);
 
                     if (in.tempId() != null) {
@@ -228,7 +238,8 @@ public class ImportExportService {
         return new BrainResponse(
                 brain.getId(), brain.getName(), brain.getIcon(), brain.getColor(),
                 brain.getDescription(), brain.getSortOrder(), brain.isArchived(),
-                brain.getCreatedAt(), brain.getUpdatedAt(), brainTags);
+                brain.getCreatedAt(), brain.getUpdatedAt(),
+                brain.getCreatedBy(), brain.getLastUpdatedBy(), brainTags);
     }
 
     private UUID findOrCreateTag(String name, String color) {
