@@ -13,6 +13,7 @@ import { HistoryPanel } from "@/components/neuron/HistoryPanel";
 import { TableOfContents } from "@/components/neuron/TableOfContents";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderPanel } from "@/components/neuron/ReminderPanel";
+import { SpacedRepetitionPanel } from "@/components/neuron/SpacedRepetitionPanel";
 import { ShareDialog } from "@/components/neuron/ShareDialog";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ function NeuronPageContent({
   const [viewingRevisionDoc, setViewingRevisionDoc] = useState<SectionsDocument | null>(null);
   const [hasReminder, setHasReminder] = useState(false);
   const [showReminder, setShowReminder] = useState(false);
+  const [showSR, setShowSR] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -167,7 +169,7 @@ function NeuronPageContent({
 
   const toggleLinks = () => {
     setShowLinks((prev) => {
-      if (!prev) { setShowHistory(false); setShowToc(false); setShowReminder(false); }
+      if (!prev) { setShowHistory(false); setShowToc(false); setShowReminder(false); setShowSR(false); }
       return !prev;
     });
   };
@@ -178,6 +180,7 @@ function NeuronPageContent({
         setShowLinks(false);
         setShowToc(false);
         setShowReminder(false);
+        setShowSR(false);
       } else {
         setViewingRevision(null);
         setViewingRevisionDoc(null);
@@ -188,14 +191,21 @@ function NeuronPageContent({
 
   const toggleToc = useCallback(() => {
     setShowToc((prev) => {
-      if (!prev) { setShowLinks(false); setShowHistory(false); setShowReminder(false); }
+      if (!prev) { setShowLinks(false); setShowHistory(false); setShowReminder(false); setShowSR(false); }
       return !prev;
     });
   }, []);
 
   const toggleReminder = () => {
     setShowReminder((prev) => {
-      if (!prev) { setShowLinks(false); setShowHistory(false); setShowToc(false); }
+      if (!prev) { setShowLinks(false); setShowHistory(false); setShowToc(false); setShowSR(false); }
+      return !prev;
+    });
+  };
+
+  const toggleSR = () => {
+    setShowSR((prev) => {
+      if (!prev) { setShowLinks(false); setShowHistory(false); setShowToc(false); setShowReminder(false); }
       return !prev;
     });
   };
@@ -339,14 +349,15 @@ function NeuronPageContent({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => isInReview(neuronId) ? removeFromReview(neuronId) : addToReview(neuronId)}
-          title={isInReview(neuronId) ? "Remove from Review" : "Add to Review"}
+          onClick={toggleSR}
+          title="Spaced Repetition"
           data-testid="toggle-sr"
         >
           <GraduationCap
             className={cn(
               "h-4 w-4",
-              isInReview(neuronId) && "fill-purple-400 text-purple-400"
+              isInReview(neuronId) && "fill-purple-400 text-purple-400",
+              showSR && !isInReview(neuronId) && "text-blue-400"
             )}
           />
         </Button>
@@ -510,6 +521,16 @@ function NeuronPageContent({
               neuronId={neuronId}
               onClose={() => setShowReminder(false)}
               onReminderChange={setHasReminder}
+            />
+          </div>
+        )}
+        {showSR && (
+          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+            <SpacedRepetitionPanel
+              neuronId={neuronId}
+              onClose={() => setShowSR(false)}
+              addToReview={addToReview}
+              removeFromReview={removeFromReview}
             />
           </div>
         )}
