@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import { NeuronNode } from "./NeuronNode";
+import { ClusterNode } from "./ClusterNode";
 import { NodeDetailPanel } from "./NodeDetailPanel";
 import type { BrainExport } from "@/types";
 
@@ -27,8 +28,13 @@ const CLUSTER_COLORS = [
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 60;
+const CLUSTER_NODE_WIDTH = 240;
+const CLUSTER_NODE_HEIGHT = 80;
 
-const nodeTypes = { neuronNode: NeuronNode };
+// Threshold: collapse clusters into summary nodes when total neurons exceed this
+const COLLAPSE_THRESHOLD = 100;
+
+const nodeTypes = { neuronNode: NeuronNode, clusterNode: ClusterNode };
 
 // Edge style per link type
 const EDGE_STYLES: Record<string, { strokeDasharray?: string; stroke: string }> = {
@@ -57,7 +63,9 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 80 });
 
   nodes.forEach((node) => {
-    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const w = (node.width as number) || NODE_WIDTH;
+    const h = (node.height as number) || NODE_HEIGHT;
+    g.setNode(node.id, { width: w, height: h });
   });
   edges.forEach((edge) => {
     if (g.hasNode(edge.source) && g.hasNode(edge.target)) {
@@ -69,11 +77,13 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 
   return nodes.map((node) => {
     const pos = g.node(node.id);
+    const w = (node.width as number) || NODE_WIDTH;
+    const h = (node.height as number) || NODE_HEIGHT;
     return {
       ...node,
       position: {
-        x: pos.x - NODE_WIDTH / 2,
-        y: pos.y - NODE_HEIGHT / 2,
+        x: pos.x - w / 2,
+        y: pos.y - h / 2,
       },
     };
   });
@@ -249,6 +259,10 @@ function GraphCanvasInner({
   const { resolvedTheme } = useTheme();
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [focusedNode, setFocusedNode] = useState<string | null>(null);
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+
+  // Determine if we should start in collapsed mode
+  const isLargeGraph = data.neurons.length > COLLAPSE_THRESHOLD;
 
   const clusterColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -277,11 +291,112 @@ function GraphCanvasInner({
     return map;
   }, [data.links]);
 
-  const { nodes, edges } = useMemo(() => {
-    const focusNeighbors = focusedNode
-      ? new Set([focusedNode, ...(adjacencyMap[focusedNode] || [])])
-      : null;
+  // Count neurons per cluster (for collapsed summary nodes)
+  const clusterNeuronCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const n of data.neurons) {
+      counts[n.clusterId] = (counts[n.clusterId] || 0) + 1;
+    }
+    return counts;
+  }, [data.neurons]);
 
+  // STEP 1: Layout computation — depends only on data structure, NOT on focusedNode
+  const layoutResult = useMemo(() => {
+    if (isLargeGraph) {
+      // Build visible neurons: only neurons from expanded clusters
+      const visibleNeurons = data.neurons.filter((n) => expandedClusters.has(n.clusterId));
+      // Collapsed clusters become summary nodes
+      const collapsedClusters = data.clusters.filter((c) => !expandedClusters.has(c.id) && clusterNeuronCounts[c.id]);
+
+      const neuronNodes: Node[] = visibleNeurons.map((n) => ({
+        id: n.id,
+        type: "neuronNode",
+        position: { x: 0, y: 0 },
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
+        data: {
+          title: n.title,
+          clusterName: clusterNameMap[n.clusterId] || "Unknown",
+          clusterColor: clusterColorMap[n.clusterId] || "#6b7280",
+          complexity: (n as Record<string, unknown>).complexity || null,
+          clusterId: n.clusterId,
+          dimmed: false,
+        },
+      }));
+
+      const clusterSummaryNodes: Node[] = collapsedClusters.map((c) => ({
+        id: `cluster-summary-${c.id}`,
+        type: "clusterNode",
+        position: { x: 0, y: 0 },
+        width: CLUSTER_NODE_WIDTH,
+        height: CLUSTER_NODE_HEIGHT,
+        data: {
+          clusterName: c.name,
+          clusterColor: clusterColorMap[c.id] || "#6b7280",
+          neuronCount: clusterNeuronCounts[c.id] || 0,
+          clusterId: c.id,
+        },
+      }));
+
+      const allNodes = [...clusterSummaryNodes, ...neuronNodes];
+      const nodeIdSet = new Set(allNodes.map((n) => n.id));
+
+      // Only include edges between visible neurons
+      const rawEdges: Edge[] = data.links
+        .filter((l) => nodeIdSet.has(l.sourceNeuronId) && nodeIdSet.has(l.targetNeuronId))
+        .map((l) => ({
+          id: `${l.sourceNeuronId}-${l.targetNeuronId}`,
+          source: l.sourceNeuronId,
+          target: l.targetNeuronId,
+          label: l.linkType || undefined,
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: getEdgeStyle(l.linkType, false),
+          labelStyle: { fontSize: 9, opacity: 0.7 },
+        }));
+
+      // Build inter-cluster edges for collapsed clusters
+      const clusterEdges: Edge[] = [];
+      const clusterEdgeSet = new Set<string>();
+      for (const l of data.links) {
+        const srcNeuron = data.neurons.find((n) => n.id === l.sourceNeuronId);
+        const tgtNeuron = data.neurons.find((n) => n.id === l.targetNeuronId);
+        if (!srcNeuron || !tgtNeuron) continue;
+        if (srcNeuron.clusterId === tgtNeuron.clusterId) continue;
+
+        const srcNode = expandedClusters.has(srcNeuron.clusterId) ? l.sourceNeuronId : `cluster-summary-${srcNeuron.clusterId}`;
+        const tgtNode = expandedClusters.has(tgtNeuron.clusterId) ? l.targetNeuronId : `cluster-summary-${tgtNeuron.clusterId}`;
+        if (!nodeIdSet.has(srcNode) || !nodeIdSet.has(tgtNode)) continue;
+
+        const key = `${srcNode}-${tgtNode}`;
+        if (clusterEdgeSet.has(key)) continue;
+        clusterEdgeSet.add(key);
+
+        clusterEdges.push({
+          id: key,
+          source: srcNode,
+          target: tgtNode,
+          style: getEdgeStyle(l.linkType, false),
+          markerEnd: { type: MarkerType.ArrowClosed },
+        });
+      }
+
+      // Layout: expanded clusters use clustered layout, summary nodes get simple dagre
+      const expandedClustersList = data.clusters.filter((c) => expandedClusters.has(c.id));
+      const layoutNodes = applyClusteredLayout(allNodes, [...rawEdges, ...clusterEdges], expandedClustersList.length > 0 ? expandedClustersList : data.clusters);
+
+      const clusterBgs = computeClusterBounds(
+        layoutNodes.filter((n) => !n.id.startsWith("cluster-summary-")),
+        expandedClustersList,
+        clusterColorMap
+      );
+
+      return {
+        layoutNodes: [...clusterBgs, ...layoutNodes],
+        rawEdges: [...rawEdges, ...clusterEdges],
+      };
+    }
+
+    // Small graph: show all neurons
     const rawNodes: Node[] = data.neurons.map((n) => ({
       id: n.id,
       type: "neuronNode",
@@ -294,7 +409,7 @@ function GraphCanvasInner({
         clusterColor: clusterColorMap[n.clusterId] || "#6b7280",
         complexity: (n as Record<string, unknown>).complexity || null,
         clusterId: n.clusterId,
-        dimmed: focusNeighbors ? !focusNeighbors.has(n.id) : false,
+        dimmed: false,
       },
     }));
 
@@ -302,29 +417,53 @@ function GraphCanvasInner({
 
     const rawEdges: Edge[] = data.links
       .filter((l) => nodeIdSet.has(l.sourceNeuronId) && nodeIdSet.has(l.targetNeuronId))
-      .map((l) => {
-        const dimmed = focusNeighbors
-          ? !focusNeighbors.has(l.sourceNeuronId) || !focusNeighbors.has(l.targetNeuronId)
-          : false;
-        return {
-          id: `${l.sourceNeuronId}-${l.targetNeuronId}`,
-          source: l.sourceNeuronId,
-          target: l.targetNeuronId,
-          label: l.linkType || undefined,
-          markerEnd: { type: MarkerType.ArrowClosed },
-          style: getEdgeStyle(l.linkType, dimmed),
-          labelStyle: { fontSize: 9, opacity: dimmed ? 0.2 : 0.7 },
-        };
-      });
+      .map((l) => ({
+        id: `${l.sourceNeuronId}-${l.targetNeuronId}`,
+        source: l.sourceNeuronId,
+        target: l.targetNeuronId,
+        label: l.linkType || undefined,
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: getEdgeStyle(l.linkType, false),
+        labelStyle: { fontSize: 9, opacity: 0.7 },
+      }));
 
     const layoutNodes = applyClusteredLayout(rawNodes, rawEdges, data.clusters);
-
-    // Add cluster background nodes (behind real nodes)
     const clusterBgs = computeClusterBounds(layoutNodes, data.clusters, clusterColorMap);
-    const allNodes = [...clusterBgs, ...layoutNodes];
 
-    return { nodes: allNodes, edges: rawEdges };
-  }, [data.neurons, data.links, data.clusters, clusterNameMap, clusterColorMap, focusedNode, adjacencyMap]);
+    return {
+      layoutNodes: [...clusterBgs, ...layoutNodes],
+      rawEdges,
+    };
+  }, [data.neurons, data.links, data.clusters, clusterNameMap, clusterColorMap, isLargeGraph, expandedClusters, clusterNeuronCounts]);
+
+  // STEP 2: Visual styling — depends on focusedNode, but NOT layout recomputation
+  const { nodes, edges } = useMemo(() => {
+    const focusNeighbors = focusedNode
+      ? new Set([focusedNode, ...(adjacencyMap[focusedNode] || [])])
+      : null;
+
+    const styledNodes = layoutResult.layoutNodes.map((node) => {
+      if (node.id.startsWith("cluster-bg-") || node.id.startsWith("cluster-summary-")) return node;
+      const dimmed = focusNeighbors ? !focusNeighbors.has(node.id) : false;
+      return {
+        ...node,
+        data: { ...node.data, dimmed },
+      };
+    });
+
+    const styledEdges = layoutResult.rawEdges.map((edge) => {
+      const dimmed = focusNeighbors
+        ? !focusNeighbors.has(edge.source) || !focusNeighbors.has(edge.target)
+        : false;
+      return {
+        ...edge,
+        style: getEdgeStyle((edge as { label?: string }).label ?? null, dimmed),
+        labelStyle: { fontSize: 9, opacity: dimmed ? 0.2 : 0.7 },
+      };
+    });
+
+    return { nodes: styledNodes, edges: styledEdges };
+  }, [layoutResult, focusedNode, adjacencyMap]);
 
   // Build connections for the selected node
   const selectedNodeConnections = useMemo(() => {
@@ -362,11 +501,24 @@ function GraphCanvasInner({
 
   const handleNodeClick = useCallback((_: unknown, node: Node) => {
     if (node.id.startsWith("cluster-bg-")) return;
+    if (node.id.startsWith("cluster-summary-")) return;
     setSelectedNode(node.id);
   }, []);
 
   const handleNodeDoubleClick = useCallback(
     (_: unknown, node: Node) => {
+      // Double-click cluster summary to expand it
+      if (node.id.startsWith("cluster-summary-")) {
+        const clusterId = (node.data as { clusterId?: string }).clusterId;
+        if (clusterId) {
+          setExpandedClusters((prev) => {
+            const next = new Set(prev);
+            next.add(clusterId);
+            return next;
+          });
+        }
+        return;
+      }
       if (node.id.startsWith("cluster-bg-")) return;
       const n = data.neurons.find((x) => x.id === node.id);
       if (n) {
@@ -385,6 +537,14 @@ function GraphCanvasInner({
     setFocusedNode((prev) => (prev === nodeId ? null : nodeId));
   }, []);
 
+  const handleCollapseAll = useCallback(() => {
+    setExpandedClusters(new Set());
+  }, []);
+
+  const handleExpandAll = useCallback(() => {
+    setExpandedClusters(new Set(data.clusters.map((c) => c.id)));
+  }, [data.clusters]);
+
   return (
     <div className="relative w-full h-full">
       <ReactFlow
@@ -402,6 +562,22 @@ function GraphCanvasInner({
         <Controls />
         <Background />
       </ReactFlow>
+      {isLargeGraph && (
+        <div className="absolute top-2 left-2 z-10 flex gap-1">
+          <button
+            onClick={handleCollapseAll}
+            className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 border"
+          >
+            Collapse All
+          </button>
+          <button
+            onClick={handleExpandAll}
+            className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 border"
+          >
+            Expand All
+          </button>
+        </div>
+      )}
       <CustomMiniMap nodes={nodes} isDark={resolvedTheme === "dark"} />
       {selectedNodeDetail && (
         <NodeDetailPanel
