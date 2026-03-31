@@ -49,7 +49,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto" data-testid="brain-page">
       <h1 className="text-2xl font-bold mb-2">{brain?.name || "Brain"}</h1>
       {brain && (
         <div className="mb-3">
@@ -89,7 +89,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
               <Network className="h-4 w-4 mr-1" /> Knowledge Graph
             </Button>
           </Link>
-          <Button size="sm" onClick={handleNewCluster}>
+          <Button size="sm" onClick={handleNewCluster} data-testid="new-cluster-btn">
             <Plus className="h-4 w-4 mr-1" /> New Cluster
           </Button>
         </div>

@@ -91,7 +91,7 @@ export function AddLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" data-testid="add-link-dialog">
         <DialogHeader>
           <DialogTitle>Add Link</DialogTitle>
         </DialogHeader>
@@ -106,9 +106,10 @@ export function AddLinkDialog({
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-9"
                 autoFocus
+                data-testid="link-search-input"
               />
             </div>
-            <div className="max-h-60 overflow-y-auto space-y-1">
+            <div className="max-h-60 overflow-y-auto space-y-1" data-testid="link-search-results">
               {results.map((neuron) => (
                 <button
                   key={neuron.id}
@@ -137,6 +138,7 @@ export function AddLinkDialog({
                 size="sm"
                 className="flex-1"
                 onClick={() => setDirection("outgoing")}
+                data-testid="link-direction-outgoing"
               >
                 This → Selected
               </Button>
@@ -145,6 +147,7 @@ export function AddLinkDialog({
                 size="sm"
                 className="flex-1"
                 onClick={() => setDirection("incoming")}
+                data-testid="link-direction-incoming"
               >
                 Selected → This
               </Button>
@@ -158,6 +161,7 @@ export function AddLinkDialog({
               value={linkType}
               onChange={(e) => setLinkType(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              data-testid="link-type-select"
             >
               <option value="related-to">Related to</option>
               <option value="references">References</option>
@@ -171,7 +175,7 @@ export function AddLinkDialog({
         )}
 
         <DialogFooter>
-          <Button onClick={handleCreate} disabled={!selected || creating}>
+          <Button onClick={handleCreate} disabled={!selected || creating} data-testid="create-link-btn">
             {creating ? "Creating..." : "Create Link"}
           </Button>
         </DialogFooter>

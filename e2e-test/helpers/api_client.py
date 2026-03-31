@@ -118,7 +118,14 @@ class BrainBookAPI:
         r.raise_for_status()
         return r.json()
 
-    def update_neuron_content(self, neuron_id: str, content_json: str, content_text: str, client_version: int) -> httpx.Response:
+    def update_neuron_content(self, neuron_id: str, content_json: str, content_text: str, client_version: int) -> dict:
+        body = {"contentJson": content_json, "contentText": content_text, "clientVersion": client_version}
+        r = self.client.put(f"/api/neurons/{neuron_id}/content", json=body)
+        r.raise_for_status()
+        return r.json()
+
+    def update_neuron_content_raw(self, neuron_id: str, content_json: str, content_text: str, client_version: int) -> httpx.Response:
+        """Return raw response (for testing conflict status codes)."""
         body = {"contentJson": content_json, "contentText": content_text, "clientVersion": client_version}
         return self.client.put(f"/api/neurons/{neuron_id}/content", json=body)
 
@@ -305,5 +312,103 @@ class BrainBookAPI:
         if cluster_id:
             params["clusterId"] = cluster_id
         r = self.client.get("/api/search", params=params)
+        r.raise_for_status()
+        return r.json()
+
+    # ── Neuron Links ──
+
+    def list_neuron_links(self, neuron_id: str) -> list[dict]:
+        r = self.client.get(f"/api/neuron-links/neuron/{neuron_id}")
+        r.raise_for_status()
+        return r.json()
+
+    def create_neuron_link(self, source_id: str, target_id: str, link_type: str = "related-to", label: str | None = None) -> dict:
+        body = {"sourceNeuronId": source_id, "targetNeuronId": target_id, "linkType": link_type}
+        if label:
+            body["label"] = label
+        r = self.client.post("/api/neuron-links", json=body)
+        r.raise_for_status()
+        return r.json()
+
+    def delete_neuron_link(self, link_id: str):
+        r = self.client.delete(f"/api/neuron-links/{link_id}")
+        assert r.status_code == 204
+
+    # ── Import / Export ──
+
+    def export_brain(self, brain_id: str) -> dict:
+        r = self.client.get(f"/api/brains/{brain_id}/export")
+        r.raise_for_status()
+        return r.json()
+
+    def import_brain(self, data: dict) -> dict:
+        r = self.client.post("/api/brains/import", json=data)
+        r.raise_for_status()
+        return r.json()
+
+    # ── Reminders ──
+
+    def create_reminder(self, neuron_id: str, trigger_at: str, reminder_type: str = "ONCE", **kwargs) -> dict:
+        body = {"reminderType": reminder_type, "triggerAt": trigger_at, **kwargs}
+        r = self.client.post(f"/api/neurons/{neuron_id}/reminder", json=body)
+        r.raise_for_status()
+        return r.json()
+
+    def get_reminder(self, neuron_id: str) -> dict | None:
+        r = self.client.get(f"/api/neurons/{neuron_id}/reminder")
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()
+
+    def update_reminder(self, neuron_id: str, **kwargs) -> dict:
+        r = self.client.put(f"/api/neurons/{neuron_id}/reminder", json=kwargs)
+        r.raise_for_status()
+        return r.json()
+
+    def delete_reminder(self, neuron_id: str):
+        r = self.client.delete(f"/api/neurons/{neuron_id}/reminder")
+        assert r.status_code == 204
+
+    # ── Notifications ──
+
+    def get_notifications(self, page: int = 0, size: int = 20) -> list[dict]:
+        r = self.client.get(f"/api/notifications?page={page}&size={size}")
+        r.raise_for_status()
+        return r.json()
+
+    def get_unread_count(self) -> int:
+        r = self.client.get("/api/notifications/unread/count")
+        r.raise_for_status()
+        return r.json().get("count", 0)
+
+    def mark_notification_read(self, notification_id: str):
+        r = self.client.post(f"/api/notifications/{notification_id}/read")
+        r.raise_for_status()
+
+    def mark_all_notifications_read(self):
+        r = self.client.post("/api/notifications/read-all")
+        r.raise_for_status()
+
+    # ── Revisions (extended) ──
+
+    def create_snapshot(self, neuron_id: str) -> dict:
+        r = self.client.post(f"/api/neurons/{neuron_id}/revisions")
+        r.raise_for_status()
+        return r.json()
+
+    def delete_revision(self, revision_id: str):
+        r = self.client.delete(f"/api/revisions/{revision_id}")
+        assert r.status_code == 204
+
+    # ── Settings ──
+
+    def get_settings(self) -> dict:
+        r = self.client.get("/api/settings")
+        r.raise_for_status()
+        return r.json()
+
+    def update_settings(self, **kwargs) -> dict:
+        r = self.client.patch("/api/settings", json=kwargs)
         r.raise_for_status()
         return r.json()

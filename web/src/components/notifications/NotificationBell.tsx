@@ -45,19 +45,21 @@ export function NotificationBell() {
           size="icon"
           className="h-8 w-8 relative"
           aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
+          data-testid="notification-bell"
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground"
               aria-hidden="true"
+              data-testid="notification-unread-badge"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      <PopoverContent align="end" className="w-80 p-0" data-testid="notification-popover">
         <div className="flex items-center justify-between border-b px-3 py-2">
           <span className="text-sm font-semibold">Notifications</span>
           {unreadCount > 0 && (
@@ -66,6 +68,7 @@ export function NotificationBell() {
               size="sm"
               className="h-7 text-xs"
               onClick={() => markAllAsRead().catch(() => {})}
+              data-testid="mark-all-read-btn"
             >
               <CheckCheck className="h-3.5 w-3.5 mr-1" />
               Mark all read

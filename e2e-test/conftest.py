@@ -1,6 +1,7 @@
 """Shared fixtures for BrainBook E2E tests."""
 
 import os
+import warnings
 
 import pytest
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ from playwright.sync_api import Page
 
 from helpers.api_client import BrainBookAPI
 from helpers.minio_client import MinIOHelper
+from helpers.page_helpers import navigate_to_neuron, unique_name
 
 load_dotenv()
 
@@ -49,8 +51,8 @@ def home(page: Page) -> Page:
 @pytest.fixture
 def brain_with_cluster(api: BrainBookAPI):
     """Create a brain and cluster for testing, clean up after."""
-    brain = api.create_brain(f"E2E Brain {os.urandom(4).hex()}")
-    cluster = api.create_cluster(f"E2E Cluster {os.urandom(4).hex()}", brain["id"])
+    brain = api.create_brain(unique_name("E2E Brain"))
+    cluster = api.create_cluster(unique_name("E2E Cluster"), brain["id"])
     yield brain, cluster
     # Cleanup: delete all neurons in cluster, then cluster, then brain
     try:
@@ -64,13 +66,56 @@ def brain_with_cluster(api: BrainBookAPI):
                 api.permanent_delete_neuron(n["id"])
         api.delete_cluster(cluster["id"])
         api.delete_brain(brain["id"])
-    except Exception:
-        pass
+    except Exception as e:
+        warnings.warn(f"Cleanup failed for brain {brain['id']}: {e}")
 
 
 @pytest.fixture
 def neuron_in_cluster(api: BrainBookAPI, brain_with_cluster):
     """Create a neuron inside the test brain/cluster."""
     brain, cluster = brain_with_cluster
-    neuron = api.create_neuron("E2E Test Neuron", brain["id"], cluster["id"])
+    neuron = api.create_neuron(unique_name("E2E Neuron"), brain["id"], cluster["id"])
     return brain, cluster, neuron
+
+
+@pytest.fixture
+def two_neurons_in_cluster(api: BrainBookAPI, brain_with_cluster):
+    """Create two neurons for link testing."""
+    brain, cluster = brain_with_cluster
+    neuron_a = api.create_neuron(unique_name("E2E Neuron A"), brain["id"], cluster["id"])
+    neuron_b = api.create_neuron(unique_name("E2E Neuron B"), brain["id"], cluster["id"])
+    return brain, cluster, neuron_a, neuron_b
+
+
+@pytest.fixture
+def neuron_with_content(api: BrainBookAPI, brain_with_cluster):
+    """Create a neuron with actual content for revision/history testing."""
+    brain, cluster = brain_with_cluster
+    neuron = api.create_neuron(unique_name("E2E Content Neuron"), brain["id"], cluster["id"])
+    content = '{"version":2,"sections":[{"id":"s1","type":"rich-text","content":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Test content for revision"}]}]}}]}'
+    api.update_neuron_content(neuron["id"], content, "Test content for revision", neuron["version"])
+    updated = api.get_neuron(neuron["id"])
+    return brain, cluster, updated
+
+
+@pytest.fixture
+def nested_clusters(api: BrainBookAPI):
+    """Create brain > cluster > child_cluster hierarchy."""
+    brain = api.create_brain(unique_name("E2E Nested Brain"))
+    parent = api.create_cluster(unique_name("E2E Parent Cluster"), brain["id"])
+    child = api.create_cluster(unique_name("E2E Child Cluster"), brain["id"], parent_cluster_id=parent["id"])
+    yield brain, parent, child
+    try:
+        api.delete_cluster(child["id"])
+        api.delete_cluster(parent["id"])
+        api.delete_brain(brain["id"])
+    except Exception as e:
+        warnings.warn(f"Cleanup failed for nested clusters brain {brain['id']}: {e}")
+
+
+@pytest.fixture
+def neuron_on_page(page: Page, api: BrainBookAPI, neuron_in_cluster):
+    """Navigate to a neuron editor page and return (page, brain, cluster, neuron)."""
+    brain, cluster, neuron = neuron_in_cluster
+    navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
+    return page, brain, cluster, neuron

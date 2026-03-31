@@ -133,7 +133,7 @@ export function ReminderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" data-testid="reminder-dialog">
         <DialogHeader>
           <DialogTitle>Set Reminder</DialogTitle>
           <DialogDescription>
@@ -165,6 +165,7 @@ export function ReminderDialog({
                   variant={reminderType === "ONCE" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setReminderType("ONCE")}
+                  data-testid="reminder-type-once"
                 >
                   Once
                 </Button>
@@ -175,6 +176,7 @@ export function ReminderDialog({
                   variant={reminderType === "RECURRING" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setReminderType("RECURRING")}
+                  data-testid="reminder-type-recurring"
                 >
                   Recurring
                 </Button>
@@ -236,6 +238,7 @@ export function ReminderDialog({
               size="sm"
               onClick={handleDelete}
               disabled={saving}
+              data-testid="reminder-delete-btn"
             >
               <Trash2 className="h-4 w-4 mr-1" />
               Delete
@@ -254,6 +257,7 @@ export function ReminderDialog({
             size="sm"
             onClick={handleSave}
             disabled={saving || loading || !triggerAt}
+            data-testid="reminder-save-btn"
           >
             {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             {existing ? "Update" : "Save"}

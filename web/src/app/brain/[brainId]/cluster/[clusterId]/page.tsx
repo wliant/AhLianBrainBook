@@ -51,7 +51,7 @@ export default function ClusterPage({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-testid="cluster-page">
       <Breadcrumb items={breadcrumbItems} />
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto flex-1">
       {cluster && (
@@ -66,7 +66,7 @@ export default function ClusterPage({
       )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Neurons</h1>
-        <Button size="sm" onClick={handleNewNeuron}>
+        <Button size="sm" onClick={handleNewNeuron} data-testid="new-neuron-btn">
           <Plus className="h-4 w-4 mr-1" /> New Neuron
         </Button>
       </div>
@@ -79,7 +79,7 @@ export default function ClusterPage({
       ) : (
         <div className="space-y-1">
           {neurons.map((neuron) => (
-            <div key={neuron.id} className="rounded-md hover:bg-accent transition-colors">
+            <div key={neuron.id} className="rounded-md hover:bg-accent transition-colors" data-testid={`neuron-row-${neuron.id}`}>
               <Link
                 href={`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`}
                 className="flex items-center gap-3 px-3 py-2.5"
