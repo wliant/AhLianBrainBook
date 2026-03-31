@@ -114,6 +114,36 @@ def nested_clusters(api: BrainBookAPI):
 
 
 @pytest.fixture
+def neuron_with_tags(api: BrainBookAPI, brain_with_cluster):
+    """Create a neuron with 2 tags attached."""
+    brain, cluster = brain_with_cluster
+    neuron = api.create_neuron(unique_name("E2E Tagged Neuron"), brain["id"], cluster["id"])
+    tag_a = api.create_tag(unique_name("E2E Tag A"))
+    tag_b = api.create_tag(unique_name("E2E Tag B"))
+    api.add_tag_to_neuron(neuron["id"], tag_a["id"])
+    api.add_tag_to_neuron(neuron["id"], tag_b["id"])
+    yield brain, cluster, neuron, [tag_a, tag_b]
+    try:
+        api.delete_tag(tag_a["id"])
+        api.delete_tag(tag_b["id"])
+    except Exception as e:
+        warnings.warn(f"Cleanup failed for tags: {e}")
+
+
+@pytest.fixture
+def neuron_with_attachment(api: BrainBookAPI, brain_with_cluster):
+    """Create a neuron with a text file attachment."""
+    brain, cluster = brain_with_cluster
+    neuron = api.create_neuron(unique_name("E2E Attachment Neuron"), brain["id"], cluster["id"])
+    attachment = api.upload_attachment(neuron["id"], "test.txt", b"Hello E2E", "text/plain")
+    yield brain, cluster, neuron, attachment
+    try:
+        api.delete_attachment(attachment["id"])
+    except Exception as e:
+        warnings.warn(f"Cleanup failed for attachment {attachment['id']}: {e}")
+
+
+@pytest.fixture
 def neuron_on_page(page: Page, api: BrainBookAPI, neuron_in_cluster):
     """Navigate to a neuron editor page and return (page, brain, cluster, neuron)."""
     brain, cluster, neuron = neuron_in_cluster

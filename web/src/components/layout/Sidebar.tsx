@@ -442,12 +442,12 @@ function BrainItem({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onCreateCluster}>
+            <DropdownMenuItem onClick={onCreateCluster} data-testid={`sidebar-brain-new-cluster-${brain.id}`}>
               <Plus className="mr-2 h-3.5 w-3.5" /> New Cluster
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onClick={onRename} data-testid={`sidebar-brain-rename-${brain.id}`}>Rename</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
+            <DropdownMenuItem onClick={onDelete} className="text-destructive" data-testid={`sidebar-brain-delete-${brain.id}`}>
               <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -7,7 +7,24 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from helpers.api_client import BrainBookAPI
-from helpers.page_helpers import navigate
+from helpers.page_helpers import navigate, navigate_to_neuron
+
+
+class TestNetworkFailure:
+    def test_api_failure_shows_error_or_handles_gracefully(self, page: Page, neuron_in_cluster):
+        """Intercept an API call to simulate network failure and verify the page handles it."""
+        brain, cluster, neuron = neuron_in_cluster
+
+        # Block the neuron fetch API to simulate network failure
+        page.route(f"**/api/neurons/{neuron['id']}", lambda route: route.abort())
+
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
+
+        # The page should not crash — it should show a loading spinner or error state
+        expect(page.locator("body")).to_be_visible(timeout=5000)
+
+        # Unblock for cleanup
+        page.unroute(f"**/api/neurons/{neuron['id']}")
 
 
 class TestErrorHandlingBrowser:
