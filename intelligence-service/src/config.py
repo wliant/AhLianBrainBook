@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.2"
     brainbook_api_url: str = "http://app:8080"
+    agent_timeout: int = 600
 
 
 settings = Settings()

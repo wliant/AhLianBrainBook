@@ -30,10 +30,11 @@ intelligence-service/
 
 ## API Endpoints
 
-| Method | Path                 | Request Body                          | Response Body                     | Description              |
-|--------|----------------------|---------------------------------------|-----------------------------------|--------------------------|
-| GET    | /health              | —                                     | `{ status: string }`              | Service health check     |
-| POST   | /api/agents/invoke   | `{ input: string, agent_type: string }` | `{ output: string, agent_type: string }` | Invoke an agent workflow |
+| Method | Path                          | Request Body                          | Response Body                            | Description                   |
+|--------|-------------------------------|---------------------------------------|------------------------------------------|-------------------------------|
+| GET    | /health                       | —                                     | `{ status, ollama }`                     | Service + Ollama health check |
+| POST   | /api/agents/invoke            | `{ input, agent_type }`               | `{ output, agent_type }`                 | Invoke a generic agent        |
+| POST   | /api/agents/section-author    | `SectionAuthorRequest`                | `SectionAuthorResponse`                  | AI section authoring          |
 
 ### POST /api/agents/invoke
 
@@ -64,6 +65,110 @@ Dispatches the request to the agent identified by `agent_type`. The agent proces
 | 422    | Validation error (missing fields)  |
 | 500    | Unknown agent_type or LLM failure  |
 
+### POST /api/agents/section-author
+
+AI-assisted section content authoring. Supports multi-turn conversations where the agent can ask clarifying questions before generating content.
+
+**Supported section types:** rich-text, code, math, diagram, callout, table.
+
+**Request (`SectionAuthorRequest`):**
+
+```json
+{
+  "section_type": "code",
+  "current_content": { "code": "", "language": "javascript" },
+  "user_message": "Write a fibonacci function",
+  "conversation_history": [],
+  "question_answers": null,
+  "regenerate": false,
+  "context": {
+    "neuron_id": "uuid",
+    "neuron_title": "Algorithm Notes",
+    "section_id": "s1",
+    "brain_name": "CS Fundamentals",
+    "cluster_name": "Algorithms",
+    "tags": ["algorithms", "recursion"],
+    "sibling_sections_summary": [
+      { "section_id": "s0", "section_type": "rich-text", "order": 0, "preview": "Introduction to common algorithms..." }
+    ]
+  }
+}
+```
+
+**Response (`SectionAuthorResponse`):**
+
+The agent returns one of three response types:
+
+| `response_type` | Description | Key fields |
+|-----------------|-------------|------------|
+| `questions` | Agent needs clarification | `questions[]` |
+| `content` | Agent generated section content | `section_content` |
+| `message` | Informational or error message | `message`, `message_severity` |
+
+**Questions response:**
+
+```json
+{
+  "response_type": "questions",
+  "questions": [
+    { "id": "q1", "text": "Which approach?", "input_type": "single-select", "options": ["Recursive", "Iterative", "Memoized"], "required": true },
+    { "id": "q2", "text": "Include type hints?", "input_type": "single-select", "options": ["Yes", "No"], "required": true },
+    { "id": "q3", "text": "Any specific constraints?", "input_type": "free-text", "required": false }
+  ],
+  "explanation": "A few questions to tailor the implementation."
+}
+```
+
+**Content response (section_content matches the section type's schema):**
+
+```json
+{
+  "response_type": "content",
+  "section_content": { "code": "def fibonacci(n):\n    ...", "language": "python" },
+  "explanation": "Generated a recursive fibonacci function."
+}
+```
+
+**Message response:**
+
+```json
+{
+  "response_type": "message",
+  "message": "Cannot connect to the AI model server (Ollama).",
+  "message_severity": "error"
+}
+```
+
+**Conversation protocol:**
+
+The service is stateless. Full conversation history is round-tripped on each request. The backend appends user and assistant turns before returning to the frontend.
+
+| Turn | From | Content type |
+|------|------|-------------|
+| 1 | User | `{ type: "text", text: "..." }` |
+| 2 | Agent | `{ type: "questions", questions: [...] }` or `{ type: "section_content", sectionContent: {...} }` |
+| 3 | User | `{ type: "answers", answers: [...] }` or `{ type: "text", text: "make it shorter" }` |
+| ... | ... | continues until user saves or closes |
+
+**Question input types:**
+
+| `input_type` | UI rendering | Answer value type |
+|--------------|-------------|------------------|
+| `single-select` | Radio buttons | `string` |
+| `multi-select` | Checkboxes | `string[]` |
+| `free-text` | Text input | `string` |
+
+**Special operations:**
+
+- **Regenerate**: `regenerate: true` — agent retries with a different approach
+- **Undo**: Frontend-only — maintains a stack of generated content versions
+
+**Backend proxy (Spring Boot):**
+
+`POST /api/neurons/{neuronId}/sections/{sectionId}/ai-assist`
+
+The backend enriches the request with `NeuronContext` (title, brain name, cluster name, tags, sibling section summaries) fetched from the database, then forwards to the intelligence service.
+
 ## Agent Workflow Patterns
 
 Agents are defined as LangGraph `StateGraph` instances. Each agent follows this pattern:
@@ -83,6 +188,21 @@ START → invoke_llm → END
 
 State: `{ messages: list[BaseMessage] }`
 
+### Section Author Agent
+
+Multi-turn agent that helps users write section content:
+
+```
+START → build_system_prompt → classify_intent → invoke_llm → validate_output → END
+```
+
+- **build_system_prompt**: Constructs system prompt from section type, content schema, neuron context, and conversation history
+- **classify_intent**: Routes to generate/refine/clarify based on conversation state
+- **invoke_llm**: Calls Ollama with `format="json"` for structured output
+- **validate_output**: Parses JSON, validates against section type schema, fills defaults
+
+State: `section_type, current_content, user_message, conversation_history, question_answers, context, regenerate` → `response_type, questions|section_content|message, explanation`
+
 ### Adding New Agents
 
 1. Create a new module in `src/agents/` with a `StateGraph` and an async invoke function
@@ -96,6 +216,7 @@ State: `{ messages: list[BaseMessage] }`
 | OLLAMA_BASE_URL   | No       | http://ollama:11434  | Ollama server URL                     |
 | OLLAMA_MODEL      | No       | llama3.2             | Default model for agents              |
 | BRAINBOOK_API_URL | No       | http://app:8080      | Backend API URL (for agent tool use)  |
+| AGENT_TIMEOUT     | No       | 600                  | Agent execution timeout in seconds    |
 
 ## Infrastructure
 

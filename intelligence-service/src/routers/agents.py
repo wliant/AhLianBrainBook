@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
 
 from src.agents.placeholder import invoke_placeholder_agent
+from src.agents.section_author import invoke_section_author
 from src.schemas.agents import AgentRequest, AgentResponse
+from src.schemas.section_author import SectionAuthorRequest, SectionAuthorResponse
 
 router = APIRouter()
 
@@ -22,3 +24,8 @@ async def invoke_agent(request: AgentRequest):
 
     output = await agent_fn(request.input)
     return AgentResponse(output=output, agent_type=request.agent_type)
+
+
+@router.post("/agents/section-author", response_model=SectionAuthorResponse)
+async def section_author(request: SectionAuthorRequest):
+    return await invoke_section_author(request)
