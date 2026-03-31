@@ -24,6 +24,9 @@ public class AppSettings {
     @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
 
+    @Column(name = "editor_mode", nullable = false, length = 20)
+    private String editorMode = "normal";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -48,6 +51,8 @@ public class AppSettings {
     public void setDisplayName(String displayName) { this.displayName = displayName; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getEditorMode() { return editorMode; }
+    public void setEditorMode(String editorMode) { this.editorMode = editorMode; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

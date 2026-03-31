@@ -32,7 +32,12 @@ public class SettingsService {
     @CacheEvict(value = "settings", allEntries = true)
     public AppSettingsResponse updateSettings(AppSettingsRequest req) {
         AppSettings settings = appSettingsRepository.findAll().getFirst();
-        settings.setDisplayName(req.displayName());
+        if (req.displayName() != null) {
+            settings.setDisplayName(req.displayName());
+        }
+        if (req.editorMode() != null) {
+            settings.setEditorMode(req.editorMode());
+        }
         AppSettings saved = appSettingsRepository.save(settings);
         return toResponse(saved);
     }
@@ -40,6 +45,7 @@ public class SettingsService {
     private AppSettingsResponse toResponse(AppSettings settings) {
         return new AppSettingsResponse(
                 settings.getDisplayName(),
+                settings.getEditorMode(),
                 settings.getCreatedAt(),
                 settings.getUpdatedAt()
         );
