@@ -133,6 +133,8 @@ export function ImageSection({ section, onUpdate, editing = true, neuronId }: Im
           src={src}
           alt={caption || "Image"}
           className="max-w-full mx-auto"
+          loading="lazy"
+          decoding="async"
           onError={() => editing && setShowInput(true)}
         />
         {editing && (
