@@ -35,14 +35,14 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 | P-4 | N+1 query in NeuronService.toResponse() | P1 | DONE | | `TagRepository.findTagsWithNeuronIds()` batch query. `TagService.getTagsForNeurons()` returns `Map<UUID, List<TagResponse>>`. `NeuronService.toResponseBatch()` pre-fetches all tags in one query. Also fixed `BrainService.getAll()` with batch brain tag fetch via `TagService.getTagsForBrains()`. |
 | P-4b | Search pagination broken | P1 | DONE | #3, #7 | Fixed as part of Feature #3. All filters now in SQL via `NeuronSearchRepository`. |
 | P-4c | BrainStatsService in-memory aggregation | P1 | DONE | | Rewrote `getStats()` with 6 SQL aggregate queries (COUNT, GROUP BY, UNION ALL). No longer loads all neurons/links into memory. Uses EntityManager native queries. |
-| P-5 | SSE notifications | P1 | TODO | | |
-| P-6 | HTTP caching headers | P1 | TODO | | |
-| P-7 | Graph rendering at scale | P1 | TODO | | |
-| P-8 | Monaco bundle size | P1 | TODO | | |
-| P-9 | Connection pool tuning | P2 | TODO | | |
-| P-10 | Image optimization | P2 | TODO | | |
-| P-11 | Response compression (gzip) | P2 | TODO | | |
-| P-12 | Editor instance reuse | P2 | TODO | | |
+| P-5 | SSE notifications | P1 | DONE | | `NotificationSseService` with `CopyOnWriteArrayList<SseEmitter>`. SSE endpoint at `GET /api/notifications/stream` (text/event-stream). Sends initial `unread-count` event on connect, broadcasts `new-notification` and `unread-count` events on create/read. Frontend `useNotifications` uses `EventSource` instead of polling. `staleTime: Infinity` on unread count query — SSE keeps it fresh. |
+| P-6 | HTTP caching headers | P1 | DONE | | `HttpCacheInterceptor` sets `Cache-Control` by URL pattern: brains/tags 60s, settings 5min, attachments 1 day immutable. `WebCacheConfig` registers interceptor for `/api/**`. Neuron GET returns `ETag` based on `version` field with `WebRequest.checkNotModified()` for 304 responses. POST/PUT/PATCH/DELETE get `no-store`. |
+| P-7 | Graph rendering at scale | P1 | DONE | | Separated layout computation from visual styling into two `useMemo` — layout depends on data only, styling depends on `focusedNode`. Focus changes no longer trigger layout recalculation. For graphs >100 neurons, clusters auto-collapse to `ClusterNode` summary nodes (showing neuron count). Double-click to expand. Collapse All / Expand All controls. |
+| P-8 | Monaco bundle size | P1 | DONE | | Replaced `@monaco-editor/react` (~2MB+) with CodeMirror 6 (~200KB). `CodeMirrorEditor.tsx` wrapper with `Compartment`-based language/theme/readOnly switching. 15 languages via dedicated `@codemirror/lang-*` packages, 2 via `@codemirror/legacy-modes` (csharp, bash). Language support lazy-loaded per language via dynamic `import()`. Dark/light theme via `@codemirror/theme-one-dark`. |
+| P-9 | Connection pool tuning | P2 | DONE | | Explicit HikariCP config in `application.yml`: `maximum-pool-size: 10`, `minimum-idle: 2`, `idle-timeout: 300000`, `max-lifetime: 1800000`, `connection-timeout: 10000`, `leak-detection-threshold: 30000`. Pool size 10 accommodates SSE connections alongside normal requests. |
+| P-10 | Image optimization | P2 | DONE | | Added `loading="lazy"` and `decoding="async"` to `<img>` tags in `ImageSection.tsx` and TipTap `Image` extension HTMLAttributes. Browser-native lazy loading — images below fold not fetched until scrolled into view. |
+| P-11 | Response compression (gzip) | P2 | DONE | | `server.compression.enabled: true` in `application.yml`. Tomcat gzip for responses >1024 bytes. MIME types: JSON, XML, HTML, plain text, CSS, JavaScript. |
+| P-12 | Editor instance reuse | P2 | DONE | | Cached static TipTap extensions at module level (StarterKit, Underline, Link, Image, Table, etc.). Dynamic extensions (SlashCommand, WikiLink, VimMode) computed via `useMemo`. Added `useEffect` with `editor.commands.setContent()` for external content updates. `isExternalUpdate` ref guard prevents save loops in `onUpdate` callback. `onUpdateRef` avoids stale closures. |
 
 ---
 
@@ -159,3 +159,38 @@ Tracks progress on items identified in [FEATURE_GAPS.md](./FEATURE_GAPS.md).
 
 ### Flyway Migration Numbering (Updated)
 - V17 adds `neuron_shares` table. Next available migration number is **V18**.
+
+### SSE Notifications Architecture
+- `NotificationSseService` is a standalone `@Service` bean holding `CopyOnWriteArrayList<SseEmitter>`.
+- Both `NotificationController` and `NotificationService` inject it — controller for creating emitters, service for broadcasting.
+- Emitter timeout set to `0L` (no timeout) since this is a single-user app. Emitters auto-cleaned on completion/timeout/error.
+- `broadcast()` catches `IOException` per emitter and removes dead ones after iteration.
+- Frontend `useNotifications` creates an `EventSource` in a `useEffect`. The `staleTime: Infinity` on the unread count query ensures React Query never re-fetches — SSE keeps it fresh via `queryClient.setQueryData`.
+- Existing REST endpoints (`getAll`, `markAsRead`, `markAllAsRead`) are unchanged. Marking as read broadcasts updated count via SSE.
+
+### HTTP Cache Interceptor
+- `HttpCacheInterceptor` implements `HandlerInterceptor.preHandle()` and matches request URI against an ordered list of `CacheRule` records.
+- The interceptor is registered via `WebCacheConfig` (a `WebMvcConfigurer`) for `/api/**` paths.
+- Neuron ETag uses the `version` field from `NeuronResponse` — already incremented on every save via optimistic locking. `WebRequest.checkNotModified(etag)` handles If-None-Match → 304 automatically.
+- Attachment downloads get `immutable` Cache-Control since attachment content never changes for a given ID.
+
+### CodeMirror 6 Migration
+- `CodeMirrorEditor.tsx` is an imperative wrapper around CodeMirror's `EditorView`. Uses `Compartment` for dynamically reconfigurable extensions (language, readOnly, theme).
+- Language support is lazy-loaded via dynamic `import()` — only the selected language's module is fetched.
+- Languages with dedicated CodeMirror packages: javascript, typescript, python, java, cpp, c, rust, go, html, css, json, markdown, sql, xml, yaml (15 total).
+- Languages using `@codemirror/legacy-modes` with `StreamLanguage.define()`: csharp (clike mode), bash (shell mode).
+- `plaintext` has no language support — falls back to no highlighting.
+- Theme switching uses `themeCompartment.reconfigure()` — no editor recreation needed.
+
+### Graph Rendering Optimizations
+- Layout is computed in one `useMemo` that depends only on `data.neurons`, `data.links`, `data.clusters`, and `expandedClusters`. Focus changes do NOT trigger layout recomputation.
+- Visual styling (dimming) is computed in a separate `useMemo` that depends on `focusedNode` and the layout result.
+- For large graphs (>100 neurons), clusters auto-collapse into `ClusterNode` summary nodes showing cluster name and neuron count. Double-click expands a cluster (adds its ID to `expandedClusters` set).
+- Inter-cluster edges in collapsed mode connect cluster summary nodes rather than individual neurons, with deduplication.
+- "Collapse All" / "Expand All" buttons shown only for large graphs.
+
+### Editor Instance Reuse
+- Static TipTap extensions (StarterKit, Underline, Link, Image, Table, Highlight, CodeBlockLowlight, Typography, etc.) are cached at module level in `STATIC_EXTENSIONS` array — never recreated.
+- Dynamic extensions (SlashCommand, WikiLink, VimMode) are computed via `useMemo` keyed on their configuration props.
+- `useEffect` watches the `content` prop and calls `editor.commands.setContent()` when it changes externally (different reference from `contentRef`). The `isExternalUpdate` ref prevents the `onUpdate` callback from firing during external updates, avoiding save loops.
+- `onUpdateRef` pattern used for the `onUpdate` callback to avoid stale closures without triggering editor recreation.
