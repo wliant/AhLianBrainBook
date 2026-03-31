@@ -28,6 +28,8 @@ public interface NeuronRepository extends JpaRepository<Neuron, UUID> {
 
     List<Neuron> findByIsArchivedTrueAndIsDeletedFalseOrderByUpdatedAtDesc();
 
+    long countByClusterIdAndIsDeletedFalse(UUID clusterId);
+
     List<Neuron> findByTitleContainingIgnoreCaseAndIsDeletedFalse(String title, org.springframework.data.domain.Pageable pageable);
 
     @Query(value = "SELECT * FROM neurons n " +

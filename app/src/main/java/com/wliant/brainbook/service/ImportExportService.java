@@ -121,10 +121,14 @@ public class ImportExportService {
     // -----------------------------------------------------------------------
 
     public BrainResponse importBrain(BrainImportDto dto) {
+        if (dto.name() == null || dto.name().isBlank()) {
+            throw new IllegalArgumentException("Brain name is required for import");
+        }
+
         // 1. Create brain
         String user = settingsService.getDisplayName();
         Brain brain = new Brain();
-        brain.setName(dto.name());
+        brain.setName(dto.name().trim());
         brain.setDescription(dto.description());
         brain.setSortOrder(0);
         brain.setArchived(false);
@@ -149,9 +153,10 @@ public class ImportExportService {
         if (dto.clusters() != null) {
             // First pass: create all clusters without parents
             for (BrainImportDto.ImportCluster ic : dto.clusters()) {
+                String clusterName = (ic.name() != null && !ic.name().isBlank()) ? ic.name().trim() : "Untitled Cluster";
                 Cluster cluster = new Cluster();
                 cluster.setBrain(brainRepository.getReferenceById(brainId));
-                cluster.setName(ic.name());
+                cluster.setName(clusterName);
                 cluster.setSortOrder(ic.sortOrder());
                 cluster.setArchived(false);
                 cluster.setCreatedBy(user);
@@ -187,7 +192,8 @@ public class ImportExportService {
                     Neuron neuron = new Neuron();
                     neuron.setBrain(brainRepository.getReferenceById(brainId));
                     neuron.setCluster(clusterRepository.getReferenceById(clusterId));
-                    neuron.setTitle(in.title());
+                    String neuronTitle = (in.title() != null && !in.title().isBlank()) ? in.title().trim() : "Untitled";
+                    neuron.setTitle(neuronTitle);
                     neuron.setContentJson(in.contentJson());
                     neuron.setContentText(in.contentText());
                     neuron.setSortOrder(in.sortOrder());
@@ -207,7 +213,9 @@ public class ImportExportService {
                     // Ensure tags exist and associate
                     if (in.tagNames() != null) {
                         for (String tagName : in.tagNames()) {
-                            UUID tagId = tagNameToId.computeIfAbsent(tagName,
+                            if (tagName == null || tagName.isBlank()) continue;
+                            String trimmedTag = tagName.trim();
+                            UUID tagId = tagNameToId.computeIfAbsent(trimmedTag,
                                     name -> findOrCreateTag(name, null));
                             associateTag(neuron.getId(), tagId);
                         }

@@ -2,6 +2,7 @@ package com.wliant.brainbook.service;
 
 import com.wliant.brainbook.dto.TagRequest;
 import com.wliant.brainbook.dto.TagResponse;
+import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Tag;
 import com.wliant.brainbook.repository.BrainRepository;
@@ -71,8 +72,11 @@ public class TagService {
     }
 
     public void addTagToNeuron(UUID neuronId, UUID tagId) {
-        neuronRepository.findById(neuronId)
+        var neuron = neuronRepository.findById(neuronId)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
+        if (neuron.isDeleted()) {
+            throw new ConflictException("Cannot tag a deleted neuron");
+        }
         tagRepository.findById(tagId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tag not found: " + tagId));
 

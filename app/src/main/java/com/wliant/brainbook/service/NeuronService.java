@@ -144,6 +144,7 @@ public class NeuronService {
     public NeuronResponse update(UUID id, NeuronRequest req) {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
+        requireNotDeletedOrArchived(neuron);
         if (req.title() != null) neuron.setTitle(req.title());
         if (req.contentJson() != null) neuron.setContentJson(req.contentJson());
         if (req.contentText() != null) neuron.setContentText(req.contentText());
@@ -158,6 +159,7 @@ public class NeuronService {
     public NeuronResponse updateContent(UUID id, NeuronContentRequest req) {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
+        requireNotDeletedOrArchived(neuron);
 
         if (neuron.getVersion() != req.clientVersion()) {
             throw new ConflictException("Version conflict: expected " + req.clientVersion()
@@ -199,14 +201,15 @@ public class NeuronService {
                 return;
             }
 
-            // Batch fetch all targets in one query
+            // Batch fetch all targets in one query, filtering out deleted/archived
             Map<UUID, Neuron> targetMap = neuronRepository.findAllById(newTargetIds).stream()
+                    .filter(n -> !n.isDeleted() && !n.isArchived())
                     .collect(Collectors.toMap(Neuron::getId, n -> n));
 
             for (UUID targetId : newTargetIds) {
                 Neuron target = targetMap.get(targetId);
                 if (target == null) {
-                    logger.debug("syncEditorLinks: target neuron not found id={}, skipping", targetId);
+                    logger.debug("syncEditorLinks: target neuron not found or deleted id={}, skipping", targetId);
                     continue;
                 }
                 // Check for existing link (manual or editor) to avoid unique constraint violation
@@ -287,6 +290,9 @@ public class NeuronService {
     public NeuronResponse archive(UUID id) {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
+        if (neuron.isDeleted()) {
+            throw new ConflictException("Cannot archive a deleted neuron");
+        }
         neuron.setArchived(true);
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
@@ -320,6 +326,7 @@ public class NeuronService {
     public NeuronResponse duplicate(UUID id) {
         Neuron original = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
+        requireNotDeletedOrArchived(original);
 
         String user = settingsService.getDisplayName();
         Neuron copy = new Neuron();
@@ -345,6 +352,7 @@ public class NeuronService {
     public NeuronResponse toggleFavorite(UUID id) {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
+        requireNotDeletedOrArchived(neuron);
         neuron.setFavorite(!neuron.isFavorite());
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
@@ -354,6 +362,7 @@ public class NeuronService {
     public NeuronResponse togglePin(UUID id) {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
+        requireNotDeletedOrArchived(neuron);
         neuron.setPinned(!neuron.isPinned());
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
@@ -382,6 +391,15 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         neuronRepository.delete(neuron);
+    }
+
+    private void requireNotDeletedOrArchived(Neuron neuron) {
+        if (neuron.isDeleted()) {
+            throw new ConflictException("Cannot modify a deleted neuron");
+        }
+        if (neuron.isArchived()) {
+            throw new ConflictException("Cannot modify an archived neuron");
+        }
     }
 
     public NeuronResponse toResponse(Neuron neuron) {

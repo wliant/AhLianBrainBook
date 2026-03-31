@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,6 +86,9 @@ public class ReminderService {
     }
 
     private void applyRequest(Reminder reminder, ReminderRequest req) {
+        if (req.triggerAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Reminder trigger time must be in the future");
+        }
         reminder.setReminderType(req.reminderType());
         reminder.setTriggerAt(req.triggerAt());
         reminder.setRecurrencePattern(req.recurrencePattern());

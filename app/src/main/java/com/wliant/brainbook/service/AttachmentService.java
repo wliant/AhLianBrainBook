@@ -32,6 +32,8 @@ public class AttachmentService {
 
     private static final Logger log = LoggerFactory.getLogger(AttachmentService.class);
 
+    private static final long MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             ".exe", ".bat", ".cmd", ".com", ".msi", ".scr", ".pif",
             ".sh", ".bash", ".csh", ".ps1", ".vbs", ".js", ".wsh", ".wsf"
@@ -63,21 +65,26 @@ public class AttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
 
         String fileName = file.getOriginalFilename();
-        validateFileType(fileName);
+        validateFile(fileName, file.getSize());
 
+        String sanitizedName = sanitizeFileName(fileName);
+
+        String objectKey = UUID.randomUUID() + "_" + sanitizedName;
         try {
-            String objectKey = UUID.randomUUID() + "_" + fileName;
-
             minioClient.putObject(PutObjectArgs.builder()
                     .bucket(bucket)
                     .object(objectKey)
                     .stream(file.getInputStream(), file.getSize(), -1)
                     .contentType(file.getContentType())
                     .build());
+        } catch (Exception e) {
+            throw new StorageException("Failed to store file in MinIO", e);
+        }
 
+        try {
             Attachment attachment = new Attachment();
             attachment.setNeuron(neuron);
-            attachment.setFileName(fileName);
+            attachment.setFileName(sanitizedName);
             attachment.setFilePath(objectKey);
             attachment.setFileSize(file.getSize());
             attachment.setContentType(file.getContentType());
@@ -85,7 +92,14 @@ public class AttachmentService {
             Attachment saved = attachmentRepository.save(attachment);
             return toResponse(saved);
         } catch (Exception e) {
-            throw new StorageException("Failed to store file in MinIO", e);
+            // DB save failed - clean up orphaned file in MinIO
+            try {
+                minioClient.removeObject(RemoveObjectArgs.builder()
+                        .bucket(bucket).object(objectKey).build());
+            } catch (Exception cleanupEx) {
+                log.error("Failed to clean up orphaned MinIO object (key={}): {}", objectKey, cleanupEx.getMessage());
+            }
+            throw new StorageException("Failed to save attachment record", e);
         }
     }
 
@@ -108,21 +122,28 @@ public class AttachmentService {
         Attachment attachment = attachmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment not found: " + id));
 
+        String filePath = attachment.getFilePath();
+        attachmentRepository.delete(attachment);
+
         try {
             minioClient.removeObject(RemoveObjectArgs.builder()
                     .bucket(bucket)
-                    .object(attachment.getFilePath())
+                    .object(filePath)
                     .build());
         } catch (Exception e) {
-            log.warn("Failed to delete file from MinIO (key={}): {}", attachment.getFilePath(), e.getMessage());
+            log.warn("Failed to delete file from MinIO (key={}): {}. Orphaned file may remain.", filePath, e.getMessage());
         }
-
-        attachmentRepository.delete(attachment);
     }
 
-    private void validateFileType(String fileName) {
+    private void validateFile(String fileName, long fileSize) {
         if (fileName == null || fileName.isBlank()) {
             throw new IllegalArgumentException("File name is required");
+        }
+        if (fileSize <= 0) {
+            throw new IllegalArgumentException("File is empty");
+        }
+        if (fileSize > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("File size exceeds maximum of 50MB");
         }
         String lowerName = fileName.toLowerCase();
         for (String ext : BLOCKED_EXTENSIONS) {
@@ -130,6 +151,17 @@ public class AttachmentService {
                 throw new IllegalArgumentException("File type not allowed: " + ext);
             }
         }
+    }
+
+    private String sanitizeFileName(String fileName) {
+        // Strip path separators to prevent path traversal
+        String name = fileName.replace("/", "").replace("\\", "");
+        // Remove null bytes and other control characters
+        name = name.replaceAll("[\\x00-\\x1f]", "");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("File name is invalid after sanitization");
+        }
+        return name;
     }
 
     private AttachmentResponse toResponse(Attachment attachment) {
