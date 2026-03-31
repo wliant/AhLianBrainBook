@@ -3,6 +3,8 @@ package com.wliant.brainbook.repository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -11,6 +13,8 @@ import java.util.UUID;
 
 @Repository
 public class NeuronSearchRepository {
+
+    private static final Logger logger = LoggerFactory.getLogger(NeuronSearchRepository.class);
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -53,11 +57,19 @@ public class NeuronSearchRepository {
         bindParams(countQuery, query, brainId, clusterId, neuronTagIds, brainTagIds);
         long totalCount = ((Number) countQuery.getSingleResult()).longValue();
 
+        logger.debug("Search query='{}' brainId={} clusterId={} neuronTags={} brainTags={} totalCount={}",
+                query, brainId, clusterId,
+                neuronTagIds != null ? neuronTagIds.size() : 0,
+                brainTagIds != null ? brainTagIds.size() : 0,
+                totalCount);
+
         if (totalCount == 0) {
             return new SearchResult(List.of(), 0);
         }
 
         // Main query with ranking and highlighting
+        // Note: tsquery/tsvector variables contain only SQL function templates with :query param binding,
+        // not user input — the actual user query is bound via setParameter("query", ...) in bindParams.
         String selectSql = "SELECT n.id, " +
                 "ts_headline('english', coalesce(n.content_text, ''), " + tsquery +
                 ", 'StartSel=<mark>, StopSel=</mark>, MaxWords=40, MinWords=20, MaxFragments=2, FragmentDelimiter= ... ') as highlight, " +
@@ -77,10 +89,14 @@ public class NeuronSearchRepository {
 
         List<SearchRow> rows = new ArrayList<>();
         for (Object[] row : rawResults) {
-            UUID id = (UUID) row[0];
-            String highlight = (String) row[1];
-            double rank = ((Number) row[2]).doubleValue();
-            rows.add(new SearchRow(id, highlight, rank));
+            try {
+                UUID id = (UUID) row[0];
+                String highlight = (String) row[1];
+                double rank = ((Number) row[2]).doubleValue();
+                rows.add(new SearchRow(id, highlight, rank));
+            } catch (ClassCastException e) {
+                logger.error("Unexpected result set structure from search query at row index {}", rows.size(), e);
+            }
         }
 
         return new SearchResult(rows, totalCount);

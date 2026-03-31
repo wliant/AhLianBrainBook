@@ -13,12 +13,15 @@ import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.Neuron;
 import com.wliant.brainbook.model.NeuronLink;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
 import com.wliant.brainbook.repository.NeuronLinkRepository;
 import com.wliant.brainbook.repository.NeuronRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -36,6 +39,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class NeuronService {
+
+    private static final Logger logger = LoggerFactory.getLogger(NeuronService.class);
 
     private final NeuronRepository neuronRepository;
     private final BrainRepository brainRepository;
@@ -75,6 +80,14 @@ public class NeuronService {
         Neuron neuron = neuronRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + id));
         return toResponse(neuron);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NeuronResponse> getByIds(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return neuronRepository.findAllById(ids).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -180,39 +193,62 @@ public class NeuronService {
                 .map(NeuronLink::getTargetNeuronId)
                 .collect(Collectors.toSet());
 
-        // Create links for new references
-        for (UUID targetId : referencedIds) {
-            if (!existingTargetIds.contains(targetId) && !targetId.equals(sourceNeuronId)) {
-                neuronRepository.findById(targetId).ifPresent(target -> {
-                    Neuron source = neuronRepository.findById(sourceNeuronId).orElse(null);
-                    if (source != null && neuronLinkRepository
-                            .findBySourceNeuronIdAndTargetNeuronId(sourceNeuronId, targetId).isEmpty()) {
-                        NeuronLink link = new NeuronLink();
-                        link.setSourceNeuron(source);
-                        link.setTargetNeuron(target);
-                        link.setLinkType("references");
-                        link.setSource("editor");
-                        neuronLinkRepository.save(link);
-                    }
-                });
+        // Determine new targets to link
+        List<UUID> newTargetIds = referencedIds.stream()
+                .filter(id -> !existingTargetIds.contains(id) && !id.equals(sourceNeuronId))
+                .toList();
+
+        if (!newTargetIds.isEmpty()) {
+            Neuron source = neuronRepository.findById(sourceNeuronId).orElse(null);
+            if (source == null) {
+                logger.warn("syncEditorLinks: source neuron not found id={}", sourceNeuronId);
+                return;
             }
+
+            // Batch fetch all targets in one query
+            Map<UUID, Neuron> targetMap = neuronRepository.findAllById(newTargetIds).stream()
+                    .collect(Collectors.toMap(Neuron::getId, n -> n));
+
+            for (UUID targetId : newTargetIds) {
+                Neuron target = targetMap.get(targetId);
+                if (target == null) {
+                    logger.debug("syncEditorLinks: target neuron not found id={}, skipping", targetId);
+                    continue;
+                }
+                // Check for existing link (manual or editor) to avoid unique constraint violation
+                if (neuronLinkRepository.findBySourceNeuronIdAndTargetNeuronId(sourceNeuronId, targetId).isEmpty()) {
+                    NeuronLink link = new NeuronLink();
+                    link.setSourceNeuron(source);
+                    link.setTargetNeuron(target);
+                    link.setLinkType("references");
+                    link.setSource("editor");
+                    neuronLinkRepository.save(link);
+                }
+            }
+
+            logger.debug("syncEditorLinks: created {} new editor links from neuron {}",
+                    newTargetIds.size(), sourceNeuronId);
         }
 
         // Delete editor links that are no longer referenced
-        for (NeuronLink link : existingEditorLinks) {
-            if (!referencedIds.contains(link.getTargetNeuronId())) {
-                neuronLinkRepository.delete(link);
-            }
+        List<NeuronLink> toDelete = existingEditorLinks.stream()
+                .filter(link -> !referencedIds.contains(link.getTargetNeuronId()))
+                .toList();
+        if (!toDelete.isEmpty()) {
+            neuronLinkRepository.deleteAll(toDelete);
+            logger.debug("syncEditorLinks: removed {} stale editor links from neuron {}",
+                    toDelete.size(), sourceNeuronId);
         }
     }
 
-    private Set<UUID> extractWikiLinkIds(String contentJson) {
+    Set<UUID> extractWikiLinkIds(String contentJson) {
         Set<UUID> ids = new HashSet<>();
         try {
             JsonNode root = objectMapper.readTree(contentJson);
             extractWikiLinkIdsRecursive(root, ids);
-        } catch (Exception e) {
-            // If content can't be parsed, skip link syncing
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to parse content JSON for wiki link extraction: {}",
+                    contentJson.substring(0, Math.min(100, contentJson.length())), e);
         }
         return ids;
     }
@@ -220,7 +256,6 @@ public class NeuronService {
     private void extractWikiLinkIdsRecursive(JsonNode node, Set<UUID> ids) {
         if (node == null) return;
 
-        // Check if this node is a wikiLink
         if (node.has("type") && "wikiLink".equals(node.get("type").asText())) {
             JsonNode attrs = node.get("attrs");
             if (attrs != null && attrs.has("neuronId")) {
@@ -228,12 +263,11 @@ public class NeuronService {
                 try {
                     ids.add(UUID.fromString(neuronIdStr));
                 } catch (IllegalArgumentException e) {
-                    // Skip invalid UUIDs
+                    logger.warn("Invalid UUID in wiki link: {}", neuronIdStr);
                 }
             }
         }
 
-        // Recurse into content arrays and sections
         if (node.has("content") && node.get("content").isArray()) {
             for (JsonNode child : node.get("content")) {
                 extractWikiLinkIdsRecursive(child, ids);
@@ -362,6 +396,7 @@ public class NeuronService {
         try {
             tags = tagService.getTagsForNeuron(neuron.getId());
         } catch (Exception e) {
+            logger.error("Failed to fetch tags for neuron id={}", neuron.getId(), e);
             tags = Collections.emptyList();
         }
 

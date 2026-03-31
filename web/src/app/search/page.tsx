@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import DOMPurify from "dompurify";
 import { Search, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useTags } from "@/lib/hooks/useTags";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 import { TagFilterSelect } from "@/components/tags/TagFilterSelect";
 import type { SearchResultItem, Tag } from "@/types";
 
@@ -19,49 +21,45 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedBrainTags, setSelectedBrainTags] = useState<Tag[]>([]);
   const [selectedNeuronTags, setSelectedNeuronTags] = useState<Tag[]>([]);
   const { tags: allTags } = useTags();
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const doSearch = async (q: string, brainTags: Tag[], neuronTags: Tag[]) => {
-    if (!q.trim() || q.trim().length < 2) {
-      if (!q.trim()) {
-        setResults([]);
-        setSearched(false);
+  const doSearch = useDebounce(
+    async (q: string, brainTags: Tag[], neuronTags: Tag[]) => {
+      if (!q.trim() || q.trim().length < 2) {
+        if (!q.trim()) {
+          setResults([]);
+          setSearched(false);
+          setError(null);
+        }
+        return;
       }
-      return;
-    }
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("q", q);
-      if (brainTags.length > 0) {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set("q", q);
         brainTags.forEach((t) => params.append("brainTagIds", t.id));
-      }
-      if (neuronTags.length > 0) {
         neuronTags.forEach((t) => params.append("neuronTagIds", t.id));
+        const data = await api.get<SearchResponse>(`/api/search?${params.toString()}`);
+        setResults(data.results);
+        setSearched(true);
+      } catch {
+        setError("Search failed. Please try again.");
+        setResults([]);
+        setSearched(true);
+      } finally {
+        setLoading(false);
       }
-      const data = await api.get<SearchResponse>(`/api/search?${params.toString()}`);
-      setResults(data.results);
-      setSearched(true);
-    } catch {
-      setResults([]);
-      setSearched(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    300
+  );
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      doSearch(query, selectedBrainTags, selectedNeuronTags);
-    }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, selectedBrainTags, selectedNeuronTags]);
+    doSearch(query, selectedBrainTags, selectedNeuronTags);
+  }, [query, selectedBrainTags, selectedNeuronTags, doSearch]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
@@ -77,6 +75,7 @@ export default function SearchPage() {
           onChange={(e) => setQuery(e.target.value)}
           className="text-lg"
           autoFocus
+          aria-label="Search neurons"
         />
       </div>
 
@@ -96,27 +95,36 @@ export default function SearchPage() {
       </div>
 
       {loading && (
-        <p className="text-muted-foreground text-center py-4 text-sm">Searching...</p>
+        <p className="text-muted-foreground text-center py-4 text-sm" role="status" aria-live="polite">
+          Searching...
+        </p>
       )}
 
-      {!loading && searched && results.length === 0 && (
+      {error && (
+        <p className="text-destructive text-center py-4 text-sm" role="alert">
+          {error}
+        </p>
+      )}
+
+      {!loading && !error && searched && results.length === 0 && (
         <p className="text-muted-foreground text-center py-8">No results found</p>
       )}
 
-      <div className="space-y-1">
+      <div className="space-y-1" role="list" aria-label="Search results">
         {results.map((item) => (
           <Link
             key={item.neuron.id}
             href={`/brain/${item.neuron.brainId}/cluster/${item.neuron.clusterId}/neuron/${item.neuron.id}`}
             className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-accent transition-colors"
+            role="listitem"
           >
-            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{item.neuron.title || "Untitled"}</p>
               {item.highlight ? (
                 <p
                   className="text-xs text-muted-foreground line-clamp-2 [&_mark]:bg-yellow-200 [&_mark]:dark:bg-yellow-800 [&_mark]:rounded-sm [&_mark]:px-0.5"
-                  dangerouslySetInnerHTML={{ __html: item.highlight }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.highlight, { ALLOWED_TAGS: ["mark"] }) }}
                 />
               ) : (
                 <p className="text-xs text-muted-foreground truncate">
@@ -129,7 +137,7 @@ export default function SearchPage() {
       </div>
 
       {!loading && searched && results.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center mt-4">
+        <p className="text-xs text-muted-foreground text-center mt-4" aria-live="polite">
           {results.length} result{results.length !== 1 ? "s" : ""}
         </p>
       )}

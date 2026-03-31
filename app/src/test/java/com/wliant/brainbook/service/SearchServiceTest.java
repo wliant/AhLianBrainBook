@@ -184,4 +184,25 @@ class SearchServiceTest {
         assertThat(response.results()).hasSize(5);
         assertThat(response.totalCount()).isEqualTo(5);
     }
+
+    @Test
+    void search_handlesSpecialCharacters() {
+        neuronService.create(new NeuronRequest("SQL Injection Test", brainId, clusterId,
+                null, "DROP TABLE neurons; --", null, null));
+
+        // Should not throw or cause SQL errors
+        SearchResponse response = searchService.search("'; DROP TABLE neurons; --",
+                null, null, null, null, 0, 20);
+        assertThat(response.results()).isEmpty();
+    }
+
+    @Test
+    void search_handlesAmpersandsAndAngleBrackets() {
+        neuronService.create(new NeuronRequest("HTML Entities", brainId, clusterId,
+                null, "Use Map<String, Integer> for O(1) lookups", null, null));
+
+        SearchResponse response = searchService.search("Map", null, null, null, null, 0, 20);
+        // Should not throw
+        assertThat(response.totalCount()).isGreaterThanOrEqualTo(0);
+    }
 }
