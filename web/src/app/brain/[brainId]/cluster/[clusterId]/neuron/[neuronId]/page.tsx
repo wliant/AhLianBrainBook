@@ -43,6 +43,7 @@ function NeuronPageContent({
   const [neuron, setNeuron] = useState<Neuron | null>(null);
   const [title, setTitle] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sectionsDoc, setSectionsDoc] = useState<SectionsDocument | null>(null);
   const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
   const [showLinks, setShowLinks] = useState(false);
@@ -73,6 +74,8 @@ function NeuronPageContent({
       const doc = normalizeContent(parsedJson);
       setSectionsDoc(doc);
       latestDoc.current = doc;
+    }).catch(() => {
+      setLoadError("Neuron not found or failed to load.");
     });
     api.reminders
       .list(neuronId)
@@ -86,6 +89,8 @@ function NeuronPageContent({
         { label: brain.name, href: `/brain/${brainId}` },
         { label: cluster.name, href: `/brain/${brainId}/cluster/${clusterId}` },
       ]);
+    }).catch(() => {
+      setLoadError("Brain or cluster not found.");
     });
   }, [neuronId, brainId, clusterId]);
 
@@ -195,6 +200,17 @@ function NeuronPageContent({
     });
   };
 
+  // Flush pending save on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeout.current) {
+        clearTimeout(saveTimeout.current);
+        saveContent(title);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const handler = () => toggleToc();
     window.addEventListener("toggle-toc", handler);
@@ -230,6 +246,16 @@ function NeuronPageContent({
     setViewingRevision(null);
     setViewingRevisionDoc(null);
   };
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3" data-testid="neuron-load-error">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+        <p className="text-muted-foreground">{loadError}</p>
+        <Button variant="outline" size="sm" onClick={() => router.back()}>Go Back</Button>
+      </div>
+    );
+  }
 
   if (!neuron || !sectionsDoc) {
     return (
