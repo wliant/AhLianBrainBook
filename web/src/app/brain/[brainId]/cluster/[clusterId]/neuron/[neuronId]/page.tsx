@@ -10,6 +10,7 @@ import { normalizeContent, extractPlainText } from "@/components/sections/sectio
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ConnectionsPanel } from "@/components/neuron/ConnectionsPanel";
 import { HistoryPanel } from "@/components/neuron/HistoryPanel";
+import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ReminderDialog } from "@/components/neuron/ReminderDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -319,6 +320,14 @@ function NeuronPageContent({
             </>
           ) : (
             <>
+              <div className="mb-4">
+                <EntityMetadata
+                  createdBy={neuron.createdBy}
+                  createdAt={neuron.createdAt}
+                  lastUpdatedBy={neuron.lastUpdatedBy}
+                  updatedAt={neuron.updatedAt}
+                />
+              </div>
               {viewMode ? (
                 <h1 className="text-3xl font-bold mb-4">{title || "Untitled"}</h1>
               ) : (

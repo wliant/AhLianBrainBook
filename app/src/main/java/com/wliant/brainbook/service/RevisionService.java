@@ -29,13 +29,16 @@ public class RevisionService {
     private final NeuronRevisionRepository revisionRepository;
     private final NeuronRepository neuronRepository;
     private final TagService tagService;
+    private final SettingsService settingsService;
 
     public RevisionService(NeuronRevisionRepository revisionRepository,
                            NeuronRepository neuronRepository,
-                           TagService tagService) {
+                           TagService tagService,
+                           SettingsService settingsService) {
         this.revisionRepository = revisionRepository;
         this.neuronRepository = neuronRepository;
         this.tagService = tagService;
+        this.settingsService = settingsService;
     }
 
     public List<RevisionResponse> getRevisions(UUID neuronId) {
@@ -100,6 +103,7 @@ public class RevisionService {
         neuron.setContentText(revision.getContentText());
         neuron.setVersion(neuron.getVersion() + 1);
         neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
 
         log.info("Restored neuron {} to revision #{} (id={})",
@@ -133,6 +137,8 @@ public class RevisionService {
                 neuron.getLastEditedAt(),
                 neuron.getCreatedAt(),
                 neuron.getUpdatedAt(),
+                neuron.getCreatedBy(),
+                neuron.getLastUpdatedBy(),
                 tags
         );
     }

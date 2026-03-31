@@ -8,6 +8,8 @@ export interface Brain {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+  lastUpdatedBy: string;
   tags: Tag[];
 }
 
@@ -20,6 +22,8 @@ export interface Cluster {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+  lastUpdatedBy: string;
 }
 
 export interface Neuron {
@@ -38,8 +42,16 @@ export interface Neuron {
   complexity: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+  lastUpdatedBy: string;
   lastEditedAt: string;
   tags: Tag[];
+}
+
+export interface AppSettings {
+  displayName: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Tag {

@@ -22,6 +22,8 @@ public record NeuronResponse(
         LocalDateTime lastEditedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+        String createdBy,
+        String lastUpdatedBy,
         List<TagResponse> tags
 ) {
 }

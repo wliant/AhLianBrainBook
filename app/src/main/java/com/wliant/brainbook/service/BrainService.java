@@ -19,10 +19,12 @@ public class BrainService {
 
     private final BrainRepository brainRepository;
     private final TagService tagService;
+    private final SettingsService settingsService;
 
-    public BrainService(BrainRepository brainRepository, TagService tagService) {
+    public BrainService(BrainRepository brainRepository, TagService tagService, SettingsService settingsService) {
         this.brainRepository = brainRepository;
         this.tagService = tagService;
+        this.settingsService = settingsService;
     }
 
     public List<BrainResponse> getAll() {
@@ -38,6 +40,7 @@ public class BrainService {
     }
 
     public BrainResponse create(BrainRequest req) {
+        String user = settingsService.getDisplayName();
         Brain brain = new Brain();
         brain.setName(req.name());
         brain.setIcon(req.icon());
@@ -45,6 +48,8 @@ public class BrainService {
         brain.setDescription(req.description());
         brain.setSortOrder(0);
         brain.setArchived(false);
+        brain.setCreatedBy(user);
+        brain.setLastUpdatedBy(user);
         Brain saved = brainRepository.save(brain);
         return toResponse(saved);
     }
@@ -56,6 +61,7 @@ public class BrainService {
         brain.setIcon(req.icon());
         brain.setColor(req.color());
         brain.setDescription(req.description());
+        brain.setLastUpdatedBy(settingsService.getDisplayName());
         Brain saved = brainRepository.save(brain);
         return toResponse(saved);
     }
@@ -70,6 +76,7 @@ public class BrainService {
         Brain brain = brainRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + id));
         brain.setArchived(true);
+        brain.setLastUpdatedBy(settingsService.getDisplayName());
         Brain saved = brainRepository.save(brain);
         return toResponse(saved);
     }
@@ -78,6 +85,7 @@ public class BrainService {
         Brain brain = brainRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + id));
         brain.setArchived(false);
+        brain.setLastUpdatedBy(settingsService.getDisplayName());
         Brain saved = brainRepository.save(brain);
         return toResponse(saved);
     }
@@ -97,6 +105,8 @@ public class BrainService {
                 brain.isArchived(),
                 brain.getCreatedAt(),
                 brain.getUpdatedAt(),
+                brain.getCreatedBy(),
+                brain.getLastUpdatedBy(),
                 tagService.getTagsForBrain(brain.getId())
         );
     }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { TagCombobox } from "@/components/tags/TagCombobox";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, Tag } from "@/types";
 
@@ -18,16 +19,18 @@ export default function ClusterPage({
   const { brainId, clusterId } = use(params);
   const { neurons, createNeuron } = useNeurons(clusterId);
   const [neuronTags, setNeuronTags] = useState<Record<string, Tag[]>>({});
+  const [cluster, setCluster] = useState<Cluster | null>(null);
   const [breadcrumbItems, setBreadcrumbItems] = useState<{ label: string; href: string }[]>([]);
 
   useEffect(() => {
     Promise.all([
       api.get<Brain>(`/api/brains/${brainId}`),
       api.get<Cluster>(`/api/clusters/${clusterId}`),
-    ]).then(([brain, cluster]) => {
+    ]).then(([brain, clusterData]) => {
+      setCluster(clusterData);
       setBreadcrumbItems([
         { label: brain.name, href: `/brain/${brainId}` },
-        { label: cluster.name, href: `/brain/${brainId}/cluster/${clusterId}` },
+        { label: clusterData.name, href: `/brain/${brainId}/cluster/${clusterId}` },
       ]);
     });
   }, [brainId, clusterId]);
@@ -51,6 +54,16 @@ export default function ClusterPage({
     <div className="flex flex-col h-full">
       <Breadcrumb items={breadcrumbItems} />
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto flex-1">
+      {cluster && (
+        <div className="mb-4">
+          <EntityMetadata
+            createdBy={cluster.createdBy}
+            createdAt={cluster.createdAt}
+            lastUpdatedBy={cluster.lastUpdatedBy}
+            updatedAt={cluster.updatedAt}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Neurons</h1>
         <Button size="sm" onClick={handleNewNeuron}>

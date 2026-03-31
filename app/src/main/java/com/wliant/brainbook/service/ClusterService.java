@@ -21,10 +21,12 @@ public class ClusterService {
 
     private final ClusterRepository clusterRepository;
     private final BrainRepository brainRepository;
+    private final SettingsService settingsService;
 
-    public ClusterService(ClusterRepository clusterRepository, BrainRepository brainRepository) {
+    public ClusterService(ClusterRepository clusterRepository, BrainRepository brainRepository, SettingsService settingsService) {
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
+        this.settingsService = settingsService;
     }
 
     public List<ClusterResponse> getByBrainId(UUID brainId) {
@@ -43,12 +45,15 @@ public class ClusterService {
         Brain brain = brainRepository.findById(req.brainId())
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + req.brainId()));
 
+        String user = settingsService.getDisplayName();
         Cluster cluster = new Cluster();
         cluster.setBrain(brain);
         cluster.setName(req.name());
         cluster.setParentClusterId(req.parentClusterId());
         cluster.setSortOrder(0);
         cluster.setArchived(false);
+        cluster.setCreatedBy(user);
+        cluster.setLastUpdatedBy(user);
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
     }
@@ -58,6 +63,7 @@ public class ClusterService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
         cluster.setName(req.name());
         cluster.setParentClusterId(req.parentClusterId());
+        cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
     }
@@ -72,6 +78,7 @@ public class ClusterService {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
         cluster.setArchived(true);
+        cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
     }
@@ -80,6 +87,7 @@ public class ClusterService {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
         cluster.setArchived(false);
+        cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
     }
@@ -94,6 +102,7 @@ public class ClusterService {
         Brain targetBrain = brainRepository.findById(targetBrainId)
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + targetBrainId));
         cluster.setBrain(targetBrain);
+        cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
     }
@@ -107,7 +116,9 @@ public class ClusterService {
                 cluster.getSortOrder(),
                 cluster.isArchived(),
                 cluster.getCreatedAt(),
-                cluster.getUpdatedAt()
+                cluster.getUpdatedAt(),
+                cluster.getCreatedBy(),
+                cluster.getLastUpdatedBy()
         );
     }
 }

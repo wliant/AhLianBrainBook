@@ -14,6 +14,8 @@ public record BrainResponse(
         boolean isArchived,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+        String createdBy,
+        String lastUpdatedBy,
         List<TagResponse> tags
 ) {
 }
