@@ -124,21 +124,33 @@ export function AiAssistDialog({
           <DialogTitle>AI Assist — {TYPE_LABELS[section.type] ?? section.type}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-1 gap-4 overflow-hidden min-h-0">
-          {/* Left panel: Content Preview */}
-          <div className="w-1/2 overflow-auto border rounded-lg p-4 bg-muted/30" data-testid="ai-assist-preview">
-            <h3 className="text-xs uppercase text-muted-foreground mb-2 tracking-wider">
-              Preview
-            </h3>
-            {currentContent ? (
-              <ContentPreview sectionType={section.type} content={currentContent} />
-            ) : (
-              <p className="text-sm text-muted-foreground italic">Empty section</p>
-            )}
+        <div className="flex flex-col flex-1 gap-3 overflow-hidden min-h-0">
+          {/* Top: Side-by-side previews */}
+          <div className="flex gap-3 min-h-[160px] max-h-[40%]">
+            <div className="w-1/2 overflow-auto border rounded-lg p-4 bg-muted/30" data-testid="ai-assist-original">
+              <h3 className="text-xs uppercase text-muted-foreground mb-2 tracking-wider">
+                Original
+              </h3>
+              {section.content && Object.keys(section.content).length > 0 ? (
+                <ContentPreview sectionType={section.type} content={section.content} />
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Empty section</p>
+              )}
+            </div>
+            <div className="w-1/2 overflow-auto border rounded-lg p-4 bg-muted/30" data-testid="ai-assist-preview">
+              <h3 className="text-xs uppercase text-muted-foreground mb-2 tracking-wider">
+                AI Generated
+              </h3>
+              {currentContent && currentContent !== section.content ? (
+                <ContentPreview sectionType={section.type} content={currentContent} />
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No content generated yet</p>
+              )}
+            </div>
           </div>
 
-          {/* Right panel: Chat */}
-          <div className="w-1/2 flex flex-col overflow-hidden" data-testid="ai-assist-chat">
+          {/* Bottom: Chat */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0" data-testid="ai-assist-chat">
             <div className="flex-1 overflow-auto space-y-3 mb-3 pr-1">
               {conversationHistory.map((turn, i) => (
                 <ChatMessage key={i} turn={turn} />
