@@ -416,6 +416,42 @@ class BrainBookAPI:
         r.raise_for_status()
         return r.json()
 
+    # ── Spaced Repetition ──
+
+    def add_sr_item(self, neuron_id: str) -> dict:
+        r = self.client.post(f"/api/spaced-repetition/items/{neuron_id}")
+        r.raise_for_status()
+        return r.json()
+
+    def remove_sr_item(self, neuron_id: str):
+        r = self.client.delete(f"/api/spaced-repetition/items/{neuron_id}")
+        assert r.status_code == 204
+
+    def get_sr_item(self, neuron_id: str) -> dict | None:
+        r = self.client.get(f"/api/spaced-repetition/items/{neuron_id}")
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()
+
+    def get_all_sr_items(self) -> list[dict]:
+        r = self.client.get("/api/spaced-repetition/items")
+        r.raise_for_status()
+        return r.json()
+
+    def get_sr_queue(self) -> list[dict]:
+        r = self.client.get("/api/spaced-repetition/queue")
+        r.raise_for_status()
+        return r.json()
+
+    def submit_sr_review(self, item_id: str, quality: int) -> dict:
+        r = self.client.post(
+            f"/api/spaced-repetition/items/{item_id}/review",
+            json={"quality": quality},
+        )
+        r.raise_for_status()
+        return r.json()
+
     # ── Brain Tags ──
 
     def add_tag_to_brain(self, brain_id: str, tag_id: str):

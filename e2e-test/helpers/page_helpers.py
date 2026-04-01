@@ -79,6 +79,12 @@ def open_history_panel(page: Page):
     expect(page.get_by_test_id("history-panel")).to_be_visible(timeout=5000)
 
 
+def open_sr_panel(page: Page):
+    """Click the spaced repetition toggle button on a neuron page."""
+    page.get_by_test_id("toggle-sr").click()
+    expect(page.get_by_test_id("sr-panel")).to_be_visible(timeout=5000)
+
+
 def wait_for_search_index(api, query: str, expected_count: int = 1, timeout: int = 10):
     """Poll the search API until results appear, replacing time.sleep."""
     for _ in range(timeout * 2):
