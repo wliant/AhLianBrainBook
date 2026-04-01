@@ -16,10 +16,20 @@ A personal technical notebook. Organize your knowledge into Brains, Clusters, an
 - Java 21 (for local backend development)
 - Node.js 22 (for local frontend development)
 
+### Environment Setup
+
+Copy the example environment file and update the values as needed:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to configure database credentials, MinIO keys, ports, and other settings.
+
 ### Run with Docker Compose (full stack)
 
 ```bash
-docker compose -f docker-compose.infra.yml -f docker-compose.app.yml up -d
+docker compose -f docker-compose.infra.yml -f docker-compose.app.yml --env-file .env up -d
 ```
 
 Open http://localhost:3000.
@@ -27,7 +37,7 @@ Open http://localhost:3000.
 ### Run infrastructure only (for local development)
 
 ```bash
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml --env-file .env up -d
 ```
 
 This starts PostgreSQL (15432) and MinIO (19000/19001).
