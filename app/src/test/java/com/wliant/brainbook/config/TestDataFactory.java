@@ -48,6 +48,14 @@ public class TestDataFactory {
         return clusterService.create(new CreateClusterRequest(name, brainId, null));
     }
 
+    public ClusterResponse createAiResearchCluster(UUID brainId) {
+        return createAiResearchCluster("AI Research", brainId);
+    }
+
+    public ClusterResponse createAiResearchCluster(String name, UUID brainId) {
+        return clusterService.create(new CreateClusterRequest(name, brainId, "ai-research"));
+    }
+
     public NeuronResponse createNeuron(UUID brainId, UUID clusterId) {
         return createNeuron("Test Neuron", brainId, clusterId);
     }

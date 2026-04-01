@@ -123,7 +123,7 @@ class ClusterControllerIntegrationTest {
         ResponseEntity<ClusterResponse> response = restTemplate.exchange(
                 "/api/clusters/{id}",
                 HttpMethod.PATCH,
-                new HttpEntity<>(new UpdateClusterRequest("Updated")),
+                new HttpEntity<>(new UpdateClusterRequest("Updated", null)),
                 ClusterResponse.class,
                 created.id());
 

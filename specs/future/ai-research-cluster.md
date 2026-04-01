@@ -2,170 +2,226 @@
 
 ## Context
 
-A learning tracker where AI maps out what the user needs to learn and tracks progress by scanning knowledge authored across the brain. The user triggers neuron creation, AI generates structured content, and completeness percentages update as the user writes knowledge neurons elsewhere in the brain.
+BrainBook is a personal technical notebook. A **Brain** is a subject domain (e.g., "Spring Security", "Distributed Systems"). Users write **knowledge neurons** — notes, explanations, code examples — capturing what they've learned.
+
+The **AI Research cluster** is a learning gap analysis tool. It answers: *"For this domain, what should I know, and how much of it have I actually written about?"* AI maps out what the user needs to learn and tracks coverage against their knowledge neurons. This creates a feedback loop: write knowledge → AI scores your coverage → you see gaps → you write more.
 
 Only one AI Research cluster can exist per brain.
 
+## Key Design Decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Data model | Separate `research_topics` table | Knowledge neurons and research topics have fundamentally different content structures, behavior, and lifecycle. Sharing the neurons table would require guards on every endpoint and leave many fields unused. |
+| Scoring | Discrete levels: `none`, `partial`, `good`, `complete` | LLMs (especially local models) can't reliably distinguish 35% from 45%. Discrete levels are honest about capability and still provide useful signal. |
+| Token strategy | Truncate + summarize | Send first 500 chars of each knowledge neuron's contentText. Simple, works within context limits. |
+| Cluster metadata | `research_goal` text field | LLM-generated on cluster creation, user-editable. Provides overarching context for all topic generation and scoring. |
+
+## Research Goal
+
+Each AI Research cluster has a **research goal** — a 1-2 sentence description of what the user aims to learn in this brain's domain. It is:
+- **Auto-generated** by the LLM when the cluster is created (based on the brain's name and existing knowledge neurons)
+- **User-editable** after creation
+- **Fed into context** for all research topic generation and scoring
+
+Example: *"Understand Spring Security well enough to design and implement authentication and authorization for enterprise Java applications."*
+
 ## How It Works
 
-### Neuron Lifecycle
+### Research Topic Lifecycle
 
-1. **User triggers creation** — clicks "New Research Neuron" with an optional prompt (e.g., "Refactoring techniques", "Spring Security fundamentals")
-2. **AI generates the neuron** — produces a structured list of bullet points and sub-bullets covering what the user should learn about the topic
+1. **User triggers creation** — clicks "New Research Topic" with a prompt (e.g., "Refactoring techniques")
+2. **AI generates the topic** — produces a structured bullet tree covering what the user should learn, with initial completeness scores based on existing knowledge
 3. **Each bullet point has:**
-   - Explanation text
-   - Completeness percentage (0–100%) — AI-rated based on how well the brain's existing knowledge covers this point
-   - Links to relevant knowledge neurons (auto-discovered by AI)
-4. **User triggers refresh** — AI re-scans the entire brain's content, updates completeness percentages, and discovers new links to knowledge neurons written since the last refresh
+   - Text (concept name)
+   - Explanation (what to learn about it)
+   - Completeness level (`none` / `partial` / `good` / `complete`)
+   - Links to relevant knowledge neurons (auto-discovered)
+   - Optional children (sub-points)
+4. **User triggers refresh** — AI re-scans the brain's knowledge, updates completeness levels, and discovers new links
 
 ### User Capabilities
 
 | Action | Allowed |
 |--------|---------|
-| Create new research neuron (triggers AI) | Yes |
-| Delete a research neuron | Yes |
-| Reorder research neurons | Yes |
-| Edit neuron content (bullets, text) | No — AI-managed |
-| Expand a bullet into finer sub-points | Yes — triggers AI to break it down further |
+| Create new research topic (triggers AI) | Yes |
+| Delete a research topic | Yes |
+| Reorder research topics | Yes |
+| Edit topic content (bullets, text) | No — AI-managed |
+| Expand a bullet into finer sub-points | Yes — triggers AI |
 | Trigger refresh (re-score completeness) | Yes |
-| Add own neurons to this cluster | No |
+| Edit the cluster's research goal | Yes |
 
 ### Completeness Scoring
 
-The completeness percentage is granular, rated by AI based on how thoroughly the brain's knowledge neurons cover each point:
+Discrete levels rated by AI based on how thoroughly the brain's knowledge neurons cover each point:
 
-- **0%** — no coverage found anywhere in the brain
-- **10–30%** — mentioned briefly or tangentially in a knowledge neuron
-- **40–60%** — explained with some depth but missing details, examples, or nuance
-- **70–90%** — well covered with explanations and examples, minor gaps remain
-- **100%** — thoroughly covered with depth, examples, and connections
+- **none** — no coverage found anywhere in the brain
+- **partial** — mentioned or touched on, but lacking depth or detail
+- **good** — explained with reasonable depth, examples present, minor gaps
+- **complete** — thoroughly covered with depth, examples, and connections
 
-AI determines the score by analyzing the `contentText` of all knowledge neurons across all knowledge clusters in the brain.
+AI determines the level by analyzing the `contentText` of all knowledge neurons across all knowledge clusters in the brain. Each neuron's content is truncated to the first 500 characters for the scoring pass.
 
 ### Link Discovery
 
 During generation and refresh, AI automatically:
 - Scans all knowledge neurons in the brain
 - Matches bullet points to relevant neurons based on content similarity
-- Attaches links from bullet points to the matching knowledge neurons
+- Attaches neuron IDs to matching bullet points
 - Links are read-only references (user cannot manually add/remove them)
+- Stale links (deleted neurons) are cleaned up on refresh
 
-## Neuron Data Structure
+## Data Model
 
-An AI Research neuron has a different content structure from a knowledge neuron:
+### Cluster Extension
+
+Add to the `clusters` table:
+```
+research_goal TEXT  -- nullable, only used for ai-research type
+```
+
+### Research Topics Table
+
+A dedicated table (NOT sharing the neurons table):
+
+```sql
+CREATE TABLE research_topics (
+    id UUID PRIMARY KEY,
+    cluster_id UUID NOT NULL REFERENCES clusters(id) ON DELETE CASCADE,
+    brain_id UUID NOT NULL REFERENCES brains(id),
+    title VARCHAR(255) NOT NULL,
+    prompt TEXT,
+    content_json JSONB,
+    overall_completeness VARCHAR(20) NOT NULL DEFAULT 'none',
+    last_refreshed_at TIMESTAMP,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    created_by VARCHAR(100) NOT NULL,
+    last_updated_by VARCHAR(100) NOT NULL,
+    CONSTRAINT check_completeness CHECK (overall_completeness IN ('none', 'partial', 'good', 'complete'))
+);
+```
+
+### Content JSON Structure
 
 ```json
 {
   "version": 1,
-  "prompt": "Refactoring techniques",
   "items": [
     {
       "id": "item-1",
       "text": "Extract Method",
       "explanation": "Moving a code fragment into a separate method with a name that explains its purpose.",
-      "completeness": 75,
+      "completeness": "good",
       "linkedNeuronIds": ["uuid-1", "uuid-2"],
       "children": [
         {
           "id": "item-1-1",
           "text": "When to extract",
-          "explanation": "Signs that a method is doing too much: long methods, comments explaining what a block does, duplicate code blocks.",
-          "completeness": 40,
+          "explanation": "Signs that a method is doing too much.",
+          "completeness": "partial",
           "linkedNeuronIds": ["uuid-1"],
-          "children": []
-        },
-        {
-          "id": "item-1-2",
-          "text": "Mechanics",
-          "explanation": "Step-by-step: identify fragment, create new method, copy code, replace original with call, adjust variables.",
-          "completeness": 0,
-          "linkedNeuronIds": [],
           "children": []
         }
       ]
-    },
-    {
-      "id": "item-2",
-      "text": "Inline Method",
-      "explanation": "Replacing a method call with the method's body when the body is as clear as the name.",
-      "completeness": 0,
-      "linkedNeuronIds": [],
-      "children": []
     }
-  ],
-  "lastRefreshedAt": "2026-04-01T10:30:00Z"
+  ]
 }
 ```
 
-## UI Concept
+## API Endpoints
+
+### Backend (Spring Boot)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/clusters/{id}/research-topics` | List research topics |
+| POST | `/api/clusters/{id}/research-topics` | Create (triggers AI generation) |
+| GET | `/api/clusters/{id}/research-topics/{topicId}` | Get single topic |
+| DELETE | `/api/clusters/{id}/research-topics/{topicId}` | Delete topic |
+| POST | `/api/clusters/{id}/research-topics/reorder` | Reorder topics |
+| POST | `/api/clusters/{id}/research-topics/refresh` | Refresh all (re-score) |
+| POST | `/api/clusters/{id}/research-topics/{topicId}/refresh` | Refresh single topic |
+| POST | `/api/clusters/{id}/research-topics/{topicId}/expand` | Expand a bullet |
+
+### Intelligence Service (FastAPI)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/agents/research-goal-generator` | Generate research goal for new cluster |
+| POST | `/api/agents/research-topic-generator` | Generate bullet tree for a topic |
+| POST | `/api/agents/research-topic-scorer` | Re-score completeness and discover links |
+| POST | `/api/agents/research-bullet-expander` | Expand a bullet into sub-points |
+
+## Intelligence Service Agents
+
+### research-goal-generator
+- **Input:** brain name, knowledge neuron summaries
+- **Output:** research goal string (1-2 sentences)
+- **LangGraph:** build_prompt → invoke_llm → validate → END
+
+### research-topic-generator
+- **Input:** topic prompt, research goal, brain context (neuron summaries)
+- **Output:** title + bullet tree with initial completeness scores and linked neuron IDs
+- **LangGraph:** build_prompt → invoke_llm → validate → END
+
+### research-topic-scorer
+- **Input:** existing bullet tree, brain context
+- **Output:** updated bullet tree with new scores + linked neuron IDs + overall completeness
+- **LangGraph:** build_prompt → invoke_llm → validate → END
+
+### research-bullet-expander
+- **Input:** bullet context (parent + existing children), brain context
+- **Output:** new child bullets with scores
+- **LangGraph:** build_prompt → invoke_llm → validate → END
+
+## Token Budget
+
+Scoring scans the entire brain's knowledge content. Strategy:
+- Use `contentText` (plain text) for all knowledge neurons
+- Truncate each neuron to the first 500 characters
+- Include neuron title alongside the preview
+- Pass the research goal as additional context
+- For very large brains (100+ neurons), this may still approach context limits — future optimization could use embedding-based pre-filtering
+
+## UI
 
 ### Cluster Page View
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Brain > AI Research                    [Refresh] │
+│  Brain > AI Research                   [Refresh] │
 ├──────────────────────────────────────────────────┤
+│  Research Goal:                                   │
+│  ┌─────────────────────────────────────────────┐ │
+│  │ Understand Spring Security well enough to   │ │
+│  │ design auth for enterprise applications.    │ │
+│  └─────────────────────────────────────────────┘ │
 │                                                   │
-│  ┌─ Refactoring Techniques ──────────── 38% ──┐  │
-│  │                                             │  │
-│  │  ● Extract Method                    75%    │  │
-│  │    ├─ When to extract                40%    │  │
-│  │    └─ Mechanics                       0%    │  │
-│  │  ● Inline Method                      0%    │  │
-│  │  ● Rename Variable                   90%    │  │
-│  │    └─ linked: "Naming Conventions"   →      │  │
-│  │  ...                                        │  │
-│  └─────────────────────────────────────────────┘  │
+│  ┌─ Refactoring Techniques ──────── good ─────┐ │
+│  │  ● Extract Method              complete     │ │
+│  │    ├─ When to extract          partial      │ │
+│  │    └─ Mechanics                none         │ │
+│  │  ● Inline Method               none         │ │
+│  │  ● Rename Variable             good         │ │
+│  │    └─ linked: "Naming Conventions" →        │ │
+│  └─────────────────────────────────────────────┘ │
 │                                                   │
-│  ┌─ Design Patterns in Legacy Code ──── 15% ──┐  │
-│  │  ...                                        │  │
-│  └─────────────────────────────────────────────┘  │
+│  ┌─ Design Patterns ──────────────── none ────┐ │
+│  │  ...                                        │ │
+│  └─────────────────────────────────────────────┘ │
 │                                                   │
-│  [+ New Research Neuron]                          │
+│  [+ New Research Topic]                           │
 └──────────────────────────────────────────────────┘
 ```
 
-### Neuron Detail View
+### Completeness Color Coding
 
-Expanding a research neuron shows:
-- Full bullet tree with explanations
-- Completeness bar per bullet
-- Linked knowledge neurons as clickable references
-- "Expand" button on any bullet to request finer sub-points from AI
-- "Refresh" button to re-score this neuron's completeness
-- Overall neuron completeness (average or weighted)
-
-## Backend / Intelligence Service
-
-### Endpoints
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/api/clusters/{id}/research-neurons` | Create new research neuron (triggers AI generation) |
-| POST | `/api/clusters/{id}/research-neurons/refresh` | Refresh all neurons in the cluster (re-score completeness) |
-| POST | `/api/clusters/{id}/research-neurons/{neuronId}/refresh` | Refresh single neuron |
-| POST | `/api/clusters/{id}/research-neurons/{neuronId}/expand` | Expand a bullet point into sub-points |
-| DELETE | `/api/clusters/{id}/research-neurons/{neuronId}` | Delete a research neuron |
-| POST | `/api/clusters/{id}/research-neurons/reorder` | Reorder research neurons |
-
-### Intelligence Service Agents
-
-**`research-neuron-generator`** — generates the initial bullet point tree for a topic:
-- Input: topic prompt, brain context (all knowledge neuron summaries)
-- Output: structured bullet tree with initial completeness scores and links
-
-**`research-neuron-scorer`** — re-scores completeness and discovers links:
-- Input: existing bullet tree, all knowledge neuron content in the brain
-- Output: updated completeness percentages and linked neuron IDs per bullet
-
-**`research-bullet-expander`** — breaks a bullet into finer sub-points:
-- Input: parent bullet context, existing children, brain context
-- Output: new child bullets with scores
-
-### Token Budget
-
-Refresh scans the entire brain's knowledge content. For large brains:
-- Use `contentText` (plain text) for all neurons
-- Truncate per-neuron to first N characters for scoring pass
-- Process in batches if total content exceeds context window
-- Consider a two-pass approach: fast keyword matching to find candidate neurons, then LLM scoring on matches only
+| Level | Color | Display |
+|-------|-------|---------|
+| none | Gray | Empty indicator |
+| partial | Yellow/Amber | Quarter-filled |
+| good | Blue | Three-quarter filled |
+| complete | Green | Full indicator |

@@ -184,14 +184,65 @@ public class IntelligenceService {
         );
     }
 
-    Map<String, Object> callIntelligenceService(Map<String, Object> request) {
+    public String generateResearchGoal(String brainName, List<Map<String, Object>> neuronSummaries) {
+        Map<String, Object> request = Map.of(
+                "brain_name", brainName,
+                "neurons", neuronSummaries
+        );
+        Map<String, Object> response = callAgent("/api/agents/research-goal-generator", request);
+        return response != null ? (String) response.getOrDefault("research_goal", "") : "";
+    }
+
+    public Map<String, Object> generateResearchTopic(String prompt, String researchGoal,
+                                                      String brainName, List<Map<String, Object>> neuronSummaries) {
+        Map<String, Object> context = Map.of(
+                "brain_name", brainName,
+                "research_goal", researchGoal != null ? researchGoal : "",
+                "neurons", neuronSummaries
+        );
+        Map<String, Object> request = Map.of("prompt", prompt, "context", context);
+        return callAgent("/api/agents/research-topic-generator", request);
+    }
+
+    public Map<String, Object> scoreResearchTopic(List<Map<String, Object>> items, String researchGoal,
+                                                    String brainName, List<Map<String, Object>> neuronSummaries) {
+        Map<String, Object> context = Map.of(
+                "brain_name", brainName,
+                "research_goal", researchGoal != null ? researchGoal : "",
+                "neurons", neuronSummaries
+        );
+        Map<String, Object> request = Map.of("items", items, "context", context);
+        return callAgent("/api/agents/research-topic-scorer", request);
+    }
+
+    public Map<String, Object> expandBullet(Map<String, Object> bullet, String parentContext,
+                                             String researchGoal, String brainName,
+                                             List<Map<String, Object>> neuronSummaries) {
+        Map<String, Object> context = Map.of(
+                "brain_name", brainName,
+                "research_goal", researchGoal != null ? researchGoal : "",
+                "neurons", neuronSummaries
+        );
+        Map<String, Object> request = Map.of(
+                "bullet", bullet,
+                "parent_context", parentContext != null ? parentContext : "",
+                "context", context
+        );
+        return callAgent("/api/agents/research-bullet-expander", request);
+    }
+
+    Map<String, Object> callAgent(String uri, Map<String, Object> request) {
         return intelligenceRestClient.post()
-                .uri("/api/agents/section-author")
+                .uri(uri)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {
                 });
+    }
+
+    Map<String, Object> callIntelligenceService(Map<String, Object> request) {
+        return callAgent("/api/agents/section-author", request);
     }
 
     private Map<String, Object> buildAssistantContent(String responseType, Map<String, Object> agentResponse) {

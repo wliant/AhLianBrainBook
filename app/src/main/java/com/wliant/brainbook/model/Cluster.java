@@ -57,6 +57,9 @@ public class Cluster {
     @Column(name = "last_updated_by", nullable = false, length = 100)
     private String lastUpdatedBy;
 
+    @Column(name = "research_goal", columnDefinition = "text")
+    private String researchGoal;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -158,5 +161,13 @@ public class Cluster {
 
     public void setLastUpdatedBy(String lastUpdatedBy) {
         this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public String getResearchGoal() {
+        return researchGoal;
+    }
+
+    public void setResearchGoal(String researchGoal) {
+        this.researchGoal = researchGoal;
     }
 }

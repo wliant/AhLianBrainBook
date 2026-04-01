@@ -123,7 +123,7 @@ class ClusterServiceTest {
     void update_modifiesNameOnly() {
         ClusterResponse created = clusterService.create(new CreateClusterRequest("Original", brainId, null));
 
-        ClusterResponse updated = clusterService.update(created.id(), new UpdateClusterRequest("Updated"));
+        ClusterResponse updated = clusterService.update(created.id(), new UpdateClusterRequest("Updated", null));
 
         assertThat(updated.name()).isEqualTo("Updated");
         assertThat(updated.id()).isEqualTo(created.id());

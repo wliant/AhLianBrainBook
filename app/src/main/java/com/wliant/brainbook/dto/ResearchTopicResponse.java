@@ -1,16 +1,19 @@
 package com.wliant.brainbook.dto;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
-public record ClusterResponse(
+public record ResearchTopicResponse(
         UUID id,
+        UUID clusterId,
         UUID brainId,
-        String name,
-        String type,
-        String researchGoal,
+        String title,
+        String prompt,
+        Map<String, Object> contentJson,
+        String overallCompleteness,
+        LocalDateTime lastRefreshedAt,
         int sortOrder,
-        boolean isArchived,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         String createdBy,
