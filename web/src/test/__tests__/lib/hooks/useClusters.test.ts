@@ -13,6 +13,7 @@ const makeCluster = (overrides: Partial<Cluster> = {}): Cluster => ({
   brainId: 'brain-1',
   name: 'Test Cluster',
   type: 'knowledge',
+  researchGoal: null,
   sortOrder: 0,
   isArchived: false,
   createdAt: '2024-01-01T00:00:00',

@@ -234,4 +234,39 @@ export const api = {
         { method: "POST", body, timeoutMs: 620_000 },
       ),
   },
+
+  researchTopics: {
+    list: (clusterId: string) =>
+      request<import("@/types").ResearchTopic[]>(`/api/clusters/${clusterId}/research-topics`),
+    get: (clusterId: string, id: string) =>
+      request<import("@/types").ResearchTopic>(`/api/clusters/${clusterId}/research-topics/${id}`),
+    create: (clusterId: string, prompt: string) =>
+      request<import("@/types").ResearchTopic>(`/api/clusters/${clusterId}/research-topics`, {
+        method: "POST",
+        body: { prompt },
+        timeoutMs: 620_000,
+      }),
+    delete: (clusterId: string, id: string) =>
+      request<void>(`/api/clusters/${clusterId}/research-topics/${id}`, { method: "DELETE" }),
+    reorder: (clusterId: string, ids: string[]) =>
+      request<void>(`/api/clusters/${clusterId}/research-topics/reorder`, {
+        method: "POST",
+        body: { ids },
+      }),
+    refresh: (clusterId: string, id: string) =>
+      request<import("@/types").ResearchTopic>(
+        `/api/clusters/${clusterId}/research-topics/${id}/refresh`,
+        { method: "POST", timeoutMs: 620_000 },
+      ),
+    refreshAll: (clusterId: string) =>
+      request<import("@/types").ResearchTopic[]>(
+        `/api/clusters/${clusterId}/research-topics/refresh`,
+        { method: "POST", timeoutMs: 620_000 },
+      ),
+    expand: (clusterId: string, id: string, bulletId: string) =>
+      request<import("@/types").ResearchTopic>(
+        `/api/clusters/${clusterId}/research-topics/${id}/expand`,
+        { method: "POST", body: { bulletId }, timeoutMs: 620_000 },
+      ),
+  },
 };

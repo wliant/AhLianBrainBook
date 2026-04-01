@@ -20,8 +20,8 @@ export function useClusters(brainId: string | null) {
     return cluster;
   };
 
-  const updateCluster = async (id: string, name: string) => {
-    const cluster = await api.patch<Cluster>(`/api/clusters/${id}`, { name });
+  const updateCluster = async (id: string, name: string, researchGoal?: string) => {
+    const cluster = await api.patch<Cluster>(`/api/clusters/${id}`, { name, researchGoal });
     queryClient.invalidateQueries({ queryKey: ["clusters", brainId] });
     return cluster;
   };

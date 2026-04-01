@@ -20,8 +20,36 @@ export interface Cluster {
   brainId: string;
   name: string;
   type: ClusterType;
+  researchGoal: string | null;
   sortOrder: number;
   isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  lastUpdatedBy: string;
+}
+
+export type CompletenessLevel = "none" | "partial" | "good" | "complete";
+
+export interface BulletItem {
+  id: string;
+  text: string;
+  explanation: string;
+  completeness: CompletenessLevel;
+  linkedNeuronIds: string[];
+  children: BulletItem[];
+}
+
+export interface ResearchTopic {
+  id: string;
+  clusterId: string;
+  brainId: string;
+  title: string;
+  prompt: string;
+  contentJson: { version: number; items: BulletItem[] } | null;
+  overallCompleteness: CompletenessLevel;
+  lastRefreshedAt: string | null;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
