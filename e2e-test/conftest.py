@@ -100,14 +100,14 @@ def neuron_with_content(api: BrainBookAPI, brain_with_cluster):
 
 @pytest.fixture
 def nested_clusters(api: BrainBookAPI):
-    """Create brain > cluster > child_cluster hierarchy."""
+    """Create brain with two sibling clusters."""
     brain = api.create_brain(unique_name("E2E Nested Brain"))
-    parent = api.create_cluster(unique_name("E2E Parent Cluster"), brain["id"])
-    child = api.create_cluster(unique_name("E2E Child Cluster"), brain["id"], parent_cluster_id=parent["id"])
-    yield brain, parent, child
+    cluster_a = api.create_cluster(unique_name("E2E Cluster A"), brain["id"])
+    cluster_b = api.create_cluster(unique_name("E2E Cluster B"), brain["id"])
+    yield brain, cluster_a, cluster_b
     try:
-        api.delete_cluster(child["id"])
-        api.delete_cluster(parent["id"])
+        api.delete_cluster(cluster_b["id"])
+        api.delete_cluster(cluster_a["id"])
         api.delete_brain(brain["id"])
     except Exception as e:
         warnings.warn(f"Cleanup failed for nested clusters brain {brain['id']}: {e}")

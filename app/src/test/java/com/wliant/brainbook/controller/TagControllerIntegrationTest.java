@@ -54,7 +54,7 @@ class TagControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         UUID brainId = brainResponse.getBody().id();
 
-        ClusterRequest clusterRequest = new ClusterRequest("Cluster", brainId, null);
+        ClusterRequest clusterRequest = new ClusterRequest("Cluster", brainId);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         UUID clusterId = clusterResponse.getBody().id();

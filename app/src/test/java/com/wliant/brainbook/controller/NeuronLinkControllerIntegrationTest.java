@@ -56,7 +56,7 @@ class NeuronLinkControllerIntegrationTest {
                 "/api/brains", brainReq, BrainResponse.class);
         brainId = brainResp.getBody().id();
 
-        ClusterRequest clusterReq = new ClusterRequest("Test Cluster", brainId, null);
+        ClusterRequest clusterReq = new ClusterRequest("Test Cluster", brainId);
         ResponseEntity<ClusterResponse> clusterResp = restTemplate.postForEntity(
                 "/api/clusters", clusterReq, ClusterResponse.class);
         UUID clusterId = clusterResp.getBody().id();

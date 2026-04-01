@@ -57,7 +57,7 @@ class ClusterControllerIntegrationTest {
     @Test
     void createCluster_underBrain() {
         UUID brainId = createBrain("Test Brain");
-        ClusterRequest request = new ClusterRequest("My Cluster", brainId, null);
+        ClusterRequest request = new ClusterRequest("My Cluster", brainId);
 
         ResponseEntity<ClusterResponse> response = restTemplate.postForEntity(
                 "/api/clusters", request, ClusterResponse.class);
@@ -73,9 +73,9 @@ class ClusterControllerIntegrationTest {
     void getClustersByBrainId_returnsList() {
         UUID brainId = createBrain("Test Brain");
         restTemplate.postForEntity("/api/clusters",
-                new ClusterRequest("Cluster 1", brainId, null), ClusterResponse.class);
+                new ClusterRequest("Cluster 1", brainId), ClusterResponse.class);
         restTemplate.postForEntity("/api/clusters",
-                new ClusterRequest("Cluster 2", brainId, null), ClusterResponse.class);
+                new ClusterRequest("Cluster 2", brainId), ClusterResponse.class);
 
         ResponseEntity<List<ClusterResponse>> response = restTemplate.exchange(
                 "/api/clusters/brain/{brainId}",
@@ -93,11 +93,11 @@ class ClusterControllerIntegrationTest {
         UUID brainId = createBrain("Test Brain");
         ResponseEntity<ClusterResponse> createResponse = restTemplate.postForEntity(
                 "/api/clusters",
-                new ClusterRequest("Original", brainId, null),
+                new ClusterRequest("Original", brainId),
                 ClusterResponse.class);
         UUID clusterId = createResponse.getBody().id();
 
-        ClusterRequest updateRequest = new ClusterRequest("Updated", brainId, null);
+        ClusterRequest updateRequest = new ClusterRequest("Updated", brainId);
         ResponseEntity<ClusterResponse> response = restTemplate.exchange(
                 "/api/clusters/{id}",
                 HttpMethod.PATCH,
@@ -115,7 +115,7 @@ class ClusterControllerIntegrationTest {
         UUID brainId = createBrain("Test Brain");
         ResponseEntity<ClusterResponse> createResponse = restTemplate.postForEntity(
                 "/api/clusters",
-                new ClusterRequest("To Delete", brainId, null),
+                new ClusterRequest("To Delete", brainId),
                 ClusterResponse.class);
         UUID clusterId = createResponse.getBody().id();
 
@@ -144,7 +144,7 @@ class ClusterControllerIntegrationTest {
         UUID brainId = createBrain("Test Brain");
         ClusterResponse created = restTemplate.postForEntity(
                 "/api/clusters",
-                new ClusterRequest("My Cluster", brainId, null),
+                new ClusterRequest("My Cluster", brainId),
                 ClusterResponse.class).getBody();
 
         ResponseEntity<ClusterResponse> response = restTemplate.getForEntity(
@@ -159,7 +159,7 @@ class ClusterControllerIntegrationTest {
         UUID brainId = createBrain("Test Brain");
         ClusterResponse created = restTemplate.postForEntity(
                 "/api/clusters",
-                new ClusterRequest("To Archive", brainId, null),
+                new ClusterRequest("To Archive", brainId),
                 ClusterResponse.class).getBody();
 
         ResponseEntity<ClusterResponse> response = restTemplate.postForEntity(
@@ -174,7 +174,7 @@ class ClusterControllerIntegrationTest {
         UUID brainId = createBrain("Test Brain");
         ClusterResponse created = restTemplate.postForEntity(
                 "/api/clusters",
-                new ClusterRequest("To Restore", brainId, null),
+                new ClusterRequest("To Restore", brainId),
                 ClusterResponse.class).getBody();
         restTemplate.postForEntity("/api/clusters/{id}/archive", null, ClusterResponse.class, created.id());
 
@@ -189,9 +189,9 @@ class ClusterControllerIntegrationTest {
     void reorderClusters_returns200() {
         UUID brainId = createBrain("Test Brain");
         ClusterResponse c1 = restTemplate.postForEntity(
-                "/api/clusters", new ClusterRequest("A", brainId, null), ClusterResponse.class).getBody();
+                "/api/clusters", new ClusterRequest("A", brainId), ClusterResponse.class).getBody();
         ClusterResponse c2 = restTemplate.postForEntity(
-                "/api/clusters", new ClusterRequest("B", brainId, null), ClusterResponse.class).getBody();
+                "/api/clusters", new ClusterRequest("B", brainId), ClusterResponse.class).getBody();
 
         ReorderRequest req = new ReorderRequest(List.of(c2.id(), c1.id()));
         ResponseEntity<Void> response = restTemplate.postForEntity(
@@ -206,7 +206,7 @@ class ClusterControllerIntegrationTest {
         UUID brain2Id = createBrain("Brain 2");
         ClusterResponse created = restTemplate.postForEntity(
                 "/api/clusters",
-                new ClusterRequest("To Move", brainId, null),
+                new ClusterRequest("To Move", brainId),
                 ClusterResponse.class).getBody();
 
         ResponseEntity<ClusterResponse> response = restTemplate.postForEntity(

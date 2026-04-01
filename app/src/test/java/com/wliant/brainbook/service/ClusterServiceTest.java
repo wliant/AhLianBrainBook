@@ -55,19 +55,18 @@ class ClusterServiceTest {
 
     @Test
     void create_savesClusterUnderBrain() {
-        ClusterRequest request = new ClusterRequest("Test Cluster", brainId, null);
+        ClusterRequest request = new ClusterRequest("Test Cluster", brainId);
         ClusterResponse response = clusterService.create(request);
 
         assertThat(response.id()).isNotNull();
         assertThat(response.name()).isEqualTo("Test Cluster");
         assertThat(response.brainId()).isEqualTo(brainId);
-        assertThat(response.parentClusterId()).isNull();
         assertThat(response.isArchived()).isFalse();
     }
 
     @Test
     void getByBrainId_returnsClusters() {
-        clusterService.create(new ClusterRequest("Cluster 1", brainId, null));
+        clusterService.create(new ClusterRequest("Cluster 1", brainId));
 
         List<ClusterResponse> clusters = clusterService.getByBrainId(brainId);
 
@@ -77,9 +76,9 @@ class ClusterServiceTest {
 
     @Test
     void update_modifiesCluster() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("Original", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("Original", brainId));
 
-        ClusterResponse updated = clusterService.update(created.id(), new ClusterRequest("Updated", brainId, null));
+        ClusterResponse updated = clusterService.update(created.id(), new ClusterRequest("Updated", brainId));
 
         assertThat(updated.name()).isEqualTo("Updated");
         assertThat(updated.id()).isEqualTo(created.id());
@@ -87,7 +86,7 @@ class ClusterServiceTest {
 
     @Test
     void delete_removesCluster() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Delete", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("To Delete", brainId));
 
         clusterService.delete(created.id());
 
@@ -96,7 +95,7 @@ class ClusterServiceTest {
 
     @Test
     void archive_setsArchived() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Archive", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("To Archive", brainId));
 
         ClusterResponse archived = clusterService.archive(created.id());
 
@@ -105,7 +104,7 @@ class ClusterServiceTest {
 
     @Test
     void restore_unsetsArchived() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Restore", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("To Restore", brainId));
         clusterService.archive(created.id());
 
         ClusterResponse restored = clusterService.restore(created.id());
@@ -115,7 +114,7 @@ class ClusterServiceTest {
 
     @Test
     void getById_returnsCluster() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId));
 
         ClusterResponse found = clusterService.getById(created.id());
 
@@ -131,7 +130,7 @@ class ClusterServiceTest {
 
     @Test
     void move_changesBrain() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Move", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("To Move", brainId));
         BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
 
         ClusterResponse moved = clusterService.move(created.id(), brain2.id());
@@ -141,7 +140,7 @@ class ClusterServiceTest {
 
     @Test
     void move_throwsOnNonexistentBrain() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId, null));
+        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId));
 
         assertThatThrownBy(() -> clusterService.move(created.id(), UUID.randomUUID()))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -149,9 +148,9 @@ class ClusterServiceTest {
 
     @Test
     void reorder_updatesSortOrders() {
-        ClusterResponse c1 = clusterService.create(new ClusterRequest("A", brainId, null));
-        ClusterResponse c2 = clusterService.create(new ClusterRequest("B", brainId, null));
-        ClusterResponse c3 = clusterService.create(new ClusterRequest("C", brainId, null));
+        ClusterResponse c1 = clusterService.create(new ClusterRequest("A", brainId));
+        ClusterResponse c2 = clusterService.create(new ClusterRequest("B", brainId));
+        ClusterResponse c3 = clusterService.create(new ClusterRequest("C", brainId));
 
         clusterService.reorder(new ReorderRequest(List.of(c3.id(), c1.id(), c2.id())));
 

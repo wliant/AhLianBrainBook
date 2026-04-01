@@ -56,7 +56,7 @@ class RevisionControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();
 
-        ClusterRequest clusterRequest = new ClusterRequest("Test Cluster", brainId, null);
+        ClusterRequest clusterRequest = new ClusterRequest("Test Cluster", brainId);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         clusterId = clusterResponse.getBody().id();

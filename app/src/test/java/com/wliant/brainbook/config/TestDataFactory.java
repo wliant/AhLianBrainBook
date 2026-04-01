@@ -38,7 +38,7 @@ public class TestDataFactory {
     }
 
     public ClusterResponse createCluster(String name, UUID brainId) {
-        return clusterService.create(new ClusterRequest(name, brainId, null));
+        return clusterService.create(new ClusterRequest(name, brainId));
     }
 
     public NeuronResponse createNeuron(UUID brainId, UUID clusterId) {
