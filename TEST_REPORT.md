@@ -1,72 +1,74 @@
-# Test Report - 2026-03-31
+# Test Report - 2026-04-01
 
 ## Summary
 
-| Suite | Passed | Failed | Errors | Total | Status |
-|-------|--------|--------|--------|-------|--------|
-| Backend (JUnit 5 + TestContainers) | 206 | 0 | 0 | 206 | PASS |
-| Frontend (Vitest + RTL + MSW) | 95 | 0 | 0 | 95 | PASS |
-| E2E (pytest + Playwright) | 144 | 11 | 0 | 155 | FAIL |
+| Suite | Passed | Failed | Total | Status |
+|-------|--------|--------|-------|--------|
+| Backend (JUnit 5 + TestContainers) | 254 | 0 | 254 | PASS |
+| Frontend (Vitest + RTL + MSW) | 126 | 0 | 126 | PASS |
+| E2E (pytest + Playwright) | 186 | 0 | 186 | PASS |
+| **Total** | **566** | **0** | **566** | **PASS** |
 
-## Critical Bug Found & Fixed
+## Bugs Found & Fixed This Session
 
-### HikariCP Connection Pool Exhaustion
+### 1. HikariCP Connection Pool Exhaustion (Critical)
 
-**Symptom:** App becomes completely unusable after a few page loads. All API endpoints return 500. Backend logs show hundreds of "Apparent connection leak detected" and "Connection is not available, request timed out after 10000ms (total=10, active=10, idle=0, waiting=N)" errors.
+**Symptom:** App becomes completely unusable after a few page loads. All API endpoints return 500.
 
-**Root cause:** The combination of:
-1. `spring.jpa.open-in-view` defaulting to `true` (not explicitly disabled) — binds a JDBC connection to the entire HTTP request lifecycle
-2. SSE endpoint `GET /api/notifications/stream` using `SseEmitter(0L)` (infinite timeout) — keeps the HTTP response open forever
-3. Each browser `EventSource` connection permanently holds a DB connection via Open-In-View, exhausting the 10-connection HikariCP pool within seconds
+**Root cause:** `spring.jpa.open-in-view` defaulting to `true` held a JDBC connection for the entire HTTP request lifecycle. The SSE `/api/notifications/stream` endpoint used `SseEmitter(0L)` (infinite timeout), so each browser `EventSource` connection permanently held a DB connection, exhausting the 10-connection pool.
 
-**Fix applied:**
+**Fix:**
 - `app/src/main/resources/application.yml` — added `spring.jpa.open-in-view: false`
-- `app/src/main/java/com/wliant/brainbook/service/NotificationSseService.java` — changed `SseEmitter(0L)` to `SseEmitter(300_000L)` (5 min timeout; browser auto-reconnects)
+- `NotificationSseService.java` — changed `SseEmitter(0L)` to `SseEmitter(300_000L)`
 
-**Verification:** After fix, 45 concurrent API requests all return 200, zero connection leak warnings in logs, zero browser console errors across 6+ page navigations.
+### 2. Stale Data After Mutations (Browser HTTP Cache)
 
-## E2E Test Failures (11)
+**Symptom:** Sidebar didn't reflect brain deletions/renames. API returned correct data but browser served cached responses.
 
-### test_19_reminders (8 failures)
+**Root cause:** `/api/brains` had `Cache-Control: max-age=60`. After mutations, TanStack Query refetched but the browser returned the stale cached response.
 
-All reminder tests fail with `500` from `POST /api/neurons/{id}/reminder`. Both API and browser tests affected. The reminder endpoint has a server-side error unrelated to the connection leak fix.
+**Fix:** `web/src/lib/api.ts` — added `cache: "no-cache"` for GET requests so the browser always revalidates with the server.
 
-**Failing tests:**
-- `TestRemindersAPI::test_create_reminder`
-- `TestRemindersAPI::test_get_reminder`
-- `TestRemindersAPI::test_update_reminder`
-- `TestRemindersAPI::test_delete_reminder`
-- `TestRemindersAPI::test_no_reminder_returns_none`
-- `TestRemindersBrowser::test_reminder_dialog_opens`
-- `TestRemindersBrowser::test_reminder_dialog_save_disabled_without_time`
-- `TestRemindersBrowser::test_existing_reminder_shows_delete_button`
+### 3. Spaced Repetition neuronId Null in Response
 
-### test_01_brain_crud (2 failures)
+**Symptom:** `POST /api/spaced-repetition/items/{neuronId}` returned `neuronId: null`.
 
-- `TestBrainRenameViaBrowser::test_rename_brain` — brain rename via browser UI fails
-- `TestBrainDeleteViaBrowser::test_delete_brain` — brain delete via browser UI fails
+**Root cause:** The `SpacedRepetitionItem.neuronId` field was mapped as `insertable=false, updatable=false` (shared column with `@ManyToOne neuron`). After save, the field wasn't populated until re-read from DB.
 
-### test_13_navigation (1 failure)
+**Fix:** `SpacedRepetitionService.toResponse()` — changed `item.getNeuronId()` to `item.getNeuron().getId()`.
 
-- `TestBrainNavigation::test_brain_list_in_sidebar` — sidebar brain list assertion failure
+## E2E Test Fixes
+
+### Reminder Tests (8 tests fixed)
+E2E tests used outdated singular `/api/neurons/{id}/reminder` endpoints after the multi-reminder feature changed them to plural `/api/neurons/{id}/reminders` with `reminderId` path params. Browser tests referenced old dialog-based UI (`reminder-dialog`) instead of new panel UI (`reminder-panel`).
+
+### Brain CRUD & Navigation Tests (3 tests fixed)
+Browser HTTP cache caused tests to see stale brains list after API-created data. Fixed with Playwright route interception to bypass cache.
+
+## New Test Coverage Added
+
+| Area | Backend | Frontend | E2E | Total |
+|------|---------|----------|-----|-------|
+| Thoughts | 12 | 4 | 15 | 31 |
+| Spaced Repetition | 24 | 14 | 17 | 55 |
 
 ## Exploratory Testing (Browser)
 
-All pages load and function correctly after the connection leak fix:
+All pages verified working:
 
-| Page | Status | Notes |
-|------|--------|-------|
-| Dashboard | OK | Shows recent neurons, brains in sidebar |
-| Brain CRUD | OK | Create brain works; rename/delete not tested post-fix |
-| Cluster CRUD | OK | Create cluster, navigate into cluster |
-| Neuron Editor | OK | Title edit, rich text toolbar, breadcrumbs, save indicator |
-| Search | OK | Search form renders, tag filters available |
-| Favorites | OK | Empty state renders correctly |
-| Trash | OK | Empty state renders correctly |
-| Review | OK | "All caught up" empty state |
-| Thoughts | OK | Page loads with "New Thought" button |
-| Settings | OK | Display Name and Max Reminders fields |
-| Knowledge Graph | OK | Renders cluster/neuron graph with zoom controls |
-| Theme Toggle | OK | Light/Dark/System all work correctly |
-| 404 Page | OK | "This page could not be found" |
-| Notifications | OK | Bell icon, SSE stream working |
+| Page | Status |
+|------|--------|
+| Dashboard | OK |
+| Brain CRUD | OK |
+| Cluster CRUD | OK |
+| Neuron Editor | OK |
+| Search | OK |
+| Favorites | OK |
+| Trash | OK |
+| Review | OK |
+| Thoughts | OK |
+| Settings | OK |
+| Knowledge Graph | OK |
+| Theme Toggle | OK |
+| 404 Page | OK |
+| Notifications | OK |
