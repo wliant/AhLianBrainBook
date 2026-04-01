@@ -22,6 +22,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.HashMap;
 import java.util.List;
@@ -95,9 +97,15 @@ public class ResearchTopicService {
         topic.setLastUpdatedBy(user);
 
         ResearchTopic saved = researchTopicRepository.save(topic);
+        UUID topicId = saved.getId();
 
-        // Kick off async generation
-        researchAsyncService.generateTopicAsync(saved.getId(), prompt, clusterId);
+        // Kick off async generation after transaction commits
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                researchAsyncService.generateTopicAsync(topicId, prompt, clusterId);
+            }
+        });
 
         return toResponse(saved);
     }
@@ -120,8 +128,15 @@ public class ResearchTopicService {
         topic.setStatus(ResearchTopicStatus.UPDATING);
         topic.setLastUpdatedBy(settingsService.getDisplayName());
         ResearchTopic saved = researchTopicRepository.save(topic);
+        UUID savedId = saved.getId();
+        UUID savedClusterId = saved.getCluster().getId();
 
-        researchAsyncService.updateTopicAsync(saved.getId(), saved.getCluster().getId());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                researchAsyncService.updateTopicAsync(savedId, savedClusterId);
+            }
+        });
 
         return toResponse(saved);
     }

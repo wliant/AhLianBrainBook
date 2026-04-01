@@ -17,6 +17,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.UUID;
@@ -83,10 +85,16 @@ public class ClusterService {
         }
 
         Cluster saved = clusterRepository.save(cluster);
+        UUID savedId = saved.getId();
 
-        // Kick off async research goal generation
+        // Kick off async research goal generation after transaction commits
         if (type == ClusterType.AI_RESEARCH) {
-            researchAsyncService.generateResearchGoalAsync(saved.getId());
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    researchAsyncService.generateResearchGoalAsync(savedId);
+                }
+            });
         }
 
         return toResponse(saved);
