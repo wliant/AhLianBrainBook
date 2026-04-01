@@ -159,4 +159,30 @@ export const handlers = [
   http.get(`${API_BASE}/api/search`, () =>
     HttpResponse.json({ results: [], totalCount: 0 })
   ),
+
+  // Spaced Repetition
+  http.get(`${API_BASE}/api/spaced-repetition/items/:neuronId`, () =>
+    new HttpResponse(null, { status: 404 })
+  ),
+  http.get(`${API_BASE}/api/spaced-repetition/items`, () => HttpResponse.json([])),
+  http.get(`${API_BASE}/api/spaced-repetition/queue`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/spaced-repetition/items/:neuronId`, ({ params }) =>
+    HttpResponse.json(
+      {
+        id: 'sr-1',
+        neuronId: params.neuronId,
+        neuronTitle: 'Test Neuron',
+        easeFactor: 2.5,
+        intervalDays: 0,
+        repetitions: 0,
+        nextReviewAt: new Date().toISOString(),
+        lastReviewedAt: null,
+        createdAt: '2024-01-01T00:00:00',
+      },
+      { status: 201 }
+    )
+  ),
+  http.delete(`${API_BASE}/api/spaced-repetition/items/:neuronId`, () =>
+    new HttpResponse(null, { status: 204 })
+  ),
 ];
