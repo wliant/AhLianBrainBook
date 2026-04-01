@@ -4,7 +4,7 @@ import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.BrainRequest;
 import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.dto.ClusterRequest;
+import com.wliant.brainbook.dto.CreateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.NeuronLinkRequest;
 import com.wliant.brainbook.dto.NeuronLinkResponse;
@@ -56,7 +56,7 @@ class NeuronLinkControllerIntegrationTest {
                 "/api/brains", brainReq, BrainResponse.class);
         brainId = brainResp.getBody().id();
 
-        ClusterRequest clusterReq = new ClusterRequest("Test Cluster", brainId);
+        CreateClusterRequest clusterReq = new CreateClusterRequest("Test Cluster", brainId, null);
         ResponseEntity<ClusterResponse> clusterResp = restTemplate.postForEntity(
                 "/api/clusters", clusterReq, ClusterResponse.class);
         UUID clusterId = clusterResp.getBody().id();

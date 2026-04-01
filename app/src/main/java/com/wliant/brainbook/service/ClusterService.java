@@ -1,12 +1,14 @@
 package com.wliant.brainbook.service;
 
-import com.wliant.brainbook.dto.ClusterRequest;
+import com.wliant.brainbook.dto.CreateClusterRequest;
+import com.wliant.brainbook.dto.UpdateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
+import com.wliant.brainbook.model.ClusterType;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
 import com.wliant.brainbook.repository.NeuronRepository;
@@ -50,14 +52,20 @@ public class ClusterService {
     }
 
     @CacheEvict(value = "clustersByBrain", allEntries = true)
-    public ClusterResponse create(ClusterRequest req) {
+    public ClusterResponse create(CreateClusterRequest req) {
         Brain brain = brainRepository.findById(req.brainId())
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + req.brainId()));
+
+        ClusterType type = req.type() != null ? ClusterType.fromValue(req.type()) : ClusterType.KNOWLEDGE;
+        if (type.isUnique()) {
+            validateUniqueType(req.brainId(), type);
+        }
 
         String user = settingsService.getDisplayName();
         Cluster cluster = new Cluster();
         cluster.setBrain(brain);
         cluster.setName(req.name());
+        cluster.setType(type);
         cluster.setSortOrder(0);
         cluster.setArchived(false);
         cluster.setCreatedBy(user);
@@ -67,7 +75,7 @@ public class ClusterService {
     }
 
     @CacheEvict(value = "clustersByBrain", allEntries = true)
-    public ClusterResponse update(UUID id, ClusterRequest req) {
+    public ClusterResponse update(UUID id, UpdateClusterRequest req) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
 
@@ -102,6 +110,9 @@ public class ClusterService {
     public ClusterResponse restore(UUID id) {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
+        if (cluster.getType().isUnique()) {
+            validateUniqueType(cluster.getBrain().getId(), cluster.getType());
+        }
         cluster.setArchived(false);
         cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
@@ -119,10 +130,20 @@ public class ClusterService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
         Brain targetBrain = brainRepository.findById(targetBrainId)
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + targetBrainId));
+        if (cluster.getType().isUnique()) {
+            validateUniqueType(targetBrainId, cluster.getType());
+        }
         cluster.setBrain(targetBrain);
         cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
+    }
+
+    private void validateUniqueType(UUID brainId, ClusterType type) {
+        long count = clusterRepository.countByBrainIdAndTypeAndIsArchivedFalse(brainId, type);
+        if (count > 0) {
+            throw new ConflictException("Only one " + type.getValue() + " cluster allowed per brain");
+        }
     }
 
     private ClusterResponse toResponse(Cluster cluster) {
@@ -130,6 +151,7 @@ public class ClusterService {
                 cluster.getId(),
                 cluster.getBrain() != null ? cluster.getBrain().getId() : cluster.getBrainId(),
                 cluster.getName(),
+                cluster.getType().getValue(),
                 cluster.getSortOrder(),
                 cluster.isArchived(),
                 cluster.getCreatedAt(),

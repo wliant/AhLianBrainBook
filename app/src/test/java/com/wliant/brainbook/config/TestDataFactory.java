@@ -1,6 +1,13 @@
 package com.wliant.brainbook.config;
 
-import com.wliant.brainbook.dto.*;
+import com.wliant.brainbook.dto.BrainRequest;
+import com.wliant.brainbook.dto.BrainResponse;
+import com.wliant.brainbook.dto.ClusterResponse;
+import com.wliant.brainbook.dto.CreateClusterRequest;
+import com.wliant.brainbook.dto.NeuronRequest;
+import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.TagRequest;
+import com.wliant.brainbook.dto.TagResponse;
 import com.wliant.brainbook.service.BrainService;
 import com.wliant.brainbook.service.ClusterService;
 import com.wliant.brainbook.service.NeuronService;
@@ -38,7 +45,7 @@ public class TestDataFactory {
     }
 
     public ClusterResponse createCluster(String name, UUID brainId) {
-        return clusterService.create(new ClusterRequest(name, brainId));
+        return clusterService.create(new CreateClusterRequest(name, brainId, null));
     }
 
     public NeuronResponse createNeuron(UUID brainId, UUID clusterId) {

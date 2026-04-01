@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { FolderOpen, Plus, Network } from "lucide-react";
+import { FolderOpen, Plus, Network, Sparkles, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +17,7 @@ import { useBrains } from "@/lib/hooks/useBrains";
 import { TagCombobox } from "@/components/tags/TagCombobox";
 import { BrainStats } from "@/components/brain/BrainStats";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
-import type { Tag } from "@/types";
+import type { ClusterType, Tag } from "@/types";
 
 export default function BrainPage({ params }: { params: Promise<{ brainId: string }> }) {
   const { brainId } = use(params);
@@ -29,6 +29,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   const [brainTags, setBrainTags] = useState<Tag[]>(brain?.tags || []);
   const [clusterDialogOpen, setClusterDialogOpen] = useState(false);
   const [clusterName, setClusterName] = useState("");
+  const [clusterType, setClusterType] = useState<ClusterType>("knowledge");
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -53,10 +54,13 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
     saveDescription(value);
   };
 
+  const hasAiResearch = clusters.some((c) => c.type === "ai-research");
+
   const handleNewCluster = async () => {
     if (!clusterName.trim()) return;
-    await createCluster(clusterName.trim());
+    await createCluster(clusterName.trim(), clusterType);
     setClusterName("");
+    setClusterType("knowledge");
     setClusterDialogOpen(false);
   };
 
@@ -114,19 +118,26 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
         </div>
       ) : (
         <div className="grid gap-3">
-          {clusters.map((cluster) => (
-            <Link
-              key={cluster.id}
-              href={`/brain/${brainId}/cluster/${cluster.id}`}
-              className="flex items-center gap-3 rounded-lg border p-4 hover:bg-accent transition-colors"
-            >
-              <FolderOpen className="h-5 w-5 text-muted-foreground" />
-              <span className="font-medium">{cluster.name}</span>
-            </Link>
-          ))}
+          {clusters.map((cluster) => {
+            const Icon = cluster.type === "ai-research" ? Sparkles
+              : cluster.type === "project" ? Code : FolderOpen;
+            return (
+              <Link
+                key={cluster.id}
+                href={`/brain/${brainId}/cluster/${cluster.id}`}
+                className="flex items-center gap-3 rounded-lg border p-4 hover:bg-accent transition-colors"
+              >
+                <Icon className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">{cluster.name}</span>
+              </Link>
+            );
+          })}
         </div>
       )}
-      <Dialog open={clusterDialogOpen} onOpenChange={setClusterDialogOpen}>
+      <Dialog open={clusterDialogOpen} onOpenChange={(open) => {
+        setClusterDialogOpen(open);
+        if (!open) { setClusterName(""); setClusterType("knowledge"); }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Cluster</DialogTitle>
@@ -139,6 +150,29 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
             onKeyDown={(e) => e.key === "Enter" && handleNewCluster()}
             data-testid="cluster-name-input"
           />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Type</p>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="cluster-type" value="knowledge"
+                  checked={clusterType === "knowledge"}
+                  onChange={() => setClusterType("knowledge")}
+                  className="accent-primary" />
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                Knowledge
+              </label>
+              <label className={`flex items-center gap-2 text-sm ${hasAiResearch ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                <input type="radio" name="cluster-type" value="ai-research"
+                  checked={clusterType === "ai-research"}
+                  onChange={() => setClusterType("ai-research")}
+                  disabled={hasAiResearch}
+                  className="accent-primary" />
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                AI Research
+                {hasAiResearch && <span className="text-xs text-muted-foreground">(already exists)</span>}
+              </label>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setClusterDialogOpen(false)}>
               Cancel

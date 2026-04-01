@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Sparkles, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { TagCombobox } from "@/components/tags/TagCombobox";
@@ -64,57 +64,74 @@ export default function ClusterPage({
           />
         </div>
       )}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Neurons</h1>
-        <Button size="sm" onClick={handleNewNeuron} data-testid="new-neuron-btn">
-          <Plus className="h-4 w-4 mr-1" /> New Neuron
-        </Button>
-      </div>
 
-      {neurons.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <FileText className="h-12 w-12 mx-auto mb-3" />
-          <p>No neurons yet. Create one to start writing.</p>
+      {cluster?.type === "ai-research" ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Sparkles className="h-12 w-12 mx-auto mb-3" />
+          <h1 className="text-2xl font-bold mb-2 text-foreground">AI Research</h1>
+          <p>AI-guided learning tracker — coming soon.</p>
+        </div>
+      ) : cluster?.type === "project" ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Code className="h-12 w-12 mx-auto mb-3" />
+          <h1 className="text-2xl font-bold mb-2 text-foreground">Project Explorer</h1>
+          <p>Codebase exploration — coming soon.</p>
         </div>
       ) : (
-        <div className="space-y-1">
-          {neurons.map((neuron) => (
-            <div key={neuron.id} className="rounded-md hover:bg-accent transition-colors" data-testid={`neuron-row-${neuron.id}`}>
-              <Link
-                href={`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`}
-                className="flex items-center gap-3 px-3 py-2.5"
-              >
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{neuron.title || "Untitled"}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {neuron.contentText?.slice(0, 100) || "Empty note"}
-                  </p>
-                </div>
-                {neuron.complexity && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
-                    neuron.complexity === "complex" ? "bg-red-500/20 text-red-400" :
-                    neuron.complexity === "moderate" ? "bg-yellow-500/20 text-yellow-400" :
-                    "bg-green-500/20 text-green-400"
-                  }`}>
-                    {neuron.complexity}
-                  </span>
-                )}
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {new Date(neuron.lastEditedAt).toLocaleDateString()}
-                </span>
-              </Link>
-              <div className="px-3 pb-2 pl-10">
-                <TagCombobox
-                  entityType="neuron"
-                  entityId={neuron.id}
-                  currentTags={getTagsForNeuron(neuron)}
-                  onTagsChange={(tags) => handleTagsChange(neuron.id, tags)}
-                />
-              </div>
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold">Neurons</h1>
+            <Button size="sm" onClick={handleNewNeuron} data-testid="new-neuron-btn">
+              <Plus className="h-4 w-4 mr-1" /> New Neuron
+            </Button>
+          </div>
+
+          {neurons.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-3" />
+              <p>No neurons yet. Create one to start writing.</p>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="space-y-1">
+              {neurons.map((neuron) => (
+                <div key={neuron.id} className="rounded-md hover:bg-accent transition-colors" data-testid={`neuron-row-${neuron.id}`}>
+                  <Link
+                    href={`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`}
+                    className="flex items-center gap-3 px-3 py-2.5"
+                  >
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{neuron.title || "Untitled"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {neuron.contentText?.slice(0, 100) || "Empty note"}
+                      </p>
+                    </div>
+                    {neuron.complexity && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                        neuron.complexity === "complex" ? "bg-red-500/20 text-red-400" :
+                        neuron.complexity === "moderate" ? "bg-yellow-500/20 text-yellow-400" :
+                        "bg-green-500/20 text-green-400"
+                      }`}>
+                        {neuron.complexity}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(neuron.lastEditedAt).toLocaleDateString()}
+                    </span>
+                  </Link>
+                  <div className="px-3 pb-2 pl-10">
+                    <TagCombobox
+                      entityType="neuron"
+                      entityId={neuron.id}
+                      currentTags={getTagsForNeuron(neuron)}
+                      onTagsChange={(tags) => handleTagsChange(neuron.id, tags)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
       </div>
     </div>

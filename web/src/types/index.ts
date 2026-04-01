@@ -13,10 +13,13 @@ export interface Brain {
   tags: Tag[];
 }
 
+export type ClusterType = "knowledge" | "ai-research" | "project";
+
 export interface Cluster {
   id: string;
   brainId: string;
   name: string;
+  type: ClusterType;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;

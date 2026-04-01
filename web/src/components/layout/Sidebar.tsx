@@ -21,6 +21,8 @@ import {
   Settings,
   X,
   GraduationCap,
+  Sparkles,
+  Code,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -568,7 +570,9 @@ function ClusterItem({
           href={`/brain/${brainId}/cluster/${cluster.id}`}
           className="flex items-center gap-1.5 flex-1 truncate"
         >
-          <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+          {cluster.type === "ai-research" ? <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            : cluster.type === "project" ? <Code className="h-3.5 w-3.5 shrink-0" />
+            : <FolderOpen className="h-3.5 w-3.5 shrink-0" />}
           <span className="truncate">{cluster.name}</span>
         </Link>
         <DropdownMenu>

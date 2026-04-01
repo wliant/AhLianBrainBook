@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Cluster } from "@/types";
+import type { Cluster, ClusterType } from "@/types";
 
 export function useClusters(brainId: string | null) {
   const queryClient = useQueryClient();
@@ -13,9 +13,9 @@ export function useClusters(brainId: string | null) {
     enabled: !!brainId,
   });
 
-  const createCluster = async (name: string) => {
+  const createCluster = async (name: string, type?: ClusterType) => {
     if (!brainId) return;
-    const cluster = await api.post<Cluster>("/api/clusters", { name, brainId });
+    const cluster = await api.post<Cluster>("/api/clusters", { name, brainId, type: type ?? "knowledge" });
     queryClient.invalidateQueries({ queryKey: ["clusters", brainId] });
     return cluster;
   };

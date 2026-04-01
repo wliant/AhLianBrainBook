@@ -1,6 +1,7 @@
 package com.wliant.brainbook.controller;
 
-import com.wliant.brainbook.dto.ClusterRequest;
+import com.wliant.brainbook.dto.CreateClusterRequest;
+import com.wliant.brainbook.dto.UpdateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.service.ClusterService;
@@ -36,7 +37,7 @@ public class ClusterController {
     }
 
     @PostMapping
-    public ResponseEntity<ClusterResponse> createCluster(@Valid @RequestBody ClusterRequest req) {
+    public ResponseEntity<ClusterResponse> createCluster(@Valid @RequestBody CreateClusterRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(clusterService.create(req));
     }
 
@@ -47,7 +48,7 @@ public class ClusterController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<ClusterResponse> updateCluster(@PathVariable UUID id,
-                                                         @Valid @RequestBody ClusterRequest req) {
+                                                         @Valid @RequestBody UpdateClusterRequest req) {
         return ResponseEntity.ok(clusterService.update(id, req));
     }
 

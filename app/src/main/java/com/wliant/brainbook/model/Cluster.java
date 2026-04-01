@@ -1,6 +1,7 @@
 package com.wliant.brainbook.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -34,6 +35,10 @@ public class Cluster {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "type", nullable = false, length = 20)
+    @Convert(converter = ClusterType.JpaConverter.class)
+    private ClusterType type;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
@@ -57,6 +62,9 @@ public class Cluster {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.type == null) {
+            this.type = ClusterType.KNOWLEDGE;
+        }
     }
 
     @PreUpdate
@@ -94,6 +102,14 @@ public class Cluster {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public ClusterType getType() {
+        return type;
+    }
+
+    public void setType(ClusterType type) {
+        this.type = type;
     }
 
     public int getSortOrder() {
