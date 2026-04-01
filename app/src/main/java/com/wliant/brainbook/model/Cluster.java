@@ -60,6 +60,10 @@ public class Cluster {
     @Column(name = "research_goal", columnDefinition = "text")
     private String researchGoal;
 
+    @Column(name = "status", nullable = false, length = 20)
+    @Convert(converter = ClusterStatus.JpaConverter.class)
+    private ClusterStatus status;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -67,6 +71,9 @@ public class Cluster {
         this.updatedAt = now;
         if (this.type == null) {
             this.type = ClusterType.KNOWLEDGE;
+        }
+        if (this.status == null) {
+            this.status = ClusterStatus.READY;
         }
     }
 
@@ -169,5 +176,13 @@ public class Cluster {
 
     public void setResearchGoal(String researchGoal) {
         this.researchGoal = researchGoal;
+    }
+
+    public ClusterStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ClusterStatus status) {
+        this.status = status;
     }
 }

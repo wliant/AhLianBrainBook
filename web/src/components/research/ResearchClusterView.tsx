@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Plus, RefreshCw, Sparkles } from "lucide-react";
+import { Plus, RefreshCw, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useResearchTopics } from "@/lib/hooks/useResearchTopics";
+import { useResearchSse } from "@/lib/hooks/useResearchSse";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { ResearchTopicCard } from "./ResearchTopicCard";
 import { NewResearchTopicDialog } from "./NewResearchTopicDialog";
 import type { Cluster } from "@/types";
-import { api } from "@/lib/api";
 
 interface ResearchClusterViewProps {
   cluster: Cluster;
@@ -16,19 +16,16 @@ interface ResearchClusterViewProps {
 }
 
 export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewProps) {
-  const { topics, loading, createTopic, deleteTopic, refreshTopic, refreshAll, expandBullet } =
+  const { topics, loading, createTopic, deleteTopic, updateTopic, updateAll, expandBullet } =
     useResearchTopics(cluster.id);
   const { updateCluster } = useClusters(brainId);
+  useResearchSse(cluster.id);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [refreshingAll, setRefreshingAll] = useState(false);
-  const [refreshingTopicId, setRefreshingTopicId] = useState<string | null>(null);
-  const [expandingBulletId, setExpandingBulletId] = useState<string | null>(null);
 
   // Research goal editing
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalValue, setGoalValue] = useState(cluster.researchGoal || "");
-  const goalRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setGoalValue(cluster.researchGoal || "");
@@ -41,37 +38,45 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
     }
   }, [goalValue, cluster, updateCluster]);
 
-  const handleCreate = useCallback(async (prompt: string) => {
+  const handleCreate = useCallback(async (prompt?: string) => {
     await createTopic(prompt);
   }, [createTopic]);
 
-  const handleRefreshAll = useCallback(async () => {
-    setRefreshingAll(true);
-    try { await refreshAll(); } finally { setRefreshingAll(false); }
-  }, [refreshAll]);
+  const handleUpdateAll = useCallback(async () => {
+    await updateAll();
+  }, [updateAll]);
 
-  const handleRefreshTopic = useCallback(async (id: string) => {
-    setRefreshingTopicId(id);
-    try { await refreshTopic(id); } finally { setRefreshingTopicId(null); }
-  }, [refreshTopic]);
+  const handleUpdateTopic = useCallback(async (id: string) => {
+    await updateTopic(id);
+  }, [updateTopic]);
 
   const handleExpand = useCallback(async (topicId: string, bulletId: string) => {
-    setExpandingBulletId(bulletId);
-    try { await expandBullet(topicId, bulletId); } finally { setExpandingBulletId(null); }
+    await expandBullet(topicId, bulletId);
   }, [expandBullet]);
 
   const handleDeleteTopic = useCallback(async (id: string) => {
     await deleteTopic(id);
   }, [deleteTopic]);
 
+  const isClusterGenerating = cluster.status === "generating";
+  const readyTopics = topics.filter((t) => t.status === "ready");
+  const hasUpdatableTopics = readyTopics.length > 0;
+
   return (
     <div data-testid="research-cluster-view">
+      {/* Generating indicator */}
+      {isClusterGenerating && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 p-3 border rounded-lg bg-muted/30">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Generating research goal...
+        </div>
+      )}
+
       {/* Research Goal */}
       <div className="mb-6">
         <h3 className="text-xs uppercase text-muted-foreground mb-1 tracking-wider">Research Goal</h3>
         {editingGoal ? (
           <textarea
-            ref={goalRef}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y min-h-[60px]"
             value={goalValue}
             onChange={(e) => setGoalValue(e.target.value)}
@@ -83,11 +88,13 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
         ) : (
           <div
             className="rounded-md border border-transparent hover:border-input px-3 py-2 text-sm cursor-pointer min-h-[40px]"
-            onClick={() => setEditingGoal(true)}
+            onClick={() => !isClusterGenerating && setEditingGoal(true)}
             data-testid="research-goal-display"
           >
             {cluster.researchGoal || (
-              <span className="text-muted-foreground italic">Click to set research goal...</span>
+              <span className="text-muted-foreground italic">
+                {isClusterGenerating ? "Generating..." : "Click to set research goal..."}
+              </span>
             )}
           </div>
         )}
@@ -100,13 +107,18 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
           <Button
             variant="outline"
             size="sm"
-            onClick={handleRefreshAll}
-            disabled={refreshingAll || topics.length === 0}
+            onClick={handleUpdateAll}
+            disabled={!hasUpdatableTopics || isClusterGenerating}
           >
-            <RefreshCw className={`h-4 w-4 mr-1 ${refreshingAll ? "animate-spin" : ""}`} />
-            Refresh All
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Update All
           </Button>
-          <Button size="sm" onClick={() => setDialogOpen(true)} data-testid="new-research-topic-btn">
+          <Button
+            size="sm"
+            onClick={() => setDialogOpen(true)}
+            disabled={isClusterGenerating}
+            data-testid="new-research-topic-btn"
+          >
             <Plus className="h-4 w-4 mr-1" /> New Topic
           </Button>
         </div>
@@ -128,11 +140,9 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
               key={topic.id}
               topic={topic}
               brainId={brainId}
-              onRefresh={handleRefreshTopic}
+              onUpdate={handleUpdateTopic}
               onDelete={handleDeleteTopic}
               onExpand={handleExpand}
-              refreshing={refreshingTopicId === topic.id}
-              expandingBulletId={expandingBulletId}
             />
           ))}
         </div>

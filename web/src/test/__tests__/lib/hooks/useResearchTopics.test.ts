@@ -28,6 +28,7 @@ const makeTopic = (overrides: Partial<ResearchTopic> = {}): ResearchTopic => ({
     ],
   },
   overallCompleteness: 'none',
+  status: 'ready',
   lastRefreshedAt: null,
   sortOrder: 0,
   createdAt: '2024-01-01T00:00:00',

@@ -73,6 +73,10 @@ public class ResearchTopic {
     @Column(name = "last_updated_by", nullable = false, length = 100)
     private String lastUpdatedBy;
 
+    @Column(name = "status", nullable = false, length = 20)
+    @Convert(converter = ResearchTopicStatus.JpaConverter.class)
+    private ResearchTopicStatus status;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -80,6 +84,9 @@ public class ResearchTopic {
         this.updatedAt = now;
         if (this.overallCompleteness == null) {
             this.overallCompleteness = CompletenessLevel.NONE;
+        }
+        if (this.status == null) {
+            this.status = ResearchTopicStatus.READY;
         }
     }
 
@@ -114,4 +121,6 @@ public class ResearchTopic {
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
     public String getLastUpdatedBy() { return lastUpdatedBy; }
     public void setLastUpdatedBy(String lastUpdatedBy) { this.lastUpdatedBy = lastUpdatedBy; }
+    public ResearchTopicStatus getStatus() { return status; }
+    public void setStatus(ResearchTopicStatus status) { this.status = status; }
 }

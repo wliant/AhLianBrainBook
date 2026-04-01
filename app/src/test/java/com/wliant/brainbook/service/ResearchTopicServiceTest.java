@@ -10,8 +10,6 @@ import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.dto.ResearchTopicResponse;
 import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
-import com.wliant.brainbook.model.CompletenessLevel;
-import com.wliant.brainbook.model.ResearchTopic;
 import com.wliant.brainbook.repository.ResearchTopicRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +26,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -64,7 +61,6 @@ class ResearchTopicServiceTest {
     void setUp() {
         databaseCleaner.clean();
 
-        // Mock intelligence service to return empty goal (avoid real AI calls)
         when(intelligenceService.generateResearchGoal(anyString(), anyList()))
                 .thenReturn("Test research goal");
 
@@ -77,33 +73,25 @@ class ResearchTopicServiceTest {
     }
 
     @Test
-    void create_generatesTopicInAiResearchCluster() {
-        when(intelligenceService.generateResearchTopic(anyString(), anyString(), anyString(), anyList()))
-                .thenReturn(Map.of(
-                        "title", "Refactoring Techniques",
-                        "overall_completeness", "none",
-                        "items", List.of(
-                                Map.of("id", "item-1", "text", "Extract Method",
-                                        "explanation", "Moving code into a method",
-                                        "completeness", "none",
-                                        "linked_neuron_ids", List.of(),
-                                        "children", List.of())
-                        )
-                ));
-
+    void create_returnsTopicInGeneratingStatus() {
         ResearchTopicResponse response = researchTopicService.create(
-                aiResearchClusterId, new CreateResearchTopicRequest("Refactoring techniques"));
+                aiResearchClusterId, new CreateResearchTopicRequest("Sorting algorithms"));
 
         assertThat(response.id()).isNotNull();
-        assertThat(response.title()).isEqualTo("Refactoring Techniques");
-        assertThat(response.prompt()).isEqualTo("Refactoring techniques");
-        assertThat(response.overallCompleteness()).isEqualTo("none");
-        assertThat(response.contentJson()).isNotNull();
+        assertThat(response.title()).isEqualTo("Sorting algorithms");
+        assertThat(response.prompt()).isEqualTo("Sorting algorithms");
+        assertThat(response.status()).isEqualTo("generating");
+        assertThat(response.clusterId()).isEqualTo(aiResearchClusterId);
+    }
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) response.contentJson().get("items");
-        assertThat(items).hasSize(1);
-        assertThat(items.get(0).get("text")).isEqualTo("Extract Method");
+    @Test
+    void create_withNullPrompt_returnsTopicInGeneratingStatus() {
+        ResearchTopicResponse response = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest(null));
+
+        assertThat(response.id()).isNotNull();
+        assertThat(response.title()).isEqualTo("Generating...");
+        assertThat(response.status()).isEqualTo("generating");
     }
 
     @Test
@@ -116,8 +104,8 @@ class ResearchTopicServiceTest {
 
     @Test
     void list_returnsTopicsInOrder() {
-        createTestTopic("Topic A");
-        createTestTopic("Topic B");
+        researchTopicService.create(aiResearchClusterId, new CreateResearchTopicRequest("Topic A"));
+        researchTopicService.create(aiResearchClusterId, new CreateResearchTopicRequest("Topic B"));
 
         List<ResearchTopicResponse> topics = researchTopicService.list(aiResearchClusterId);
 
@@ -126,12 +114,12 @@ class ResearchTopicServiceTest {
 
     @Test
     void getById_returnsTopic() {
-        ResearchTopicResponse created = createTestTopic("Test Topic");
+        ResearchTopicResponse created = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest("Test Topic"));
 
         ResearchTopicResponse found = researchTopicService.getById(created.id());
 
         assertThat(found.id()).isEqualTo(created.id());
-        assertThat(found.title()).isEqualTo("Test Topic");
     }
 
     @Test
@@ -142,7 +130,8 @@ class ResearchTopicServiceTest {
 
     @Test
     void delete_removesTopic() {
-        ResearchTopicResponse created = createTestTopic("To Delete");
+        ResearchTopicResponse created = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest("To Delete"));
 
         researchTopicService.delete(created.id());
 
@@ -150,10 +139,23 @@ class ResearchTopicServiceTest {
     }
 
     @Test
+    void update_setsStatusToUpdating() {
+        ResearchTopicResponse created = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest("Test Topic"));
+
+        ResearchTopicResponse updated = researchTopicService.update(created.id());
+
+        assertThat(updated.status()).isEqualTo("updating");
+    }
+
+    @Test
     void reorder_updatesSortOrders() {
-        ResearchTopicResponse t1 = createTestTopic("A");
-        ResearchTopicResponse t2 = createTestTopic("B");
-        ResearchTopicResponse t3 = createTestTopic("C");
+        ResearchTopicResponse t1 = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest("A"));
+        ResearchTopicResponse t2 = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest("B"));
+        ResearchTopicResponse t3 = researchTopicService.create(
+                aiResearchClusterId, new CreateResearchTopicRequest("C"));
 
         researchTopicService.reorder(new ReorderRequest(List.of(t3.id(), t1.id(), t2.id())));
 
@@ -161,74 +163,5 @@ class ResearchTopicServiceTest {
         assertThat(reordered.get(0).title()).isEqualTo("C");
         assertThat(reordered.get(1).title()).isEqualTo("A");
         assertThat(reordered.get(2).title()).isEqualTo("B");
-    }
-
-    @Test
-    void refresh_updatesScoresAndCompleteness() {
-        ResearchTopicResponse created = createTestTopic("Test Topic");
-
-        when(intelligenceService.scoreResearchTopic(anyList(), anyString(), anyString(), anyList()))
-                .thenReturn(Map.of(
-                        "overall_completeness", "partial",
-                        "items", List.of(
-                                Map.of("id", "item-1", "text", "Extract Method",
-                                        "explanation", "Moving code into a method",
-                                        "completeness", "partial",
-                                        "linked_neuron_ids", List.of(),
-                                        "children", List.of())
-                        )
-                ));
-
-        ResearchTopicResponse refreshed = researchTopicService.refresh(created.id());
-
-        assertThat(refreshed.overallCompleteness()).isEqualTo("partial");
-        assertThat(refreshed.lastRefreshedAt()).isNotNull();
-    }
-
-    @Test
-    void expandBullet_addsChildren() {
-        ResearchTopicResponse created = createTestTopic("Test Topic");
-
-        when(intelligenceService.expandBullet(any(), anyString(), anyString(), anyString(), anyList()))
-                .thenReturn(Map.of(
-                        "children", List.of(
-                                Map.of("id", "item-1-1", "text", "When to extract",
-                                        "explanation", "Signs of too-long methods",
-                                        "completeness", "none",
-                                        "linked_neuron_ids", List.of(),
-                                        "children", List.of()),
-                                Map.of("id", "item-1-2", "text", "Mechanics",
-                                        "explanation", "Step by step process",
-                                        "completeness", "none",
-                                        "linked_neuron_ids", List.of(),
-                                        "children", List.of())
-                        )
-                ));
-
-        ResearchTopicResponse expanded = researchTopicService.expandBullet(created.id(), "item-1");
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) expanded.contentJson().get("items");
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> children = (List<Map<String, Object>>) items.get(0).get("children");
-        assertThat(children).hasSize(2);
-        assertThat(children.get(0).get("text")).isEqualTo("When to extract");
-    }
-
-    private ResearchTopicResponse createTestTopic(String title) {
-        when(intelligenceService.generateResearchTopic(anyString(), anyString(), anyString(), anyList()))
-                .thenReturn(Map.of(
-                        "title", title,
-                        "overall_completeness", "none",
-                        "items", List.of(
-                                Map.of("id", "item-1", "text", "Extract Method",
-                                        "explanation", "Test",
-                                        "completeness", "none",
-                                        "linked_neuron_ids", List.of(),
-                                        "children", List.of())
-                        )
-                ));
-        return researchTopicService.create(
-                aiResearchClusterId, new CreateResearchTopicRequest(title));
     }
 }

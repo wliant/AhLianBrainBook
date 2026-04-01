@@ -8,6 +8,7 @@ public record ClusterResponse(
         UUID brainId,
         String name,
         String type,
+        String status,
         String researchGoal,
         int sortOrder,
         boolean isArchived,

@@ -15,11 +15,15 @@ export interface Brain {
 
 export type ClusterType = "knowledge" | "ai-research" | "project";
 
+export type ClusterStatusType = "generating" | "ready";
+export type ResearchTopicStatusType = "generating" | "ready" | "updating" | "error";
+
 export interface Cluster {
   id: string;
   brainId: string;
   name: string;
   type: ClusterType;
+  status: ClusterStatusType;
   researchGoal: string | null;
   sortOrder: number;
   isArchived: boolean;
@@ -48,6 +52,7 @@ export interface ResearchTopic {
   prompt: string;
   contentJson: { version: number; items: BulletItem[] } | null;
   overallCompleteness: CompletenessLevel;
+  status: ResearchTopicStatusType;
   lastRefreshedAt: string | null;
   sortOrder: number;
   createdAt: string;

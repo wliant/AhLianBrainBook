@@ -54,7 +54,7 @@ export default function ClusterPage({
   return (
     <div className="flex flex-col h-full" data-testid="cluster-page">
       <Breadcrumb items={breadcrumbItems} />
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto flex-1">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto flex-1">
       {cluster && (
         <div className="mb-4">
           <EntityMetadata

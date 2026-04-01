@@ -12,6 +12,7 @@ public record ResearchTopicResponse(
         String prompt,
         Map<String, Object> contentJson,
         String overallCompleteness,
+        String status,
         LocalDateTime lastRefreshedAt,
         int sortOrder,
         LocalDateTime createdAt,

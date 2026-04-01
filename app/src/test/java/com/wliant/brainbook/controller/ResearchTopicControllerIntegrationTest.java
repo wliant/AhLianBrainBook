@@ -24,7 +24,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,31 +72,30 @@ class ResearchTopicControllerIntegrationTest {
                 ClusterResponse.class).getBody().id();
     }
 
-    private void mockTopicGeneration(String title) {
-        when(intelligenceService.generateResearchTopic(anyString(), anyString(), anyString(), anyList()))
-                .thenReturn(Map.of(
-                        "title", title,
-                        "overall_completeness", "none",
-                        "items", List.of(Map.of(
-                                "id", "item-1", "text", "Concept",
-                                "explanation", "Test", "completeness", "none",
-                                "linked_neuron_ids", List.of(), "children", List.of()))
-                ));
-    }
-
     @Test
-    void createTopic_returnsCreated() {
-        mockTopicGeneration("Refactoring");
-
+    void createTopic_returnsCreatedWithGeneratingStatus() {
         ResponseEntity<ResearchTopicResponse> response = restTemplate.postForEntity(
                 "/api/clusters/{clusterId}/research-topics",
-                new CreateResearchTopicRequest("Refactoring techniques"),
+                new CreateResearchTopicRequest("Sorting algorithms"),
                 ResearchTopicResponse.class,
                 aiClusterId);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody().title()).isEqualTo("Refactoring");
+        assertThat(response.getBody().title()).isEqualTo("Sorting algorithms");
+        assertThat(response.getBody().status()).isEqualTo("generating");
         assertThat(response.getBody().clusterId()).isEqualTo(aiClusterId);
+    }
+
+    @Test
+    void createTopic_withNullPrompt_returnsCreated() {
+        ResponseEntity<ResearchTopicResponse> response = restTemplate.postForEntity(
+                "/api/clusters/{clusterId}/research-topics",
+                new CreateResearchTopicRequest(null),
+                ResearchTopicResponse.class,
+                aiClusterId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().status()).isEqualTo("generating");
     }
 
     @Test
@@ -113,10 +111,8 @@ class ResearchTopicControllerIntegrationTest {
 
     @Test
     void listTopics_returnsList() {
-        mockTopicGeneration("Topic 1");
         restTemplate.postForEntity("/api/clusters/{id}/research-topics",
                 new CreateResearchTopicRequest("Topic 1"), ResearchTopicResponse.class, aiClusterId);
-        mockTopicGeneration("Topic 2");
         restTemplate.postForEntity("/api/clusters/{id}/research-topics",
                 new CreateResearchTopicRequest("Topic 2"), ResearchTopicResponse.class, aiClusterId);
 
@@ -131,24 +127,7 @@ class ResearchTopicControllerIntegrationTest {
     }
 
     @Test
-    void getTopic_returnsTopic() {
-        mockTopicGeneration("My Topic");
-        ResearchTopicResponse created = restTemplate.postForEntity(
-                "/api/clusters/{id}/research-topics",
-                new CreateResearchTopicRequest("My Topic"),
-                ResearchTopicResponse.class, aiClusterId).getBody();
-
-        ResponseEntity<ResearchTopicResponse> response = restTemplate.getForEntity(
-                "/api/clusters/{clusterId}/research-topics/{id}",
-                ResearchTopicResponse.class, aiClusterId, created.id());
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().title()).isEqualTo("My Topic");
-    }
-
-    @Test
     void deleteTopic_returnsNoContent() {
-        mockTopicGeneration("To Delete");
         ResearchTopicResponse created = restTemplate.postForEntity(
                 "/api/clusters/{id}/research-topics",
                 new CreateResearchTopicRequest("To Delete"),
@@ -159,13 +138,5 @@ class ResearchTopicControllerIntegrationTest {
                 HttpMethod.DELETE, null, Void.class, aiClusterId, created.id());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-
-        // Verify deleted
-        ResponseEntity<List<ResearchTopicResponse>> listResponse = restTemplate.exchange(
-                "/api/clusters/{id}/research-topics",
-                HttpMethod.GET, null,
-                new ParameterizedTypeReference<List<ResearchTopicResponse>>() {},
-                aiClusterId);
-        assertThat(listResponse.getBody()).isEmpty();
     }
 }

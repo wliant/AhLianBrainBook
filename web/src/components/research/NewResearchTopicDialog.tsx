@@ -10,12 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
 
 interface NewResearchTopicDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (prompt: string) => Promise<void>;
+  onCreate: (prompt?: string) => Promise<void>;
 }
 
 export function NewResearchTopicDialog({
@@ -24,44 +23,36 @@ export function NewResearchTopicDialog({
   onCreate,
 }: NewResearchTopicDialogProps) {
   const [prompt, setPrompt] = useState("");
-  const [creating, setCreating] = useState(false);
 
   const handleCreate = useCallback(async () => {
-    if (!prompt.trim() || creating) return;
-    setCreating(true);
-    try {
-      await onCreate(prompt.trim());
-      setPrompt("");
-      onOpenChange(false);
-    } finally {
-      setCreating(false);
-    }
-  }, [prompt, creating, onCreate, onOpenChange]);
+    const p = prompt.trim() || undefined;
+    setPrompt("");
+    onOpenChange(false);
+    await onCreate(p);
+  }, [prompt, onCreate, onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!creating) onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Research Topic</DialogTitle>
         </DialogHeader>
         <Input
           autoFocus
-          placeholder="e.g., Refactoring techniques, Spring Security fundamentals..."
+          placeholder="e.g., Sorting algorithms, Graph traversal... (optional)"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          disabled={creating}
           data-testid="research-topic-prompt"
         />
         <p className="text-xs text-muted-foreground">
-          AI will generate a structured learning map for this topic based on your existing knowledge.
+          Optionally describe a topic. AI will generate a learning map using the research goal and brain context.
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={!prompt.trim() || creating}>
-            {creating && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+          <Button onClick={handleCreate}>
             Generate
           </Button>
         </DialogFooter>

@@ -13,11 +13,10 @@ export function useResearchTopics(clusterId: string | null) {
     enabled: !!clusterId,
   });
 
-  const createTopic = async (prompt: string) => {
+  const createTopic = async (prompt?: string) => {
     if (!clusterId) return;
-    const topic = await api.researchTopics.create(clusterId, prompt);
+    await api.researchTopics.create(clusterId, prompt);
     queryClient.invalidateQueries({ queryKey: ["research-topics", clusterId] });
-    return topic;
   };
 
   const deleteTopic = async (id: string) => {
@@ -26,25 +25,23 @@ export function useResearchTopics(clusterId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["research-topics", clusterId] });
   };
 
-  const refreshTopic = async (id: string) => {
+  const updateTopic = async (id: string) => {
     if (!clusterId) return;
-    const updated = await api.researchTopics.refresh(clusterId, id);
+    await api.researchTopics.update(clusterId, id);
     queryClient.invalidateQueries({ queryKey: ["research-topics", clusterId] });
-    return updated;
   };
 
-  const refreshAll = async () => {
+  const updateAll = async () => {
     if (!clusterId) return;
-    await api.researchTopics.refreshAll(clusterId);
+    await api.researchTopics.updateAll(clusterId);
     queryClient.invalidateQueries({ queryKey: ["research-topics", clusterId] });
   };
 
   const expandBullet = async (topicId: string, bulletId: string) => {
     if (!clusterId) return;
-    const updated = await api.researchTopics.expand(clusterId, topicId, bulletId);
+    await api.researchTopics.expand(clusterId, topicId, bulletId);
     queryClient.invalidateQueries({ queryKey: ["research-topics", clusterId] });
-    return updated;
   };
 
-  return { topics, loading, createTopic, deleteTopic, refreshTopic, refreshAll, expandBullet };
+  return { topics, loading, createTopic, deleteTopic, updateTopic, updateAll, expandBullet };
 }
