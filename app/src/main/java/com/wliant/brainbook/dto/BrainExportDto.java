@@ -24,7 +24,6 @@ public record BrainExportDto(
     public record ClusterData(
         UUID id,
         String name,
-        UUID parentClusterId,
         int sortOrder,
         List<String> tagNames
     ) { }

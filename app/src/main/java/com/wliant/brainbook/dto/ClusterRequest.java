@@ -12,8 +12,6 @@ public record ClusterRequest(
         String name,
 
         @NotNull(message = "Brain ID is required")
-        UUID brainId,
-
-        UUID parentClusterId
+        UUID brainId
 ) {
 }

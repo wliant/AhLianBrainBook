@@ -19,7 +19,6 @@ public record BrainImportDto(
     public record ImportCluster(
         String tempId,
         String name,
-        String parentTempId,
         int sortOrder,
         List<ImportNeuron> neurons
     ) { }

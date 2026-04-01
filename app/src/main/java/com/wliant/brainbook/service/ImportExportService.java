@@ -19,7 +19,6 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,7 +84,7 @@ public class ImportExportService {
 
         List<BrainExportDto.ClusterData> clusterDatas = clusters.stream()
                 .map(c -> new BrainExportDto.ClusterData(
-                        c.getId(), c.getName(), c.getParentClusterId(),
+                        c.getId(), c.getName(),
                         c.getSortOrder(), List.of()))
                 .collect(Collectors.toList());
 
@@ -146,12 +145,10 @@ public class ImportExportService {
             }
         }
 
-        // 3. Create clusters (two passes: first without parent, then set parents)
+        // 3. Create clusters
         Map<String, UUID> tempIdToClusterId = new HashMap<>();
-        Map<String, String> clusterParentMap = new HashMap<>(); // tempId -> parentTempId
 
         if (dto.clusters() != null) {
-            // First pass: create all clusters without parents
             for (BrainImportDto.ImportCluster ic : dto.clusters()) {
                 String clusterName = (ic.name() != null && !ic.name().isBlank()) ? ic.name().trim() : "Untitled Cluster";
                 Cluster cluster = new Cluster();
@@ -164,20 +161,6 @@ public class ImportExportService {
                 cluster = clusterRepository.save(cluster);
                 if (ic.tempId() != null) {
                     tempIdToClusterId.put(ic.tempId(), cluster.getId());
-                }
-                if (ic.parentTempId() != null) {
-                    clusterParentMap.put(ic.tempId(), ic.parentTempId());
-                }
-            }
-
-            // Second pass: set parent cluster IDs
-            for (Map.Entry<String, String> entry : clusterParentMap.entrySet()) {
-                UUID clusterId = tempIdToClusterId.get(entry.getKey());
-                UUID parentId = tempIdToClusterId.get(entry.getValue());
-                if (clusterId != null && parentId != null) {
-                    Cluster cluster = clusterRepository.getReferenceById(clusterId);
-                    cluster.setParentClusterId(parentId);
-                    clusterRepository.save(cluster);
                 }
             }
 

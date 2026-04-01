@@ -17,7 +17,6 @@ export interface Cluster {
   id: string;
   brainId: string;
   name: string;
-  parentClusterId: string | null;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -207,7 +206,6 @@ export interface BrainExport {
   clusters: Array<{
     id: string;
     name: string;
-    parentClusterId: string | null;
     sortOrder: number;
     tagNames: string[];
   }>;

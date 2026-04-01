@@ -7,7 +7,6 @@ public record ClusterResponse(
         UUID id,
         UUID brainId,
         String name,
-        UUID parentClusterId,
         int sortOrder,
         boolean isArchived,
         LocalDateTime createdAt,
