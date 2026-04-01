@@ -17,5 +17,6 @@ public class DatabaseCleaner {
         jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE tags CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE templates CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE thoughts CASCADE");
     }
 }

@@ -116,6 +116,44 @@ export const handlers = [
   ),
   http.delete(`${API_BASE}/api/revisions/:revisionId`, () => new HttpResponse(null, { status: 204 })),
 
+  // Thoughts
+  http.get(`${API_BASE}/api/thoughts`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/thoughts`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'thought-1',
+        name: body.name,
+        description: body.description || null,
+        neuronTagMode: body.neuronTagMode || 'any',
+        brainTagMode: body.brainTagMode || 'any',
+        sortOrder: 0,
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+        neuronTags: [],
+        brainTags: [],
+      },
+      { status: 201 }
+    );
+  }),
+  http.patch(`${API_BASE}/api/thoughts/:id`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: params.id,
+      name: body.name || 'Updated Thought',
+      description: body.description || null,
+      neuronTagMode: body.neuronTagMode || 'any',
+      brainTagMode: body.brainTagMode || 'any',
+      sortOrder: 0,
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+      neuronTags: [],
+      brainTags: [],
+    });
+  }),
+  http.delete(`${API_BASE}/api/thoughts/:id`, () => new HttpResponse(null, { status: 204 })),
+  http.get(`${API_BASE}/api/thoughts/:id/neurons`, () => HttpResponse.json([])),
+
   // Trash & Search
   http.get(`${API_BASE}/api/neurons/trash`, () => HttpResponse.json([])),
   http.get(`${API_BASE}/api/search`, () =>
