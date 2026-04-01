@@ -34,9 +34,6 @@ public class Cluster {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "parent_cluster_id")
-    private UUID parentClusterId;
-
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
@@ -97,14 +94,6 @@ public class Cluster {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public UUID getParentClusterId() {
-        return parentClusterId;
-    }
-
-    public void setParentClusterId(UUID parentClusterId) {
-        this.parentClusterId = parentClusterId;
     }
 
     public int getSortOrder() {

@@ -15,9 +15,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -56,16 +54,10 @@ public class ClusterService {
         Brain brain = brainRepository.findById(req.brainId())
                 .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + req.brainId()));
 
-        if (req.parentClusterId() != null) {
-            clusterRepository.findById(req.parentClusterId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Parent cluster not found: " + req.parentClusterId()));
-        }
-
         String user = settingsService.getDisplayName();
         Cluster cluster = new Cluster();
         cluster.setBrain(brain);
         cluster.setName(req.name());
-        cluster.setParentClusterId(req.parentClusterId());
         cluster.setSortOrder(0);
         cluster.setArchived(false);
         cluster.setCreatedBy(user);
@@ -79,15 +71,7 @@ public class ClusterService {
         Cluster cluster = clusterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cluster not found: " + id));
 
-        if (req.parentClusterId() != null) {
-            if (req.parentClusterId().equals(id)) {
-                throw new ConflictException("A cluster cannot be its own parent");
-            }
-            validateNoCircularReference(id, req.parentClusterId());
-        }
-
         cluster.setName(req.name());
-        cluster.setParentClusterId(req.parentClusterId());
         cluster.setLastUpdatedBy(settingsService.getDisplayName());
         Cluster saved = clusterRepository.save(cluster);
         return toResponse(saved);
@@ -141,27 +125,11 @@ public class ClusterService {
         return toResponse(saved);
     }
 
-    private void validateNoCircularReference(UUID clusterId, UUID newParentId) {
-        Set<UUID> visited = new HashSet<>();
-        visited.add(clusterId);
-        UUID currentId = newParentId;
-        while (currentId != null) {
-            if (!visited.add(currentId)) {
-                throw new ConflictException("Circular cluster hierarchy detected");
-            }
-            UUID parentId = currentId;
-            currentId = clusterRepository.findById(parentId)
-                    .map(Cluster::getParentClusterId)
-                    .orElse(null);
-        }
-    }
-
     private ClusterResponse toResponse(Cluster cluster) {
         return new ClusterResponse(
                 cluster.getId(),
                 cluster.getBrain() != null ? cluster.getBrain().getId() : cluster.getBrainId(),
                 cluster.getName(),
-                cluster.getParentClusterId(),
                 cluster.getSortOrder(),
                 cluster.isArchived(),
                 cluster.getCreatedAt(),
