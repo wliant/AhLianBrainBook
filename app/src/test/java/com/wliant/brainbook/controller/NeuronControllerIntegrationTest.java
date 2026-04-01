@@ -58,7 +58,7 @@ class NeuronControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();
 
-        ClusterRequest clusterRequest = new ClusterRequest("Test Cluster", brainId, null);
+        ClusterRequest clusterRequest = new ClusterRequest("Test Cluster", brainId);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         clusterId = clusterResponse.getBody().id();
@@ -297,7 +297,7 @@ class NeuronControllerIntegrationTest {
 
         BrainRequest brain2Req = new BrainRequest("Brain 2", "icon", "#00FF00", null);
         UUID brain2Id = restTemplate.postForEntity("/api/brains", brain2Req, BrainResponse.class).getBody().id();
-        ClusterRequest cluster2Req = new ClusterRequest("Cluster 2", brain2Id, null);
+        ClusterRequest cluster2Req = new ClusterRequest("Cluster 2", brain2Id);
         UUID cluster2Id = restTemplate.postForEntity("/api/clusters", cluster2Req, ClusterResponse.class).getBody().id();
 
         MoveNeuronRequest moveReq = new MoveNeuronRequest(cluster2Id, brain2Id);

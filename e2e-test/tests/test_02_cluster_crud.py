@@ -73,19 +73,6 @@ class TestClusterNavigationViaBrowser:
 
 
 class TestClusterAPIOperations:
-    def test_cluster_nested_tree(self, api: BrainBookAPI, brain_with_cluster):
-        brain, parent = brain_with_cluster
-        child = api.create_cluster(unique_name("Child Cluster"), brain["id"], parent_cluster_id=parent["id"])
-
-        try:
-            assert child["parentClusterId"] == parent["id"]
-            clusters = api.list_clusters(brain["id"])
-            child_found = [c for c in clusters if c["id"] == child["id"]]
-            assert len(child_found) == 1
-            assert child_found[0]["parentClusterId"] == parent["id"]
-        finally:
-            api.delete_cluster(child["id"])
-
     def test_archive_and_restore_cluster(self, api: BrainBookAPI, brain_with_cluster):
         brain, _ = brain_with_cluster
         cluster = api.create_cluster(unique_name("Archive Cluster"), brain["id"])

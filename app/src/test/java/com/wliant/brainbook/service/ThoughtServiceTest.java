@@ -56,7 +56,7 @@ class ThoughtServiceTest {
 
     private UUID createNeuronInNewBrain(String title) {
         var brain = brainService.create(new BrainRequest("Brain-" + title, null, null, null));
-        var cluster = clusterService.create(new ClusterRequest("Cluster-" + title, brain.id(), null));
+        var cluster = clusterService.create(new ClusterRequest("Cluster-" + title, brain.id()));
         return neuronService.create(new NeuronRequest(title, brain.id(), cluster.id(),
                 null, null, null, null)).id();
     }

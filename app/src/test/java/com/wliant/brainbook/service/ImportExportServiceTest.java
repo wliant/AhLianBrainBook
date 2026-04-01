@@ -96,7 +96,7 @@ class ImportExportServiceTest {
                 "Imported Brain",
                 "A description",
                 List.of(new BrainImportDto.ImportCluster(
-                        "c1", "Cluster 1", null, 0,
+                        "c1", "Cluster 1", 0,
                         List.of(new BrainImportDto.ImportNeuron(
                                 "n1", "Note 1", "{}", "text", 0, List.of("Java")))
                 )),
@@ -120,7 +120,7 @@ class ImportExportServiceTest {
                 "Brain",
                 null,
                 List.of(new BrainImportDto.ImportCluster(
-                        "c1", "Cluster", null, 0,
+                        "c1", "Cluster", 0,
                         List.of(
                                 new BrainImportDto.ImportNeuron("n1", "Note 1", null, null, 0, List.of("Java")),
                                 new BrainImportDto.ImportNeuron("n2", "Note 2", null, null, 1, List.of("Java"))
@@ -138,33 +138,12 @@ class ImportExportServiceTest {
     }
 
     @Test
-    void importBrain_setsClusterParents() {
-        BrainImportDto dto = new BrainImportDto(
-                "Brain",
-                null,
-                List.of(
-                        new BrainImportDto.ImportCluster("c1", "Parent", null, 0, null),
-                        new BrainImportDto.ImportCluster("c2", "Child", "c1", 1, null)
-                ),
-                null,
-                null
-        );
-
-        BrainResponse result = importExportService.importBrain(dto);
-
-        var clusters = new java.util.ArrayList<>(
-                importExportService.exportBrain(result.id()).clusters());
-        var child = clusters.stream().filter(c -> c.name().equals("Child")).findFirst().orElseThrow();
-        assertThat(child.parentClusterId()).isNotNull();
-    }
-
-    @Test
     void importBrain_skipsLinkForSameSourceAndTarget() {
         BrainImportDto dto = new BrainImportDto(
                 "Brain",
                 null,
                 List.of(new BrainImportDto.ImportCluster(
-                        "c1", "Cluster", null, 0,
+                        "c1", "Cluster", 0,
                         List.of(new BrainImportDto.ImportNeuron("n1", "Note", null, null, 0, null))
                 )),
                 null,
@@ -194,7 +173,7 @@ class ImportExportServiceTest {
         // Build import DTO from export
         var importClusters = export.clusters().stream()
                 .map(c -> new BrainImportDto.ImportCluster(
-                        c.id().toString(), c.name(), null, c.sortOrder(),
+                        c.id().toString(), c.name(), c.sortOrder(),
                         export.neurons().stream()
                                 .filter(n -> c.id().equals(n.clusterId()))
                                 .map(n -> new BrainImportDto.ImportNeuron(

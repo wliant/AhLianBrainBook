@@ -32,8 +32,8 @@ function makeSmallBrainExport(): BrainExport {
   return {
     brain: { id: 'brain-1', name: 'Test Brain', icon: null, color: null },
     clusters: [
-      { id: 'cluster-1', name: 'Cluster A', brainId: 'brain-1', parentId: null, sortOrder: 0 },
-      { id: 'cluster-2', name: 'Cluster B', brainId: 'brain-1', parentId: null, sortOrder: 1 },
+      { id: 'cluster-1', name: 'Cluster A', brainId: 'brain-1', sortOrder: 0 },
+      { id: 'cluster-2', name: 'Cluster B', brainId: 'brain-1', sortOrder: 1 },
     ],
     neurons: [
       { id: 'n-1', title: 'Neuron 1', clusterId: 'cluster-1', brainId: 'brain-1', contentJson: '', contentText: '', tagNames: [] },
@@ -48,8 +48,8 @@ function makeSmallBrainExport(): BrainExport {
 
 function makeLargeBrainExport(neuronCount: number): BrainExport {
   const clusters = [
-    { id: 'cluster-1', name: 'Large Cluster', brainId: 'brain-1', parentId: null, sortOrder: 0 },
-    { id: 'cluster-2', name: 'Another Cluster', brainId: 'brain-1', parentId: null, sortOrder: 1 },
+    { id: 'cluster-1', name: 'Large Cluster', brainId: 'brain-1', sortOrder: 0 },
+    { id: 'cluster-2', name: 'Another Cluster', brainId: 'brain-1', sortOrder: 1 },
   ];
 
   const neurons = Array.from({ length: neuronCount }, (_, i) => ({

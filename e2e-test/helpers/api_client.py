@@ -58,10 +58,8 @@ class BrainBookAPI:
 
     # ── Clusters ──
 
-    def create_cluster(self, name: str, brain_id: str, parent_cluster_id: str | None = None) -> dict:
+    def create_cluster(self, name: str, brain_id: str) -> dict:
         body = {"name": name, "brainId": brain_id}
-        if parent_cluster_id:
-            body["parentClusterId"] = parent_cluster_id
         r = self.client.post("/api/clusters", json=body)
         r.raise_for_status()
         return r.json()
