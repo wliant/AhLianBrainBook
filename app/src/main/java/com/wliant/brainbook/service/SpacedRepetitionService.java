@@ -122,7 +122,7 @@ public class SpacedRepetitionService {
     private SpacedRepetitionItemResponse toResponse(SpacedRepetitionItem item) {
         return new SpacedRepetitionItemResponse(
                 item.getId(),
-                item.getNeuronId(),
+                item.getNeuron().getId(),
                 item.getNeuron().getTitle(),
                 item.getEaseFactor(),
                 item.getIntervalDays(),
