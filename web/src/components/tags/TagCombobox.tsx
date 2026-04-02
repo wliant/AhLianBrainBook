@@ -5,6 +5,7 @@ import { Plus, Check, X, Tag as TagIcon } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { useTags } from "@/lib/hooks/useTags";
 import type { Tag } from "@/types";
 
@@ -19,6 +20,7 @@ export function TagCombobox({ entityType, entityId, currentTags, onTagsChange }:
   const { tags: allTags, createTag, addTagToNeuron, removeTagFromNeuron, addTagToBrain, removeTagFromBrain } = useTags();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [newTagColor, setNewTagColor] = useState<string | null>(null);
 
   const currentTagIds = new Set(currentTags.map((t) => t.id));
   const filtered = allTags.filter((t) =>
@@ -41,10 +43,11 @@ export function TagCombobox({ entityType, entityId, currentTags, onTagsChange }:
 
   const handleCreateTag = async () => {
     if (!search.trim()) return;
-    const tag = await createTag(search.trim());
+    const tag = await createTag(search.trim(), newTagColor || undefined);
     await addTag(entityId, tag.id);
     onTagsChange([...currentTags, tag]);
     setSearch("");
+    setNewTagColor(null);
   };
 
   const handleRemoveTag = async (e: React.MouseEvent, tag: Tag) => {
@@ -102,13 +105,16 @@ export function TagCombobox({ entityType, entityId, currentTags, onTagsChange }:
               </button>
             ))}
             {search.trim() && !exactMatch && (
-              <button
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors text-primary"
-                onClick={handleCreateTag}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Create &quot;{search.trim()}&quot;
-              </button>
+              <div className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm">
+                <ColorPicker value={newTagColor} onChange={setNewTagColor} />
+                <button
+                  className="flex items-center gap-1 text-primary hover:underline"
+                  onClick={handleCreateTag}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Create &quot;{search.trim()}&quot;
+                </button>
+              </div>
             )}
             {filtered.length === 0 && !search.trim() && (
               <p className="text-xs text-muted-foreground text-center py-2">No tags yet</p>

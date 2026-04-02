@@ -44,6 +44,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { api } from "@/lib/api";
@@ -81,6 +83,8 @@ export function Sidebar({
   const [dialogValue, setDialogValue] = useState("");
   const [editingBrainId, setEditingBrainId] = useState<string | null>(null);
   const [editingClusterId, setEditingClusterId] = useState<string | null>(null);
+  const [dialogIcon, setDialogIcon] = useState<string | null>(null);
+  const [dialogColor, setDialogColor] = useState<string | null>(null);
   const initialPathname = useRef(pathname);
 
   // Auto-close mobile sidebar on navigation (skip initial mount)
@@ -140,6 +144,8 @@ export function Sidebar({
   const handleCreateBrain = () => {
     setDialogMode("create-brain");
     setDialogValue("");
+    setDialogIcon(null);
+    setDialogColor(null);
     setDialogOpen(true);
   };
 
@@ -147,6 +153,8 @@ export function Sidebar({
     setDialogMode("rename-brain");
     setDialogValue(brain.name);
     setEditingBrainId(brain.id);
+    setDialogIcon(brain.icon);
+    setDialogColor(brain.color);
     setDialogOpen(true);
   };
 
@@ -174,9 +182,9 @@ export function Sidebar({
   const handleDialogSubmit = async () => {
     if (!dialogValue.trim()) return;
     if (dialogMode === "create-brain") {
-      await createBrain(dialogValue.trim());
+      await createBrain(dialogValue.trim(), dialogIcon || undefined, dialogColor || undefined);
     } else if (dialogMode === "rename-brain" && editingBrainId) {
-      await updateBrain(editingBrainId, dialogValue.trim());
+      await updateBrain(editingBrainId, dialogValue.trim(), dialogIcon || undefined, dialogColor || undefined);
     } else if (dialogMode === "create-cluster" && editingBrainId) {
       await api.post("/api/clusters", { name: dialogValue.trim(), brainId: editingBrainId });
       queryClient.invalidateQueries({ queryKey: ["clusters", editingBrainId] });
@@ -389,6 +397,12 @@ export function Sidebar({
               {dialogMode === "create-thought" && "New Thought"}
             </DialogTitle>
           </DialogHeader>
+          {(dialogMode === "create-brain" || dialogMode === "rename-brain") && (
+            <div className="flex items-center gap-2">
+              <EmojiPicker value={dialogIcon} onChange={setDialogIcon} />
+              <ColorPicker value={dialogColor} onChange={setDialogColor} />
+            </div>
+          )}
           <Input
             placeholder="Name..."
             value={dialogValue}
