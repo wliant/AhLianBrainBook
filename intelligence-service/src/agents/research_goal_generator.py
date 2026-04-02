@@ -1,3 +1,4 @@
+import logging
 from typing import TypedDict
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -6,6 +7,8 @@ from langgraph.graph import StateGraph
 from src.config import settings
 from src.llm import get_llm, get_provider_name
 from src.schemas.research import GenerateGoalRequest, GenerateGoalResponse
+
+logger = logging.getLogger(__name__)
 
 
 class GoalState(TypedDict):
@@ -37,7 +40,9 @@ def invoke_llm(state: dict) -> dict:
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Generate the research goal."),
     ]
+    logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
+    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
     return {"research_goal": response.content.strip().strip('"')}
 
 
@@ -73,11 +78,8 @@ async def invoke_research_goal_generator(
             research_goal=result.get("research_goal", "")
         )
     except TimeoutError:
-        return GenerateGoalResponse(
-            research_goal=""
-        )
-    except Exception as e:
-        provider = get_provider_name()
-        return GenerateGoalResponse(
-            research_goal=""
-        )
+        logger.warning("Timeout generating research goal for brain=%r", request.brain_name)
+        return GenerateGoalResponse(research_goal="")
+    except Exception:
+        logger.exception("Failed to generate research goal for brain=%r", request.brain_name)
+        return GenerateGoalResponse(research_goal="")

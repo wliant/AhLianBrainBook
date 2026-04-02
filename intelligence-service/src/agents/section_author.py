@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from typing import TypedDict
 from uuid import uuid4
 
@@ -7,6 +8,9 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from src.config import settings
+from src.utils import strip_code_fences
+
+logger = logging.getLogger(__name__)
 from src.llm import get_llm, get_provider_name
 from src.schemas.section_author import (
     QuestionItem,
@@ -208,16 +212,20 @@ def invoke_llm(state: SectionAuthorState) -> dict:
     elif state.get("user_message", "").strip():
         messages.append(HumanMessage(content=state["user_message"]))
 
+    logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
+    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
     return {"llm_raw_output": response.content}
 
 
 def validate_output(state: SectionAuthorState) -> dict:
     raw = state.get("llm_raw_output", "")
+    logger.debug("Validation input length=%d", len(raw))
 
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(strip_code_fences(raw))
     except (json.JSONDecodeError, TypeError):
+        logger.warning("JSON parse failed for section author, raw=%r", raw[:200])
         return {
             "response_type": "message",
             "message": "The AI produced an invalid response. Please try again.",
@@ -368,6 +376,7 @@ async def invoke_section_author(request: SectionAuthorRequest) -> SectionAuthorR
             timeout=settings.agent_timeout,
         )
     except TimeoutError:
+        logger.warning("Timeout in section author for section_type=%s", request.section_type)
         return SectionAuthorResponse(
             response_type="message",
             message="The request timed out. Please try again.",
@@ -376,6 +385,7 @@ async def invoke_section_author(request: SectionAuthorRequest) -> SectionAuthorR
     except Exception as e:
         err_str = str(e).lower()
         if "connection" in err_str or "refused" in err_str or "connect" in err_str:
+            logger.error("Cannot connect to LLM provider: %s", e)
             return SectionAuthorResponse(
                 response_type="message",
                 message=f"Cannot connect to the AI model server ({get_provider_name()}). Please ensure it is running.",
