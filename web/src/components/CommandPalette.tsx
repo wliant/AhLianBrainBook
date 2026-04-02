@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { Command } from "cmdk";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   Home,
   Search,
@@ -61,6 +63,12 @@ export function CommandPalette() {
       overlayClassName="fixed inset-0 bg-black/50"
       contentClassName="w-full max-w-lg rounded-lg border bg-background shadow-lg overflow-hidden"
     >
+      <VisuallyHidden asChild>
+        <Dialog.Title>Command Palette</Dialog.Title>
+      </VisuallyHidden>
+      <Dialog.Description className="sr-only">
+        Search for pages, brains, and actions
+      </Dialog.Description>
       <Command.Input
         placeholder="Type a command or search..."
         className="w-full border-b px-4 py-3 text-sm outline-none bg-transparent placeholder:text-muted-foreground"

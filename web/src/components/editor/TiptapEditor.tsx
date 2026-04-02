@@ -26,7 +26,7 @@ const lowlight = createLowlight(common);
 
 // Static extensions cached at module level to avoid re-creation on each render
 const STATIC_EXTENSIONS = [
-  StarterKit.configure({ codeBlock: false }),
+  StarterKit.configure({ codeBlock: false, link: false, underline: false }),
   Underline,
   LinkExtension.configure({
     openOnClick: false,

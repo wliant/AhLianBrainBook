@@ -17,6 +17,11 @@ if (typeof Element.prototype.scrollIntoView === 'undefined') {
   Element.prototype.scrollIntoView = function () {};
 }
 
+// Polyfill Range measurement methods for jsdom (used by CodeMirror view)
+Range.prototype.getClientRects = () =>
+  ({ length: 0, item: () => null, [Symbol.iterator]: function* () {} } as DOMRectList);
+Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0);
+
 beforeAll(() => server.listen());
 afterEach(() => {
   cleanup();
