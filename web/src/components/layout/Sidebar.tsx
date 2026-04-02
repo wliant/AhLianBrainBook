@@ -481,7 +481,7 @@ function BrainItem({
       <div
         data-testid={`sidebar-brain-${brain.id}`}
         className={cn(
-          "group flex items-center rounded-md px-2 py-1.5 text-sm",
+          "group flex items-center rounded-md py-1.5 text-sm",
           isActive && "bg-sidebar-accent"
         )}
       >
@@ -576,7 +576,7 @@ function ClusterItem({
       <div
         data-testid={`sidebar-cluster-${cluster.id}`}
         className={cn(
-          "group/cluster flex items-center rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
+          "group/cluster flex items-center rounded-md py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
           isActive && !activeNeuronId && "bg-sidebar-accent font-medium"
         )}
       >
