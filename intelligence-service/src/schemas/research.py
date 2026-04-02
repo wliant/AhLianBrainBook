@@ -27,7 +27,7 @@ class BulletItem(BaseModel):
 
 class GenerateGoalRequest(BaseModel):
     brain_name: str
-    neurons: list[NeuronSummary] = []
+    brain_description: str = ""
 
 
 class GenerateGoalResponse(BaseModel):

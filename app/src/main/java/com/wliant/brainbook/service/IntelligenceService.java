@@ -184,10 +184,10 @@ public class IntelligenceService {
         );
     }
 
-    public String generateResearchGoal(String brainName, List<Map<String, Object>> neuronSummaries) {
+    public String generateResearchGoal(String brainName, String brainDescription) {
         Map<String, Object> request = Map.of(
                 "brain_name", brainName,
-                "neurons", neuronSummaries
+                "brain_description", brainDescription != null ? brainDescription : ""
         );
         Map<String, Object> response = callAgent("/api/agents/research-goal-generator", request);
         return response != null ? (String) response.getOrDefault("research_goal", "") : "";

@@ -59,7 +59,7 @@ async def section_author(request: SectionAuthorRequest):
 
 @router.post("/agents/research-goal-generator", response_model=GenerateGoalResponse)
 async def research_goal_generator(request: GenerateGoalRequest):
-    logger.info("agent=research-goal-generator brain=%r neurons=%d", request.brain_name, len(request.neurons))
+    logger.info("agent=research-goal-generator brain=%r description=%r", request.brain_name, request.brain_description[:80])
     start = time.time()
     try:
         result = await invoke_research_goal_generator(request)
