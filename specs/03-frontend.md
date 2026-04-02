@@ -59,8 +59,32 @@ Each neuron renders as a clickable link to the editor page, showing title and `l
 
 ### Cluster Page (`/brain/[brainId]/cluster/[clusterId]`)
 
-- Lists neurons with title, content preview (first 100 chars), `lastEditedAt`, tags, and complexity badge
-- "New Neuron" button creates a neuron with title "Untitled" and navigates to the editor
+Renders different views based on cluster type:
+
+- **`knowledge`** (default): Lists neurons with title, content preview (first 100 chars), `lastEditedAt`, tags, and complexity badge. "New Neuron" button creates a neuron with title "Untitled" and navigates to the editor.
+- **`ai-research`**: Renders `ResearchClusterView` (see below).
+- **`project`**: Placeholder "coming soon" view.
+
+### Research Cluster View (`/brain/[brainId]/cluster/[clusterId]` when type=ai-research)
+
+AI-assisted learning gap analysis view:
+
+- **Research goal** — editable text area at the top showing the LLM-generated research goal
+- **Research topic cards** — ordered list of AI-generated topics, each showing:
+  - Title with overall completeness indicator (color-coded: gray=none, amber=partial, blue=good, green=complete)
+  - Expandable bullet tree with nested items, each showing text, explanation, completeness level, and linked neuron references
+  - Status indicator during generation/update operations
+- **New Research Topic** button — opens dialog for entering a topic prompt
+- **Update All** button — triggers AI re-scoring of all topics against current brain knowledge
+- **Real-time updates** — SSE subscription (`useResearchSse` hook) for live generation progress
+- **Per-topic actions** — update (re-score), expand bullet into sub-points, delete
+
+**Key components:**
+- `components/research/ResearchClusterView.tsx` — main view container
+- `components/research/ResearchTopicCard.tsx` — individual topic card with bullet tree
+- `components/research/NewResearchTopicDialog.tsx` — topic creation dialog
+- `components/research/BulletTree.tsx` — recursive bullet point renderer
+- `components/research/CompletenessIndicator.tsx` — visual completeness badge
 
 ### Neuron Editor Page (`/brain/[brainId]/cluster/[clusterId]/neuron/[neuronId]`)
 
@@ -187,10 +211,11 @@ Core editing experience with section-based content:
 
 ### Sidebar (`components/layout/Sidebar.tsx`)
 
-- **Brains section** — expandable list with nested clusters (hierarchical tree, recursive rendering); context menus for rename/delete on brains and clusters
+- **Brains section** — expandable list with clusters; cluster icons indicate type (FolderOpen=knowledge, Sparkles=ai-research, Code=project); context menus for rename/delete on brains and clusters
 - **Thoughts section** — list of thought collections
 - **Navigation links** — Dashboard, Search, Favorites, Trash, Review (with queue count badge), Settings
 - **Collapse toggle** — sidebar can be collapsed/expanded (Ctrl+\)
+- **Resizable width** — drag-to-resize handle on the right edge; minimum 200px, maximum 480px
 - **Theme toggle** — dark/light mode switch
 - **New Brain** button
 
@@ -198,7 +223,6 @@ Core editing experience with section-based content:
 
 - Navigation trail on cluster and neuron pages: `Brain Name > Cluster Name > Neuron Title`
 - Each segment is clickable
-- Shows full parent cluster chain for nested clusters
 
 ### Notifications (`components/notifications/NotificationBell.tsx`)
 
@@ -242,6 +266,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 - `api.settings` — `get()`, `update()`
 - `api.notifications` — `getAll()`, `getUnreadCount()`, `markAsRead()`, `markAllAsRead()`
 - `api.spacedRepetition` — `addItem()`, `removeItem()`, `getItem()`, `getAllItems()`, `getQueue()`, `submitReview()`
+- `api.researchTopics` — `list()`, `get()`, `create()`, `delete()`, `reorder()`, `update()`, `updateAll()`, `expand()`
 
 **Resilience:**
 - 15-second request timeout
@@ -264,6 +289,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | `useSettings()` | `settings`, `loading`, `updateDisplayName`, `updateMaxReminders` | App settings (display name, max reminders) |
 | `useSpacedRepetition()` | `queue`, `queueLoading`, `allItems`, `itemsLoading`, `addToReview`, `removeFromReview`, `submitReview`, `isInReview` | SM-2 spaced repetition management |
 | `useNeuronShares(neuronId)` | `shares`, `loading`, `createShare`, `revokeShare` | Token-based neuron sharing |
+| `useResearchTopics(clusterId)` | `topics`, `loading`, `createTopic`, `deleteTopic`, `updateTopic`, `updateAll`, `expandBullet`, `reorder` | CRUD + AI operations for research topics in a cluster |
+| `useResearchSse(clusterId)` | (side-effect only) | SSE subscription for real-time research topic updates; invalidates query caches on events |
 | `useAudioRecorder()` | `isRecording`, `start`, `stop`, `audioBlob` | Audio recording via MediaRecorder API |
 | `useAttachmentUpload()` | `uploading`, `upload` | File upload to backend with progress |
 | `useDebounce(value, delay)` | `debouncedValue` | Debounce values (used for auto-save) |
@@ -309,28 +336,52 @@ interface Brain {
   createdAt: string; updatedAt: string;
 }
 
+type ClusterType = "knowledge" | "ai-research" | "project";
+type ClusterStatusType = "generating" | "ready";
+type ResearchTopicStatusType = "generating" | "ready" | "updating" | "error";
+type CompletenessLevel = "none" | "partial" | "good" | "complete";
+
 interface Cluster {
-  id: string; brainId: string; name: string; parentClusterId: string | null;
+  id: string; brainId: string; name: string;
+  type: ClusterType; status: ClusterStatusType;
+  researchGoal: string | null;
   sortOrder: number; isArchived: boolean;
   createdBy: string; lastUpdatedBy: string;
   createdAt: string; updatedAt: string;
 }
 
+interface BulletItem {
+  id: string; text: string; explanation: string;
+  completeness: CompletenessLevel;
+  linkedNeuronIds: string[]; children: BulletItem[];
+}
+
+interface ResearchTopic {
+  id: string; clusterId: string; brainId: string;
+  title: string; prompt: string;
+  contentJson: { version: number; items: BulletItem[] } | null;
+  overallCompleteness: CompletenessLevel;
+  status: ResearchTopicStatusType;
+  lastRefreshedAt: string | null; sortOrder: number;
+  createdAt: string; updatedAt: string;
+  createdBy: string; lastUpdatedBy: string;
+}
+
 interface Neuron {
   id: string; brainId: string; clusterId: string; title: string;
-  contentJson: string | null; contentText: string | null;
-  templateId: string | null; sortOrder: number;
+  contentJson: Record<string, unknown> | null; contentText: string | null;
+  templateId: string | null;
   isFavorite: boolean; isPinned: boolean;
   isArchived: boolean; isDeleted: boolean;
   version: number; complexity: string | null;
   createdBy: string; lastUpdatedBy: string;
   createdAt: string; updatedAt: string; lastEditedAt: string;
-  tags?: Tag[];
+  tags: Tag[];
 }
 
 interface Tag {
   id: string; name: string; color: string | null;
-  createdAt: string; updatedAt: string;
+  createdAt: string;
 }
 
 interface Attachment {
@@ -410,5 +461,49 @@ interface SearchResultItem {
   neuron: Neuron; highlight: string | null;
   rank: number; brainName: string | null;
   clusterName: string | null;
+}
+
+// AI Assist types
+
+interface AiAssistQuestion {
+  id: string; text: string;
+  inputType: "single-select" | "multi-select" | "free-text";
+  options?: string[]; required?: boolean;
+}
+
+interface AiAssistQuestionAnswer {
+  questionId: string; value: string | string[];
+}
+
+type ConversationTurnContent =
+  | { type: "text"; text: string }
+  | { type: "questions"; questions: AiAssistQuestion[] }
+  | { type: "answers"; answers: AiAssistQuestionAnswer[] }
+  | { type: "section_content"; sectionContent: Record<string, unknown> }
+  | { type: "reply"; text: string }
+  | { type: "message"; text: string; severity: "info" | "warning" | "error" };
+
+interface ConversationTurn {
+  role: "user" | "assistant";
+  content: ConversationTurnContent;
+}
+
+interface AiAssistRequest {
+  sectionType: SectionType;
+  currentContent: Record<string, unknown> | null;
+  userMessage: string;
+  conversationHistory: ConversationTurn[];
+  questionAnswers?: AiAssistQuestionAnswer[];
+  regenerate?: boolean;
+}
+
+interface AiAssistResponse {
+  responseType: "questions" | "content" | "reply" | "message";
+  questions?: AiAssistQuestion[];
+  sectionContent?: Record<string, unknown>;
+  message?: string;
+  messageSeverity?: "info" | "warning" | "error";
+  explanation?: string;
+  conversationHistory: ConversationTurn[];
 }
 ```

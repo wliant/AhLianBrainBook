@@ -2,16 +2,17 @@
 
 ## Overview
 
-Stateless FastAPI service providing AI agent capabilities for BrainBook via LangGraph. Uses Ollama for local LLM inference. No persistent storage — all state is scoped to individual requests.
+Stateless FastAPI service providing AI agent capabilities for BrainBook via LangGraph. Supports Ollama for local LLM inference and Anthropic (Claude) as a cloud LLM provider. Provider is selected via configuration. No persistent storage — all state is scoped to individual requests.
 
 ## Architecture
 
-| Component       | Technology       | Purpose                        |
-|-----------------|------------------|--------------------------------|
-| API Framework   | FastAPI          | HTTP endpoints, OpenAPI docs   |
-| Agent Runtime   | LangGraph        | Agent workflow orchestration   |
-| LLM Provider    | Ollama           | Local language model inference |
-| Package Manager | uv               | Dependency management          |
+| Component       | Technology         | Purpose                        |
+|-----------------|---------------------|--------------------------------|
+| API Framework   | FastAPI             | HTTP endpoints, OpenAPI docs   |
+| Agent Runtime   | LangGraph           | Agent workflow orchestration   |
+| LLM Provider    | Ollama / Anthropic  | LLM inference (local via Ollama or cloud via Anthropic API) |
+| LLM Abstraction | `src/llm.py`        | `get_llm()` factory returns ChatOllama or ChatAnthropic based on config |
+| Package Manager | uv                  | Dependency management          |
 
 ### Project Structure
 
@@ -19,10 +20,21 @@ Stateless FastAPI service providing AI agent capabilities for BrainBook via Lang
 intelligence-service/
 ├── src/
 │   ├── main.py          # FastAPI app, middleware
-│   ├── config.py        # Pydantic Settings
+│   ├── config.py        # Pydantic Settings (LLM provider, URLs, keys)
+│   ├── llm.py           # LLM provider factory (get_llm → ChatOllama or ChatAnthropic)
 │   ├── routers/         # API endpoint handlers
 │   ├── agents/          # LangGraph agent definitions
+│   │   ├── placeholder.py
+│   │   ├── section_author.py
+│   │   ├── research_goal_generator.py
+│   │   ├── research_topic_generator.py
+│   │   ├── research_topic_scorer.py
+│   │   └── research_bullet_expander.py
 │   └── schemas/         # Request/response models
+│       ├── agents.py
+│       ├── section_author.py
+│       ├── research.py
+│       └── health.py
 ├── tests/               # pytest test suite
 ├── Dockerfile           # Multi-stage production build
 └── pyproject.toml       # Dependencies (uv)
@@ -30,11 +42,15 @@ intelligence-service/
 
 ## API Endpoints
 
-| Method | Path                          | Request Body                          | Response Body                            | Description                   |
-|--------|-------------------------------|---------------------------------------|------------------------------------------|-------------------------------|
-| GET    | /health                       | —                                     | `{ status, ollama }`                     | Service + Ollama health check |
-| POST   | /api/agents/invoke            | `{ input, agent_type }`               | `{ output, agent_type }`                 | Invoke a generic agent        |
-| POST   | /api/agents/section-author    | `SectionAuthorRequest`                | `SectionAuthorResponse`                  | AI section authoring          |
+| Method | Path                                   | Request Body                 | Response Body                | Description                         |
+|--------|----------------------------------------|------------------------------|------------------------------|-------------------------------------|
+| GET    | /health                                | —                            | `HealthResponse`             | Service + LLM provider health check |
+| POST   | /api/agents/invoke                     | `{ input, agent_type }`      | `{ output, agent_type }`     | Invoke a generic agent              |
+| POST   | /api/agents/section-author             | `SectionAuthorRequest`       | `SectionAuthorResponse`      | AI section authoring                |
+| POST   | /api/agents/research-goal-generator    | `GenerateGoalRequest`        | `GenerateGoalResponse`       | Generate research goal for cluster  |
+| POST   | /api/agents/research-topic-generator   | `GenerateTopicRequest`       | `GenerateTopicResponse`      | Generate bullet tree for a topic    |
+| POST   | /api/agents/research-topic-scorer      | `ScoreTopicRequest`          | `ScoreTopicResponse`         | Re-score completeness + discover links |
+| POST   | /api/agents/research-bullet-expander   | `ExpandBulletRequest`        | `ExpandBulletResponse`       | Expand bullet into sub-points       |
 
 ### POST /api/agents/invoke
 
@@ -198,10 +214,79 @@ START → build_system_prompt → classify_intent → invoke_llm → validate_ou
 
 - **build_system_prompt**: Constructs system prompt from section type, content schema, neuron context, and conversation history
 - **classify_intent**: Routes to generate/refine/clarify based on conversation state
-- **invoke_llm**: Calls Ollama with `format="json"` for structured output
+- **invoke_llm**: Calls the configured LLM provider with `format="json"` for structured output
 - **validate_output**: Parses JSON, validates against section type schema, fills defaults
 
 State: `section_type, current_content, user_message, conversation_history, question_answers, context, regenerate` → `response_type, questions|section_content|message, explanation`
+
+### Research Goal Generator
+
+Generates a research goal string for a new AI Research cluster.
+
+```
+START → build_prompt → invoke_llm → validate → END
+```
+
+- **Input** (`GenerateGoalRequest`): `{ brain_name, neurons: NeuronSummary[] }`
+- **Output** (`GenerateGoalResponse`): `{ research_goal }`
+- Single LLM call. Produces a 1-2 sentence research goal based on the brain's name and existing knowledge neuron summaries.
+
+### Research Topic Generator
+
+Generates a structured bullet tree for a research topic.
+
+```
+START → build_prompt → invoke_llm → validate → END
+```
+
+- **Input** (`GenerateTopicRequest`): `{ prompt, context: BrainContext }`
+- **Output** (`GenerateTopicResponse`): `{ title, items: BulletItem[], overall_completeness }`
+- Uses brain context (name, research goal, neuron summaries) to generate relevant bullet points with initial completeness scores and linked neuron IDs.
+
+### Research Topic Scorer
+
+Re-scores completeness levels and discovers new neuron links for existing bullet trees.
+
+```
+START → build_prompt → invoke_llm → validate → END
+```
+
+- **Input** (`ScoreTopicRequest`): `{ items: BulletItem[], context: BrainContext }`
+- **Output** (`ScoreTopicResponse`): `{ items: BulletItem[], overall_completeness }`
+- AI re-scans brain's knowledge neurons, updates completeness levels, and discovers new linked neuron IDs.
+
+### Research Bullet Expander
+
+Expands a single bullet point into finer sub-points.
+
+```
+START → build_prompt → invoke_llm → validate → END
+```
+
+- **Input** (`ExpandBulletRequest`): `{ bullet: BulletItem, parent_context, context: BrainContext }`
+- **Output** (`ExpandBulletResponse`): `{ children: BulletItem[] }`
+
+### Shared Research Types
+
+```python
+class NeuronSummary:
+    neuron_id: str
+    title: str
+    content_preview: str  # first 500 chars of contentText
+
+class BrainContext:
+    brain_name: str
+    research_goal: str
+    neurons: list[NeuronSummary]
+
+class BulletItem:
+    id: str
+    text: str
+    explanation: str
+    completeness: str  # none | partial | good | complete
+    linked_neuron_ids: list[str]
+    children: list[BulletItem]
+```
 
 ### Adding New Agents
 
@@ -211,12 +296,15 @@ State: `section_type, current_content, user_message, conversation_history, quest
 
 ## Configuration
 
-| Variable          | Required | Default              | Description                           |
-|-------------------|----------|----------------------|---------------------------------------|
-| OLLAMA_BASE_URL   | No       | http://ollama:11434  | Ollama server URL                     |
-| OLLAMA_MODEL      | No       | llama3.2             | Default model for agents              |
-| BRAINBOOK_API_URL | No       | http://app:8080      | Backend API URL (for agent tool use)  |
-| AGENT_TIMEOUT     | No       | 600                  | Agent execution timeout in seconds    |
+| Variable          | Required                  | Default                    | Description                           |
+|-------------------|---------------------------|----------------------------|---------------------------------------|
+| LLM_PROVIDER      | No                        | ollama                     | LLM provider: `ollama` or `anthropic` |
+| OLLAMA_BASE_URL   | No                        | http://ollama:11434        | Ollama server URL                     |
+| OLLAMA_MODEL      | No                        | llama3.2                   | Default Ollama model for agents       |
+| ANTHROPIC_API_KEY  | When provider=anthropic  | (empty)                    | Anthropic API key                     |
+| ANTHROPIC_MODEL   | No                        | claude-sonnet-4-20250514   | Anthropic model name                  |
+| BRAINBOOK_API_URL | No                        | http://app:8080            | Backend API URL (for agent tool use)  |
+| AGENT_TIMEOUT     | No                        | 600                        | Agent execution timeout in seconds    |
 
 ## Infrastructure
 
@@ -227,15 +315,26 @@ State: `section_type, current_content, user_message, conversation_history, quest
 - **Image**: `python:3.12-slim` (multi-stage build with uv)
 - **Health check**: `GET /health`
 
-### Ollama
+### LLM Providers
 
-Ollama runs as a separate infrastructure service alongside PostgreSQL and MinIO. Models are persisted in a Docker volume (`ollama-data`).
-
-After starting infrastructure, pull the desired model:
+**Ollama (default):** Runs as a separate infrastructure service alongside PostgreSQL and MinIO. Models are persisted in a Docker volume (`ollama-data`). After starting infrastructure, pull the desired model:
 
 ```bash
 docker exec brainbook3-ollama ollama pull llama3.2
 ```
+
+**Anthropic:** Set `LLM_PROVIDER=anthropic` and provide `ANTHROPIC_API_KEY`. No local Ollama instance required. The health endpoint reports `not_configured` if the API key is missing.
+
+**Health check response:**
+```json
+{
+  "status": "ok",
+  "llm_provider": "ollama | anthropic",
+  "llm_status": "ok | unavailable | not_configured"
+}
+```
+- Ollama: pings the Ollama server, returns `ok` or `unavailable`
+- Anthropic: checks if API key is configured, returns `ok` or `not_configured`
 
 ## Testing
 
