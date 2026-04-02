@@ -211,7 +211,7 @@ export function Sidebar({
                 <Settings className="h-4 w-4" />
               </Button>
             </Link>
-            <ThemeToggle />
+            <ThemeToggle iconOnly />
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(false)}>
               <PanelLeftOpen className="h-4 w-4" />
             </Button>
@@ -328,6 +328,12 @@ export function Sidebar({
                   onDelete={() => deleteBrain(brain.id)}
                   onCreateCluster={() => handleCreateCluster(brain.id)}
                   onRenameCluster={handleRenameCluster}
+                  onDeleteCluster={async (cluster) => {
+                    if (confirm(`Delete cluster "${cluster.name}"?`)) {
+                      await api.delete(`/api/clusters/${cluster.id}`);
+                      queryClient.invalidateQueries({ queryKey: ["clusters", brain.id] });
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -446,6 +452,7 @@ function BrainItem({
   onDelete,
   onCreateCluster,
   onRenameCluster,
+  onDeleteCluster,
 }: {
   brain: BrainType;
   isExpanded: boolean;
@@ -459,8 +466,15 @@ function BrainItem({
   onDelete: () => void;
   onCreateCluster: () => void;
   onRenameCluster: (cluster: ClusterType) => void;
+  onDeleteCluster: (cluster: ClusterType) => void;
 }) {
-  const { clusters } = useClusters(isExpanded ? brain.id : null);
+  const { clusters: rawClusters } = useClusters(isExpanded ? brain.id : null);
+  // Sort: AI Research first, then by sortOrder
+  const clusters = [...rawClusters].sort((a, b) => {
+    if (a.type === "ai-research" && b.type !== "ai-research") return -1;
+    if (a.type !== "ai-research" && b.type === "ai-research") return 1;
+    return a.sortOrder - b.sortOrder;
+  });
 
   return (
     <div>
@@ -515,6 +529,7 @@ function BrainItem({
                 activeNeuronId={activeNeuronId}
                 onToggle={() => onToggleCluster(cluster.id)}
                 onRenameCluster={onRenameCluster}
+                onDeleteCluster={onDeleteCluster}
               />
             ))}
         </div>
@@ -531,6 +546,7 @@ function ClusterItem({
   activeNeuronId,
   onToggle,
   onRenameCluster,
+  onDeleteCluster,
 }: {
   cluster: ClusterType;
   brainId: string;
@@ -539,8 +555,11 @@ function ClusterItem({
   activeNeuronId?: string;
   onToggle: () => void;
   onRenameCluster: (cluster: ClusterType) => void;
+  onDeleteCluster: (cluster: ClusterType) => void;
 }) {
-  const { neurons } = useNeurons(isExpanded ? cluster.id : null);
+  const isAiResearch = cluster.type === "ai-research";
+  const canExpand = !isAiResearch;
+  const { neurons } = useNeurons(isExpanded && canExpand ? cluster.id : null);
   const VIRTUAL_THRESHOLD = 20;
   const neuronListRef = useRef<HTMLDivElement>(null);
 
@@ -561,11 +580,15 @@ function ClusterItem({
           isActive && !activeNeuronId && "bg-sidebar-accent font-medium"
         )}
       >
-        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded" data-testid={`sidebar-cluster-toggle-${cluster.id}`}>
-          <ChevronRight
-            className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
-          />
-        </button>
+        {canExpand ? (
+          <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded" data-testid={`sidebar-cluster-toggle-${cluster.id}`}>
+            <ChevronRight
+              className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
+            />
+          </button>
+        ) : (
+          <span className="mr-1 w-4" />
+        )}
         <Link
           href={`/brain/${brainId}/cluster/${cluster.id}`}
           className="flex items-center gap-1.5 flex-1 truncate"
@@ -582,12 +605,15 @@ function ClusterItem({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onRenameCluster(cluster)}>Rename</DropdownMenuItem>
+            {!isAiResearch && (
+              <DropdownMenuItem onClick={() => onRenameCluster(cluster)}>Rename</DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="text-destructive" onClick={() => onDeleteCluster(cluster)}>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {isExpanded && (
+      {isExpanded && canExpand && (
         <div className="ml-4 space-y-0.5">
           {neurons.length > VIRTUAL_THRESHOLD ? (
             <div

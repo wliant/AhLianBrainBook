@@ -57,8 +57,9 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   const hasAiResearch = clusters.some((c) => c.type === "ai-research");
 
   const handleNewCluster = async () => {
-    if (!clusterName.trim()) return;
-    await createCluster(clusterName.trim(), clusterType);
+    const name = clusterType === "ai-research" ? "AI Research" : clusterName.trim();
+    if (!name) return;
+    await createCluster(name, clusterType);
     setClusterName("");
     setClusterType("knowledge");
     setClusterDialogOpen(false);
@@ -118,7 +119,11 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
         </div>
       ) : (
         <div className="grid gap-3">
-          {clusters.map((cluster) => {
+          {[...clusters].sort((a, b) => {
+            if (a.type === "ai-research" && b.type !== "ai-research") return -1;
+            if (a.type !== "ai-research" && b.type === "ai-research") return 1;
+            return a.sortOrder - b.sortOrder;
+          }).map((cluster) => {
             const Icon = cluster.type === "ai-research" ? Sparkles
               : cluster.type === "project" ? Code : FolderOpen;
             return (
@@ -142,14 +147,16 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
           <DialogHeader>
             <DialogTitle>New Cluster</DialogTitle>
           </DialogHeader>
-          <Input
-            autoFocus
-            placeholder="Cluster name"
-            value={clusterName}
-            onChange={(e) => setClusterName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleNewCluster()}
-            data-testid="cluster-name-input"
-          />
+          {clusterType !== "ai-research" && (
+            <Input
+              autoFocus
+              placeholder="Cluster name"
+              value={clusterName}
+              onChange={(e) => setClusterName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleNewCluster()}
+              data-testid="cluster-name-input"
+            />
+          )}
           <div className="space-y-2">
             <p className="text-sm font-medium">Type</p>
             <div className="space-y-1.5">
@@ -177,7 +184,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
             <Button variant="outline" onClick={() => setClusterDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleNewCluster} disabled={!clusterName.trim()}>
+            <Button onClick={handleNewCluster} disabled={clusterType !== "ai-research" && !clusterName.trim()}>
               Create
             </Button>
           </DialogFooter>
