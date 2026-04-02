@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -41,6 +41,7 @@ public class ResearchAsyncService {
     private final ResearchSseService researchSseService;
     private final SettingsService settingsService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public ResearchAsyncService(ClusterRepository clusterRepository,
                                  BrainRepository brainRepository,
@@ -49,7 +50,8 @@ public class ResearchAsyncService {
                                  IntelligenceService intelligenceService,
                                  ResearchSseService researchSseService,
                                  SettingsService settingsService,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 TransactionTemplate transactionTemplate) {
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
         this.neuronRepository = neuronRepository;
@@ -58,51 +60,91 @@ public class ResearchAsyncService {
         this.researchSseService = researchSseService;
         this.settingsService = settingsService;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
+    private record ClusterContext(UUID clusterId, String brainName, List<Map<String, Object>> neuronSummaries,
+                                   String researchGoal) {}
+
+    private record TopicContext(UUID topicId, UUID clusterId, String brainName, String researchGoal,
+                                 List<Map<String, Object>> neuronSummaries, String existingContentJson) {}
+
     @Async("aiTaskExecutor")
-    @Transactional
     @CacheEvict(value = "clustersByBrain", allEntries = true)
     public void generateResearchGoalAsync(UUID clusterId) {
-        Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
-        if (cluster == null) return;
-
-        try {
+        // Phase 1: Read in transaction
+        ClusterContext ctx = transactionTemplate.execute(status -> {
+            Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
+            if (cluster == null) return null;
             String brainName = cluster.getBrain().getName();
             List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(cluster.getBrain().getId());
-            String goal = intelligenceService.generateResearchGoal(brainName, neuronSummaries);
+            return new ClusterContext(clusterId, brainName, neuronSummaries, null);
+        });
 
-            cluster.setResearchGoal(goal);
-            cluster.setStatus(ClusterStatus.READY);
-            clusterRepository.save(cluster);
+        if (ctx == null) return;
 
-            researchSseService.emit(clusterId, "cluster-ready",
-                    Map.of("clusterId", clusterId.toString(), "researchGoal", goal != null ? goal : ""));
+        // Phase 2: Call intelligence — NO transaction
+        String goal;
+        try {
+            goal = intelligenceService.generateResearchGoal(ctx.brainName(), ctx.neuronSummaries());
         } catch (Exception e) {
             logger.error("Failed to generate research goal for cluster {}", clusterId, e);
-            cluster.setStatus(ClusterStatus.READY); // Still mark as ready so it's usable
-            clusterRepository.save(cluster);
-
-            researchSseService.emit(clusterId, "cluster-ready",
-                    Map.of("clusterId", clusterId.toString(), "researchGoal", ""));
+            goal = null;
         }
+
+        // Phase 3: Save in transaction
+        final String finalGoal = goal;
+        transactionTemplate.executeWithoutResult(status -> {
+            Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
+            if (cluster == null) return;
+            cluster.setResearchGoal(finalGoal != null ? finalGoal : "");
+            cluster.setStatus(ClusterStatus.READY);
+            clusterRepository.save(cluster);
+        });
+
+        researchSseService.emit(clusterId, "cluster-ready",
+                Map.of("clusterId", clusterId.toString(), "researchGoal", goal != null ? goal : ""));
     }
 
     @Async("aiTaskExecutor")
-    @Transactional
     public void generateTopicAsync(UUID topicId, String prompt, UUID clusterId) {
-        ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
-        if (topic == null) return;
-
-        Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
-        if (cluster == null) return;
-
-        try {
+        // Phase 1: Read in transaction
+        TopicContext ctx = transactionTemplate.execute(status -> {
+            ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
+            if (topic == null) return null;
+            Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
+            if (cluster == null) return null;
             String brainName = cluster.getBrain().getName();
             List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(cluster.getBrain().getId());
+            return new TopicContext(topicId, clusterId, brainName, cluster.getResearchGoal(), neuronSummaries, null);
+        });
 
-            Map<String, Object> generated = intelligenceService.generateResearchTopic(
-                    prompt != null ? prompt : "", cluster.getResearchGoal(), brainName, neuronSummaries);
+        if (ctx == null) return;
+
+        // Phase 2: Call intelligence — NO transaction
+        Map<String, Object> generated;
+        try {
+            generated = intelligenceService.generateResearchTopic(
+                    prompt != null ? prompt : "", ctx.researchGoal(), ctx.brainName(), ctx.neuronSummaries());
+        } catch (Exception e) {
+            logger.error("Failed to generate research topic {}", topicId, e);
+            transactionTemplate.executeWithoutResult(status -> {
+                ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
+                if (topic != null) {
+                    topic.setStatus(ResearchTopicStatus.ERROR);
+                    researchTopicRepository.save(topic);
+                }
+            });
+            researchSseService.emit(clusterId, "topic-error",
+                    Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString(),
+                            "error", e.getMessage() != null ? e.getMessage() : "Generation failed"));
+            return;
+        }
+
+        // Phase 3: Save in transaction
+        transactionTemplate.executeWithoutResult(status -> {
+            ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
+            if (topic == null) return;
 
             if (generated != null) {
                 String title = (String) generated.getOrDefault("title", prompt != null ? prompt : "Research Topic");
@@ -120,44 +162,63 @@ public class ResearchAsyncService {
 
             topic.setStatus(ResearchTopicStatus.READY);
             researchTopicRepository.save(topic);
+        });
 
-            researchSseService.emit(clusterId, "topic-generated",
-                    Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString()));
-        } catch (Exception e) {
-            logger.error("Failed to generate research topic {}", topicId, e);
-            topic.setStatus(ResearchTopicStatus.ERROR);
-            researchTopicRepository.save(topic);
-
-            researchSseService.emit(clusterId, "topic-error",
-                    Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString(),
-                            "error", e.getMessage() != null ? e.getMessage() : "Generation failed"));
-        }
+        researchSseService.emit(clusterId, "topic-generated",
+                Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString()));
     }
 
     @Async("aiTaskExecutor")
-    @Transactional
     public void updateTopicAsync(UUID topicId, UUID clusterId) {
-        ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
-        if (topic == null) return;
-
-        Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
-        if (cluster == null) return;
-
-        try {
+        // Phase 1: Read in transaction
+        TopicContext ctx = transactionTemplate.execute(status -> {
+            ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
+            if (topic == null) return null;
+            Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
+            if (cluster == null) return null;
             String brainName = cluster.getBrain().getName();
             List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(cluster.getBrain().getId());
-            Map<String, Object> contentJson = parseContentJson(topic.getContentJson());
+            return new TopicContext(topicId, clusterId, brainName, cluster.getResearchGoal(),
+                    neuronSummaries, topic.getContentJson());
+        });
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> items = (List<Map<String, Object>>) contentJson.getOrDefault("items", List.of());
+        if (ctx == null) return;
 
-            Map<String, Object> scored = intelligenceService.scoreResearchTopic(
-                    items, cluster.getResearchGoal(), brainName, neuronSummaries);
+        // Parse existing content outside transaction
+        Map<String, Object> contentJson = parseContentJson(ctx.existingContentJson());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) contentJson.getOrDefault("items", List.of());
 
+        // Phase 2: Call intelligence — NO transaction
+        Map<String, Object> scored;
+        try {
+            scored = intelligenceService.scoreResearchTopic(
+                    items, ctx.researchGoal(), ctx.brainName(), ctx.neuronSummaries());
+        } catch (Exception e) {
+            logger.error("Failed to update research topic {}", topicId, e);
+            transactionTemplate.executeWithoutResult(status -> {
+                ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
+                if (topic != null) {
+                    topic.setStatus(ResearchTopicStatus.ERROR);
+                    researchTopicRepository.save(topic);
+                }
+            });
+            researchSseService.emit(clusterId, "topic-error",
+                    Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString(),
+                            "error", e.getMessage() != null ? e.getMessage() : "Update failed"));
+            return;
+        }
+
+        // Phase 3: Save in transaction
+        transactionTemplate.executeWithoutResult(status -> {
+            ResearchTopic topic = researchTopicRepository.findById(topicId).orElse(null);
+            if (topic == null) return;
+
+            Map<String, Object> freshContentJson = parseContentJson(topic.getContentJson());
             if (scored != null) {
-                contentJson.put("items", scored.getOrDefault("items", items));
+                freshContentJson.put("items", scored.getOrDefault("items", items));
                 String overallCompleteness = (String) scored.getOrDefault("overall_completeness", "none");
-                topic.setContentJson(toJsonString(contentJson));
+                topic.setContentJson(toJsonString(freshContentJson));
                 topic.setOverallCompleteness(CompletenessLevel.fromValue(overallCompleteness));
                 topic.setLastRefreshedAt(LocalDateTime.now());
             }
@@ -165,18 +226,10 @@ public class ResearchAsyncService {
             topic.setStatus(ResearchTopicStatus.READY);
             topic.setLastUpdatedBy(settingsService.getDisplayName());
             researchTopicRepository.save(topic);
+        });
 
-            researchSseService.emit(clusterId, "topic-updated",
-                    Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString()));
-        } catch (Exception e) {
-            logger.error("Failed to update research topic {}", topicId, e);
-            topic.setStatus(ResearchTopicStatus.ERROR);
-            researchTopicRepository.save(topic);
-
-            researchSseService.emit(clusterId, "topic-error",
-                    Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString(),
-                            "error", e.getMessage() != null ? e.getMessage() : "Update failed"));
-        }
+        researchSseService.emit(clusterId, "topic-updated",
+                Map.of("topicId", topicId.toString(), "clusterId", clusterId.toString()));
     }
 
     List<Map<String, Object>> buildNeuronSummaries(UUID brainId) {

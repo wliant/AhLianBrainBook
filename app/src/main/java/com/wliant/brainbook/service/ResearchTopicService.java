@@ -21,9 +21,11 @@ import com.wliant.brainbook.repository.ResearchTopicRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +46,7 @@ public class ResearchTopicService {
     private final IntelligenceService intelligenceService;
     private final SettingsService settingsService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public ResearchTopicService(ResearchTopicRepository researchTopicRepository,
                                  ClusterRepository clusterRepository,
@@ -51,7 +54,8 @@ public class ResearchTopicService {
                                  ResearchAsyncService researchAsyncService,
                                  IntelligenceService intelligenceService,
                                  SettingsService settingsService,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 TransactionTemplate transactionTemplate) {
         this.researchTopicRepository = researchTopicRepository;
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
@@ -59,6 +63,7 @@ public class ResearchTopicService {
         this.intelligenceService = intelligenceService;
         this.settingsService = settingsService;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
     public List<ResearchTopicResponse> list(UUID clusterId) {
@@ -149,31 +154,40 @@ public class ResearchTopicService {
                 .collect(Collectors.toList());
     }
 
+    private record ExpandContext(
+            UUID topicId, String topicTitle, String researchGoal, String brainName,
+            Map<String, Object> bullet, String bulletId, List<Map<String, Object>> neuronSummaries) {}
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ResearchTopicResponse expandBullet(UUID topicId, String bulletId) {
-        ResearchTopic topic = researchTopicRepository.findById(topicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Research topic not found: " + topicId));
+        // Phase 1: Read data in a short transaction
+        ExpandContext ctx = transactionTemplate.execute(status -> {
+            ResearchTopic topic = researchTopicRepository.findById(topicId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Research topic not found: " + topicId));
+            Cluster cluster = clusterRepository.findById(topic.getCluster().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Cluster not found"));
+            Brain brain = brainRepository.findById(topic.getBrain().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Brain not found"));
 
-        Cluster cluster = clusterRepository.findById(topic.getCluster().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Cluster not found"));
-        Brain brain = brainRepository.findById(topic.getBrain().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Brain not found"));
+            Map<String, Object> contentJson = parseContentJson(topic.getContentJson());
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> items = (List<Map<String, Object>>) contentJson.getOrDefault("items", List.of());
+            Map<String, Object> bullet = findBulletById(items, bulletId);
+            if (bullet == null) {
+                throw new ResourceNotFoundException("Bullet not found: " + bulletId);
+            }
 
-        Map<String, Object> contentJson = parseContentJson(topic.getContentJson());
+            List<Map<String, Object>> neuronSummaries = researchAsyncService.buildNeuronSummaries(brain.getId());
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) contentJson.getOrDefault("items", List.of());
+            return new ExpandContext(topicId, topic.getTitle(), cluster.getResearchGoal(),
+                    brain.getName(), bullet, bulletId, neuronSummaries);
+        });
 
-        Map<String, Object> bullet = findBulletById(items, bulletId);
-        if (bullet == null) {
-            throw new ResourceNotFoundException("Bullet not found: " + bulletId);
-        }
-
-        List<Map<String, Object>> neuronSummaries = researchAsyncService.buildNeuronSummaries(brain.getId());
-
+        // Phase 2: Call intelligence service — NO transaction held
         Map<String, Object> expanded;
         try {
             expanded = intelligenceService.expandBullet(
-                    bullet, topic.getTitle(), cluster.getResearchGoal(), brain.getName(), neuronSummaries);
+                    ctx.bullet(), ctx.topicTitle(), ctx.researchGoal(), ctx.brainName(), ctx.neuronSummaries());
         } catch (Exception e) {
             logger.error("Failed to expand bullet", e);
             throw new ConflictException("Failed to expand: AI service unavailable");
@@ -185,14 +199,27 @@ public class ResearchTopicService {
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> newChildren = (List<Map<String, Object>>) expanded.getOrDefault("children", List.of());
-        bullet.put("children", newChildren);
 
-        contentJson.put("items", items);
-        topic.setContentJson(toJsonString(contentJson));
-        topic.setLastUpdatedBy(settingsService.getDisplayName());
+        // Phase 3: Re-read topic and apply changes in a short transaction
+        return transactionTemplate.execute(status -> {
+            ResearchTopic freshTopic = researchTopicRepository.findById(topicId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Research topic not found: " + topicId));
 
-        ResearchTopic saved = researchTopicRepository.save(topic);
-        return toResponse(saved);
+            Map<String, Object> freshContentJson = parseContentJson(freshTopic.getContentJson());
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> freshItems = (List<Map<String, Object>>) freshContentJson.getOrDefault("items", List.of());
+            Map<String, Object> freshBullet = findBulletById(freshItems, bulletId);
+            if (freshBullet != null) {
+                freshBullet.put("children", newChildren);
+            }
+
+            freshContentJson.put("items", freshItems);
+            freshTopic.setContentJson(toJsonString(freshContentJson));
+            freshTopic.setLastUpdatedBy(settingsService.getDisplayName());
+
+            ResearchTopic saved = researchTopicRepository.save(freshTopic);
+            return toResponse(saved);
+        });
     }
 
     @SuppressWarnings("unchecked")
