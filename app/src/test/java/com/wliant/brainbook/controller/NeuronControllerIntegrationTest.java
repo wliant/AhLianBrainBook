@@ -4,7 +4,7 @@ import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.dto.BrainRequest;
 import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.dto.ClusterRequest;
+import com.wliant.brainbook.dto.CreateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
@@ -58,7 +58,7 @@ class NeuronControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();
 
-        ClusterRequest clusterRequest = new ClusterRequest("Test Cluster", brainId);
+        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         clusterId = clusterResponse.getBody().id();
@@ -297,7 +297,7 @@ class NeuronControllerIntegrationTest {
 
         BrainRequest brain2Req = new BrainRequest("Brain 2", "icon", "#00FF00", null);
         UUID brain2Id = restTemplate.postForEntity("/api/brains", brain2Req, BrainResponse.class).getBody().id();
-        ClusterRequest cluster2Req = new ClusterRequest("Cluster 2", brain2Id);
+        CreateClusterRequest cluster2Req = new CreateClusterRequest("Cluster 2", brain2Id, null);
         UUID cluster2Id = restTemplate.postForEntity("/api/clusters", cluster2Req, ClusterResponse.class).getBody().id();
 
         MoveNeuronRequest moveReq = new MoveNeuronRequest(cluster2Id, brain2Id);

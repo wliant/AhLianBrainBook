@@ -28,20 +28,74 @@ Top-level organizational container (e.g., "Backend Engineering", "ML Research").
 
 ### Cluster
 
-Organizes neurons within a brain. Supports nesting via self-referential `parentClusterId`.
+Organizes neurons within a brain. Supports typed behavior via `type` field — each type determines the cluster's UI, content model, and capabilities.
 
 | Field            | Type            | Constraints                        | Description                     |
 |------------------|-----------------|------------------------------------|---------------------------------|
 | id               | UUID            | PK, auto-generated                 | Unique identifier               |
 | brainId          | UUID            | NOT NULL, FK -> brains ON CASCADE  | Parent brain                    |
 | name             | String(255)     | NOT NULL                           | Display name                    |
-| parentClusterId  | UUID            | nullable, FK -> clusters           | Parent cluster (for nesting)    |
+| type             | String(20)      | NOT NULL, default 'knowledge'      | Cluster type: `knowledge`, `ai-research`, `project` |
+| status           | String(20)      | NOT NULL, default 'ready'          | Generation status: `generating`, `ready` |
+| researchGoal     | TEXT            | nullable                           | LLM-generated research goal (ai-research clusters only) |
 | sortOrder        | int             | NOT NULL, default 0                | Manual ordering position        |
 | isArchived       | boolean         | NOT NULL, default false            | Soft archive flag               |
 | createdBy        | String(100)     | NOT NULL, default 'user'           | Display name of creator         |
 | lastUpdatedBy    | String(100)     | NOT NULL, default 'user'           | Display name of last editor     |
 | createdAt        | LocalDateTime   | NOT NULL, auto-set                 | Creation timestamp              |
 | updatedAt        | LocalDateTime   | NOT NULL, auto-updated             | Last modification timestamp     |
+
+**Constraints:**
+- CHECK: `type IN ('knowledge', 'ai-research', 'project')`
+- CHECK: `status IN ('generating', 'ready')`
+- Partial unique index `uq_cluster_brain_ai_research`: one non-archived `ai-research` cluster per brain
+- Partial unique index `uq_cluster_brain_project`: one non-archived `project` cluster per brain
+
+### ResearchTopic
+
+AI-generated research topic within an ai-research cluster. Contains a hierarchical bullet tree tracking learning coverage. Separate from neurons — different content structure, behavior, and lifecycle.
+
+| Field              | Type            | Constraints                              | Description                              |
+|--------------------|-----------------|------------------------------------------|------------------------------------------|
+| id                 | UUID            | PK, auto-generated                       | Unique identifier                        |
+| clusterId          | UUID            | NOT NULL, FK -> clusters ON CASCADE      | Parent cluster (must be ai-research type)|
+| brainId            | UUID            | NOT NULL, FK -> brains                   | Parent brain                             |
+| title              | String(255)     | NOT NULL                                 | AI-generated topic title                 |
+| prompt             | TEXT            | nullable                                 | User's original prompt for generation    |
+| contentJson        | JSONB           | nullable                                 | Bullet tree structure (see format below) |
+| overallCompleteness| String(20)      | NOT NULL, default 'none'                 | Aggregate completeness: `none`, `partial`, `good`, `complete` |
+| status             | String(20)      | NOT NULL, default 'ready'                | Generation status: `generating`, `ready`, `updating`, `error` |
+| lastRefreshedAt    | LocalDateTime   | nullable                                 | Last AI refresh timestamp                |
+| sortOrder          | int             | NOT NULL, default 0                      | Manual ordering position                 |
+| createdAt          | LocalDateTime   | NOT NULL, auto-set                       | Creation timestamp                       |
+| updatedAt          | LocalDateTime   | NOT NULL, auto-updated                   | Last modification timestamp              |
+| createdBy          | String(100)     | NOT NULL                                 | Display name of creator                  |
+| lastUpdatedBy      | String(100)     | NOT NULL                                 | Display name of last editor              |
+
+**Constraints:**
+- CHECK: `overall_completeness IN ('none', 'partial', 'good', 'complete')`
+- CHECK: `status IN ('generating', 'ready', 'updating', 'error')`
+
+**Indexes:**
+- `idx_research_topics_cluster` on `cluster_id`
+- `idx_research_topics_brain` on `brain_id`
+
+**Content JSON format:**
+```json
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "string",
+      "text": "Concept name",
+      "explanation": "What to learn about it",
+      "completeness": "none | partial | good | complete",
+      "linkedNeuronIds": ["uuid"],
+      "children": [ /* recursive BulletItem */ ]
+    }
+  ]
+}
+```
 
 ### Neuron
 
@@ -91,6 +145,9 @@ Core content entity. Stores section-based content with dual-format storage (JSON
 - `idx_neurons_deleted` on is_deleted
 - `idx_neurons_content_text` GIN index using `to_tsvector('english', content_text)` for full-text search
 - `idx_neurons_title_text` GIN index using `to_tsvector('english', coalesce(title, ''))` for full-text search on title
+- `idx_neurons_favorite` partial index on `is_favorite` WHERE `is_favorite = true AND is_deleted = false`
+- `idx_neurons_pinned` partial index on `is_pinned` WHERE `is_pinned = true AND is_deleted = false`
+- `idx_neurons_cluster_active` on `cluster_id` WHERE `is_deleted = false`
 - Archived indexes on brains, clusters, neurons `is_archived` columns
 
 ### Tag
@@ -152,7 +209,9 @@ Directed, labeled connections between neurons. Used for knowledge graph visualiz
 | source         | String(20)      | NOT NULL, default 'manual'               | Origin: `manual` (AddLinkDialog) or `editor` (wiki-link `[[` syntax) |
 | createdAt      | LocalDateTime   | NOT NULL, auto-set                       | Link timestamp                           |
 
-**Constraint:** UNIQUE(source_neuron_id, target_neuron_id) — no duplicate links.
+**Constraints:**
+- UNIQUE(source_neuron_id, target_neuron_id) — no duplicate links
+- CHECK `check_no_self_link`: source_neuron_id must not equal target_neuron_id
 
 ### Template
 
@@ -202,7 +261,9 @@ Per-neuron reminders that trigger notifications. Multiple reminders per neuron a
 | createdAt          | LocalDateTime     | NOT NULL, auto-set                       | Creation timestamp                       |
 | updatedAt          | LocalDateTime     | NOT NULL, auto-updated                   | Last modification timestamp              |
 
-**Index:** `idx_reminders_trigger` on `trigger_at` WHERE `is_active = TRUE`
+**Indexes:**
+- `idx_reminders_trigger` on `trigger_at` WHERE `is_active = TRUE`
+- `idx_reminders_neuron_id` on `neuron_id`
 
 ### Notification
 
@@ -270,9 +331,9 @@ Singleton application-wide settings. Contains one row seeded at migration time.
 ## Entity Relationships
 
 ```
-Brain (1) ──── (*) Cluster
+Brain (1) ──── (*) Cluster (typed: knowledge | ai-research | project)
   │                  │
-  │                  ├── Cluster.parentClusterId -> Cluster (self-ref, tree)
+  │                  ├── (*) ResearchTopic    (one-to-many, ai-research clusters only)
   │                  │
   └──── (*) Neuron ──┘  (neuron belongs to brain AND optionally a cluster)
               │

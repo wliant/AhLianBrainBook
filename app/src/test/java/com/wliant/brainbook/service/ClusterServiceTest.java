@@ -4,9 +4,11 @@ import com.wliant.brainbook.config.DatabaseCleaner;
 import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.dto.BrainResponse;
-import com.wliant.brainbook.dto.ClusterRequest;
+import com.wliant.brainbook.dto.CreateClusterRequest;
+import com.wliant.brainbook.dto.UpdateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
+import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.repository.ClusterRepository;
 import io.minio.MinioClient;
@@ -54,19 +56,62 @@ class ClusterServiceTest {
     }
 
     @Test
-    void create_savesClusterUnderBrain() {
-        ClusterRequest request = new ClusterRequest("Test Cluster", brainId);
-        ClusterResponse response = clusterService.create(request);
+    void create_defaultsToKnowledgeType() {
+        ClusterResponse response = clusterService.create(new CreateClusterRequest("Test Cluster", brainId, null));
 
         assertThat(response.id()).isNotNull();
         assertThat(response.name()).isEqualTo("Test Cluster");
         assertThat(response.brainId()).isEqualTo(brainId);
+        assertThat(response.type()).isEqualTo("knowledge");
         assertThat(response.isArchived()).isFalse();
     }
 
     @Test
+    void create_withAiResearchType_savesType() {
+        ClusterResponse response = clusterService.create(new CreateClusterRequest("Research", brainId, "ai-research"));
+
+        assertThat(response.type()).isEqualTo("ai-research");
+    }
+
+    @Test
+    void create_rejectsSecondAiResearchCluster() {
+        clusterService.create(new CreateClusterRequest("Research 1", brainId, "ai-research"));
+
+        assertThatThrownBy(() -> clusterService.create(new CreateClusterRequest("Research 2", brainId, "ai-research")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Only one ai-research cluster");
+    }
+
+    @Test
+    void create_rejectsSecondProjectCluster() {
+        clusterService.create(new CreateClusterRequest("Project 1", brainId, "project"));
+
+        assertThatThrownBy(() -> clusterService.create(new CreateClusterRequest("Project 2", brainId, "project")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Only one project cluster");
+    }
+
+    @Test
+    void create_allowsAiResearchAfterArchivingExisting() {
+        ClusterResponse first = clusterService.create(new CreateClusterRequest("Research 1", brainId, "ai-research"));
+        clusterService.archive(first.id());
+
+        ClusterResponse second = clusterService.create(new CreateClusterRequest("Research 2", brainId, "ai-research"));
+
+        assertThat(second.type()).isEqualTo("ai-research");
+    }
+
+    @Test
+    void create_allowsMultipleKnowledgeClusters() {
+        clusterService.create(new CreateClusterRequest("K1", brainId, "knowledge"));
+        ClusterResponse k2 = clusterService.create(new CreateClusterRequest("K2", brainId, "knowledge"));
+
+        assertThat(k2.type()).isEqualTo("knowledge");
+    }
+
+    @Test
     void getByBrainId_returnsClusters() {
-        clusterService.create(new ClusterRequest("Cluster 1", brainId));
+        clusterService.create(new CreateClusterRequest("Cluster 1", brainId, null));
 
         List<ClusterResponse> clusters = clusterService.getByBrainId(brainId);
 
@@ -75,18 +120,19 @@ class ClusterServiceTest {
     }
 
     @Test
-    void update_modifiesCluster() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("Original", brainId));
+    void update_modifiesNameOnly() {
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("Original", brainId, null));
 
-        ClusterResponse updated = clusterService.update(created.id(), new ClusterRequest("Updated", brainId));
+        ClusterResponse updated = clusterService.update(created.id(), new UpdateClusterRequest("Updated", null));
 
         assertThat(updated.name()).isEqualTo("Updated");
         assertThat(updated.id()).isEqualTo(created.id());
+        assertThat(updated.type()).isEqualTo("knowledge");
     }
 
     @Test
     void delete_removesCluster() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Delete", brainId));
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("To Delete", brainId, null));
 
         clusterService.delete(created.id());
 
@@ -95,7 +141,7 @@ class ClusterServiceTest {
 
     @Test
     void archive_setsArchived() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Archive", brainId));
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("To Archive", brainId, null));
 
         ClusterResponse archived = clusterService.archive(created.id());
 
@@ -104,7 +150,7 @@ class ClusterServiceTest {
 
     @Test
     void restore_unsetsArchived() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Restore", brainId));
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("To Restore", brainId, null));
         clusterService.archive(created.id());
 
         ClusterResponse restored = clusterService.restore(created.id());
@@ -113,8 +159,19 @@ class ClusterServiceTest {
     }
 
     @Test
+    void restore_rejectsIfActiveUniqueTypeExists() {
+        ClusterResponse first = clusterService.create(new CreateClusterRequest("Research 1", brainId, "ai-research"));
+        clusterService.archive(first.id());
+        clusterService.create(new CreateClusterRequest("Research 2", brainId, "ai-research"));
+
+        assertThatThrownBy(() -> clusterService.restore(first.id()))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Only one ai-research cluster");
+    }
+
+    @Test
     void getById_returnsCluster() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId));
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("Test", brainId, null));
 
         ClusterResponse found = clusterService.getById(created.id());
 
@@ -130,7 +187,7 @@ class ClusterServiceTest {
 
     @Test
     void move_changesBrain() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("To Move", brainId));
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("To Move", brainId, null));
         BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
 
         ClusterResponse moved = clusterService.move(created.id(), brain2.id());
@@ -140,17 +197,29 @@ class ClusterServiceTest {
 
     @Test
     void move_throwsOnNonexistentBrain() {
-        ClusterResponse created = clusterService.create(new ClusterRequest("Test", brainId));
+        ClusterResponse created = clusterService.create(new CreateClusterRequest("Test", brainId, null));
 
         assertThatThrownBy(() -> clusterService.move(created.id(), UUID.randomUUID()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
+    void move_rejectsIfTargetBrainAlreadyHasUniqueType() {
+        clusterService.create(new CreateClusterRequest("Research", brainId, "ai-research"));
+
+        BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
+        ClusterResponse research2 = clusterService.create(new CreateClusterRequest("Research 2", brain2.id(), "ai-research"));
+
+        assertThatThrownBy(() -> clusterService.move(research2.id(), brainId))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Only one ai-research cluster");
+    }
+
+    @Test
     void reorder_updatesSortOrders() {
-        ClusterResponse c1 = clusterService.create(new ClusterRequest("A", brainId));
-        ClusterResponse c2 = clusterService.create(new ClusterRequest("B", brainId));
-        ClusterResponse c3 = clusterService.create(new ClusterRequest("C", brainId));
+        ClusterResponse c1 = clusterService.create(new CreateClusterRequest("A", brainId, null));
+        ClusterResponse c2 = clusterService.create(new CreateClusterRequest("B", brainId, null));
+        ClusterResponse c3 = clusterService.create(new CreateClusterRequest("C", brainId, null));
 
         clusterService.reorder(new ReorderRequest(List.of(c3.id(), c1.id(), c2.id())));
 

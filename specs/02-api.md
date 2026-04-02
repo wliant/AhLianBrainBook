@@ -121,7 +121,7 @@ Export a complete brain as JSON, including all clusters, neurons (with content),
     "description": "string?", "createdAt": "2024-01-01T00:00:00"
   },
   "clusters": [
-    { "id": "uuid", "name": "string", "parentClusterId": "uuid?", "sortOrder": 0, "tagNames": ["string"] }
+    { "id": "uuid", "name": "string", "sortOrder": 0, "tagNames": ["string"] }
   ],
   "neurons": [
     {
@@ -160,7 +160,9 @@ List non-archived clusters for a brain, ordered by `sortOrder`.
     "id": "uuid",
     "brainId": "uuid",
     "name": "string",
-    "parentClusterId": "uuid | null",
+    "type": "knowledge | ai-research | project",
+    "status": "generating | ready",
+    "researchGoal": "string | null",
     "sortOrder": 0,
     "isArchived": false,
     "createdBy": "string",
@@ -176,9 +178,12 @@ Create a new cluster.
 
 **Request:**
 ```json
-{ "name": "string", "brainId": "uuid", "parentClusterId": "uuid?" }
+{ "name": "string", "brainId": "uuid", "type": "knowledge | ai-research | project?" }
 ```
+`type` defaults to `knowledge` if omitted. For `ai-research` type, cluster creation triggers async research goal generation (cluster starts in `generating` status). Only one non-archived `ai-research` and one `project` cluster per brain are allowed.
+
 **Response:** `200 OK` — ClusterResponse
+**Error:** `409 Conflict` if a non-archived cluster of the same special type already exists in the brain
 
 ### `GET /api/clusters/{id}`
 Get cluster by ID.
@@ -186,11 +191,11 @@ Get cluster by ID.
 **Response:** `200 OK` — ClusterResponse
 
 ### `PATCH /api/clusters/{id}`
-Update cluster name or parent.
+Update cluster fields (name, researchGoal).
 
 **Request:**
 ```json
-{ "name": "string", "brainId": "uuid", "parentClusterId": "uuid?" }
+{ "name": "string", "researchGoal": "string?" }
 ```
 **Response:** `200 OK` — ClusterResponse
 
@@ -226,6 +231,96 @@ Move cluster to a different brain.
 { "brainId": "uuid" }
 ```
 **Response:** `200 OK` — ClusterResponse
+
+---
+
+## Research Topics
+
+Research topics are sub-resources of ai-research clusters. They contain AI-generated bullet trees tracking learning coverage.
+
+### `GET /api/clusters/{clusterId}/research-topics`
+List research topics for a cluster, ordered by `sortOrder`.
+
+**Response:** `200 OK` — `ResearchTopicResponse[]`
+
+### `POST /api/clusters/{clusterId}/research-topics`
+Create a research topic. Triggers async AI generation — the topic starts in `generating` status.
+
+**Request:**
+```json
+{ "prompt": "string?" }
+```
+**Response:** `201 Created`
+```json
+{
+  "id": "uuid",
+  "clusterId": "uuid",
+  "brainId": "uuid",
+  "title": "string",
+  "prompt": "string | null",
+  "contentJson": null,
+  "overallCompleteness": "none",
+  "status": "generating",
+  "lastRefreshedAt": null,
+  "sortOrder": 0,
+  "createdAt": "2024-01-01T00:00:00",
+  "updatedAt": "2024-01-01T00:00:00",
+  "createdBy": "string",
+  "lastUpdatedBy": "string"
+}
+```
+
+### `GET /api/clusters/{clusterId}/research-topics/{id}`
+Get a single research topic.
+
+**Response:** `200 OK` — ResearchTopicResponse
+
+### `DELETE /api/clusters/{clusterId}/research-topics/{id}`
+Delete a research topic.
+
+**Response:** `204 No Content`
+
+### `POST /api/clusters/{clusterId}/research-topics/reorder`
+Reorder research topics.
+
+**Request:**
+```json
+{ "orderedIds": ["uuid1", "uuid2"] }
+```
+**Response:** `200 OK`
+
+### `POST /api/clusters/{clusterId}/research-topics/update`
+Refresh all research topics — re-scores completeness levels and discovers new neuron links using AI.
+
+**Response:** `200 OK` — `ResearchTopicResponse[]`
+
+### `POST /api/clusters/{clusterId}/research-topics/{id}/update`
+Refresh a single research topic.
+
+**Response:** `200 OK` — ResearchTopicResponse
+
+### `POST /api/clusters/{clusterId}/research-topics/{id}/expand`
+Expand a bullet point into finer sub-points using AI.
+
+**Request:**
+```json
+{ "bulletId": "string" }
+```
+**Response:** `200 OK` — ResearchTopicResponse
+
+### `GET /api/clusters/{clusterId}/research-topics/events`
+Server-Sent Events stream for real-time generation updates.
+
+**Content-Type:** `text/event-stream`
+**Timeout:** 5 minutes
+
+**Event types:**
+| Event | Data | When |
+|-------|------|------|
+| `cluster-ready` | `{ "clusterId": "uuid", "researchGoal": "string" }` | Research goal generation complete |
+| `topic-generated` | `{ "topicId": "uuid", "clusterId": "uuid" }` | Topic generation complete |
+| `topic-updated` | `{ "topicId": "uuid", "clusterId": "uuid" }` | Topic refresh complete |
+| `topic-error` | `{ "topicId": "uuid", "clusterId": "uuid", "error": "string" }` | Generation/refresh failed |
 
 ---
 

@@ -2,12 +2,14 @@
 
 ## Services
 
-| Service    | Technology      | Internal Port | Default Host Port | Purpose                        |
-|------------|-----------------|---------------|-------------------|--------------------------------|
-| app        | Spring Boot 3.5 | 8080          | 18080             | Backend REST API               |
-| web        | Next.js 16      | 3000          | 13000             | Frontend web application       |
-| postgres   | PostgreSQL 16   | 5432          | 15432             | Primary database               |
-| minio      | MinIO           | 9000, 9001    | 19000, 19001      | Object storage (attachments)   |
+| Service              | Technology        | Internal Port | Default Host Port | Purpose                              |
+|----------------------|-------------------|---------------|-------------------|--------------------------------------|
+| app                  | Spring Boot 3.5   | 8080          | 18080             | Backend REST API                     |
+| web                  | Next.js 16        | 3000          | 13000             | Frontend web application             |
+| intelligence-service | FastAPI + LangGraph | 8001        | 18001             | AI agent service                     |
+| postgres             | PostgreSQL 16     | 5432          | 15432             | Primary database                     |
+| minio                | MinIO             | 9000, 9001    | 19000, 19001      | Object storage (attachments)         |
+| ollama               | Ollama            | 11434         | 11434             | Local LLM inference (external/host)  |
 
 Host ports are configurable via `.env` file (`APP_PORT`, `WEB_PORT`, `POSTGRES_PORT`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT`).
 
@@ -61,6 +63,11 @@ Production deployment configuration.
 | V17     | Add `neuron_shares` table with token-based sharing (token VARCHAR 64 UNIQUE, expires_at nullable) |
 | V18     | Drop UNIQUE constraint on reminders.neuron_id (allows multiple reminders per neuron); add `max_reminders_per_neuron` (default 10) to app_settings |
 | V19     | Drop `editor_mode` column from app_settings (vim mode feature removed) |
+| V20     | Add edge-case constraints: neuron self-link prevention (`check_no_self_link`), parent cluster ON DELETE SET NULL, partial indexes on favorites/pinned/active neurons, reminders neuron_id index |
+| V21     | Remove cluster nesting: drop `parent_cluster_id` column, its foreign key, and self-parent constraint |
+| V22     | Add cluster types: `type` column (knowledge/ai-research/project) with CHECK constraint, partial unique indexes limiting one ai-research and one project cluster per brain |
+| V23     | Add AI research: `research_goal` column on clusters, new `research_topics` table with bullet tree content (JSONB), completeness tracking, and indexes |
+| V24     | Add status fields: `status` column on clusters (generating/ready) and research_topics (generating/ready/updating/error) |
 
 ### Content Format (v2 — Sections)
 
@@ -105,6 +112,12 @@ Queried via `to_tsquery('english', ?)` in the search service.
 - `idx_sr_next_review` on `spaced_repetition_items.next_review_at`
 - `idx_neuron_shares_token` on `neuron_shares.token`
 - `idx_neuron_shares_neuron_id` on `neuron_shares.neuron_id`
+- `idx_neurons_favorite` partial index on `neurons.is_favorite` WHERE `is_favorite = true AND is_deleted = false`
+- `idx_neurons_pinned` partial index on `neurons.is_pinned` WHERE `is_pinned = true AND is_deleted = false`
+- `idx_neurons_cluster_active` on `neurons.cluster_id` WHERE `is_deleted = false`
+- `idx_reminders_neuron_id` on `reminders.neuron_id`
+- `idx_research_topics_cluster` on `research_topics.cluster_id`
+- `idx_research_topics_brain` on `research_topics.brain_id`
 
 ## Object Storage (MinIO)
 
@@ -147,6 +160,18 @@ The backend runs scheduled background tasks:
 | MINIO_BUCKET                   | brainbook-attachments                      |
 | MINIO_ACCESS_KEY               | brainbook                                  |
 | MINIO_SECRET_KEY               | brainbook123                               |
+
+### Intelligence Service (FastAPI)
+
+| Variable                       | Default Value                              |
+|--------------------------------|--------------------------------------------|
+| LLM_PROVIDER                   | ollama                                     |
+| OLLAMA_BASE_URL                | http://ollama:11434                        |
+| OLLAMA_MODEL                   | llama3.2                                   |
+| ANTHROPIC_API_KEY              | (empty, required when LLM_PROVIDER=anthropic) |
+| ANTHROPIC_MODEL                | claude-sonnet-4-20250514                   |
+| BRAINBOOK_API_URL              | http://app:8080                            |
+| AGENT_TIMEOUT                  | 600                                        |
 
 ### Frontend (Next.js)
 

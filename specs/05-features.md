@@ -91,7 +91,7 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 
 ### 5.1 Hierarchy
 - **Brain** — top-level container (e.g., a subject area or project). Has name, description, icon, and color.
-- **Cluster** — folder within a brain. Supports nesting via `parentClusterId` (unlimited depth tree structure).
+- **Cluster** — a typed learning activity within a brain. Type determines UI and behavior (`knowledge`, `ai-research`, `project`). Flat structure (no nesting).
 - **Neuron** — individual note. Belongs to a brain and optionally a cluster.
 
 ### 5.2 Sorting
@@ -116,34 +116,91 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 ### 5.6 Duplication
 - Neurons can be duplicated: creates a copy with title + " (copy)", version reset to 1, sortOrder incremented by 1
 
-## 6. Tagging
+## 6. Cluster Types
 
-### 6.1 Neuron Tags
+Clusters support three types that determine their behavior and content model:
+
+| Type | Purpose | Content | Who authors |
+|------|---------|---------|-------------|
+| **Knowledge** (default) | Free-form note-taking | Neurons with sections (rich-text, code, math, etc.) | Human (AI assists per-section) |
+| **AI Research** | AI-generated learning tracker | Research topics with structured bullet trees + completeness tracking | AI (user triggers and curates) |
+| **Project** | Codebase exploration (planned) | Not yet implemented | — |
+
+- Type is set at cluster creation and cannot be changed
+- `ai-research` and `project` types enforce a uniqueness constraint: only one non-archived cluster of each type per brain
+- The cluster page routes to the appropriate view based on type
+
+## 7. AI Research Cluster
+
+A learning gap analysis tool for technical learners. It answers: *"For this domain, what should I know, and how much of it have I actually written about?"*
+
+### 7.1 Research Goal
+- LLM-generated on cluster creation from the brain's name and existing knowledge neurons
+- User-editable after creation
+- Provides overarching context for all topic generation and scoring
+- Example: *"Understand Spring Security well enough to design and implement authentication and authorization for enterprise Java applications."*
+
+### 7.2 Research Topics
+- AI-generated structured bullet trees covering what the user should learn
+- Each topic has: title, prompt (user's original request), content (hierarchical bullet tree), overall completeness, and status
+- **User capabilities:** create, delete, reorder, update (re-score), expand bullets
+- **Users cannot** directly edit bullet content — AI manages the content
+
+### 7.3 Bullet Tree Structure
+Hierarchical bullet points where each item has:
+- **Text** — concept name
+- **Explanation** — what to learn about it
+- **Completeness** — discrete level (`none`, `partial`, `good`, `complete`) rated by AI
+- **Linked neuron IDs** — auto-discovered knowledge neurons relevant to this point
+- **Children** — nested sub-points (recursive)
+
+### 7.4 Completeness Scoring
+Discrete levels rated by AI based on how thoroughly the brain's knowledge neurons cover each point:
+- **none** (gray) — no coverage found
+- **partial** (amber) — mentioned or touched on, lacking depth
+- **good** (blue) — explained with reasonable depth, minor gaps
+- **complete** (green) — thoroughly covered with depth, examples, and connections
+
+### 7.5 Link Discovery
+During generation and refresh, AI automatically scans all knowledge neurons in the brain, matches bullet points to relevant neurons based on content similarity, and attaches neuron IDs. Links are read-only references.
+
+### 7.6 Real-Time Updates
+- Cluster creation and topic generation are async operations
+- SSE endpoint pushes events (`cluster-ready`, `topic-generated`, `topic-updated`, `topic-error`) to the frontend
+- Frontend subscribes via `useResearchSse` hook for live progress updates
+
+### 7.7 Status Flow
+- **Cluster status:** `generating` (research goal being generated) → `ready`
+- **Topic status:** `generating` (initial creation) → `ready` | `updating` (re-scoring) → `ready` | `error`
+
+## 8. Tagging
+
+### 8.1 Neuron Tags
 - Tags are globally unique by name, with optional hex color
 - Many-to-many relationship between neurons and tags
 - Add/remove tag from neuron is idempotent
 - Tags searchable by name (case-insensitive contains)
 - Deleting a tag cascades to remove all neuron and brain associations
 
-### 6.2 Brain Tags
+### 8.2 Brain Tags
 - Brains can also be tagged using the same global tag set
 - Many-to-many relationship via `brain_tags` join table
 - Used for filtering in thoughts and search
 
-## 7. Favorites & Pinning
+## 9. Favorites & Pinning
 
 - **Favorite:** Toggle `isFavorite` flag on a neuron; favorites listed on dashboard and dedicated `/favorites` page
 - **Pin:** Toggle `isPinned` flag on a neuron; pinned neurons shown prominently on dashboard
 - Both are toggle endpoints (flip the current boolean value)
 
-## 8. Complexity Metadata
+## 10. Complexity Metadata
 
 - Each neuron can be assigned a complexity level: **simple**, **moderate**, or **complex** (or null)
 - Displayed as a color-coded badge on neuron cards in cluster view and graph view
 - Editable via dropdown on the neuron editor page
 - Brain stats aggregate complexity distribution
 
-## 9. File Attachments
+## 11. File Attachments
 
 - Files uploaded via multipart form to MinIO object storage
 - Stored with UUID-prefixed key: `{uuid}/{original-filename}`
@@ -152,14 +209,14 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 - Delete removes from both MinIO and database
 - Maximum upload size: 50MB
 
-## 10. Templates
+## 12. Templates
 
 - Reusable content structures stored as TipTap JSON
 - Templates have a name, optional description, and `contentJson`
 - Can be associated with neurons via `templateId` field
 - Full CRUD operations for template management
 
-## 11. Neuron Links
+## 13. Neuron Links
 
 - Directed connections between neurons with optional metadata
 - Each link has: source neuron, target neuron, label (human-readable), link type (category like "references", "depends-on", "calls", "contains"), weight (connection strength), and source origin (`manual` or `editor`)
@@ -173,7 +230,7 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 - "Add Link" with autocomplete neuron search
 - Links are used as edges in the knowledge graph visualization
 
-## 12. Knowledge Graph
+## 14. Knowledge Graph
 
 - Visual network representation of neurons and their links within a brain
 - Accessible via `/brain/[brainId]/graph`
@@ -185,7 +242,7 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 - Double-click node to navigate to neuron editor
 - Zoom controls, pan, and fit-view
 
-## 13. Thoughts
+## 15. Thoughts
 
 Thoughts are tag-based filtered views that dynamically aggregate neurons matching specified criteria.
 
@@ -201,7 +258,7 @@ Thoughts are tag-based filtered views that dynamically aggregate neurons matchin
 - **Keyboard navigation** — arrow keys (left/right) to navigate between matching neurons
 - Full CRUD for thought management
 
-## 14. Reminders
+## 16. Reminders
 
 - Each neuron can have **multiple reminders**, up to a configurable limit (`maxRemindersPerNeuron` in settings, default 10, range 1–100)
 - Reminder panel displays count and max (e.g., "Reminders 2/10")
@@ -217,7 +274,7 @@ Thoughts are tag-based filtered views that dynamically aggregate neurons matchin
   - For recurring reminders: advances `triggerAt` by the recurrence interval
   - For one-time reminders: sets `isActive = false`
 
-## 15. Notifications
+## 17. Notifications
 
 - Generated by the reminder processing system
 - Denormalized for frontend navigation (includes brainId, clusterId, neuronTitle)
@@ -228,7 +285,7 @@ Thoughts are tag-based filtered views that dynamically aggregate neurons matchin
   - Mark individual as read / mark all as read
   - Polling every 30 seconds (pauses when browser tab is hidden to conserve resources)
 
-## 16. Full-Text Search
+## 18. Full-Text Search
 
 - PostgreSQL-native full-text search using tsvector/tsquery
 - GIN indexes on both `neurons.content_text` and `neurons.title` columns
@@ -236,7 +293,7 @@ Thoughts are tag-based filtered views that dynamically aggregate neurons matchin
 - Paginated results with `page` and `size` parameters
 - Returns matching neurons with total count, plus per-result metadata: text highlight, relevance rank, brain name, and cluster name
 
-## 17. Dashboard
+## 19. Dashboard
 
 Three sections displayed on the home page (`/`):
 1. **Pinned neurons** — neurons with `isPinned = true`
@@ -245,7 +302,7 @@ Three sections displayed on the home page (`/`):
 
 Each neuron links directly to its editor page.
 
-## 18. Brain Statistics
+## 20. Brain Statistics
 
 Brain overview page displays aggregated statistics:
 - **Counts:** clusters, neurons, tags, links
@@ -253,34 +310,34 @@ Brain overview page displays aggregated statistics:
 - **Most connected neurons:** neurons with the highest link count (with titles and cluster info)
 - **Recently edited neurons:** most recently modified neurons (with titles and timestamps)
 
-## 19. Import / Export
+## 21. Import / Export
 
-### 19.1 Export
+### 21.1 Export
 - Export a complete brain as a JSON document
-- Includes: brain metadata, all clusters (with hierarchy), all neurons (with content, tags, favorites, pins), all tags (with colors), all neuron links (with labels, types, weights)
+- Includes: brain metadata, all clusters, all neurons (with content, tags, favorites, pins), all tags (with colors), all neuron links (with labels, types, weights)
 - Versioned format (`"version": "1.0"`)
 
-### 19.2 Import
+### 21.2 Import
 - Import a brain from a JSON document matching the export format
 - Creates brain, clusters, neurons, tags, and links in a single transaction
 - Tags are matched by name (reuses existing tags if names match)
 
-## 20. Settings
+## 22. Settings
 
 - **Display name** — configurable user display name stored in `app_settings` (singleton row). Used as `createdBy` and `lastUpdatedBy` values when creating or editing brains, clusters, and neurons.
 - **Max reminders per neuron** — configurable limit (1–100, default 10) controlling how many reminders can be created per neuron.
 - Settings page accessible from sidebar navigation
 
-## 21. Entity Audit Trail
+## 23. Entity Audit Trail
 
 - Brains, clusters, and neurons track `createdBy` and `lastUpdatedBy` fields
 - Values are set from the current display name in app settings
 - Displayed on the neuron editor page metadata section
 
-## 22. Navigation
+## 24. Navigation
 
-- **Sidebar** — primary navigation with expandable brain/cluster hierarchy, thoughts section, and links to search/favorites/trash/settings
-- **Nested clusters** — sidebar renders clusters recursively as a collapsible tree
+- **Sidebar** — primary navigation with expandable brain/cluster list (icons indicate cluster type), thoughts section, and links to search/favorites/trash/settings
+- **Resizable sidebar** — drag-to-resize handle on the right edge, width range 200px–480px
 - **Breadcrumb** — navigation trail on cluster and neuron pages (`Brain > Cluster > Neuron`)
 - **Deep linking** — full URL support: `/brain/{brainId}/cluster/{clusterId}/neuron/{neuronId}`
 - **Command palette** (`Ctrl+Shift+P`) — global command launcher for navigation, brain switching, theme toggle, and actions
@@ -298,19 +355,19 @@ Brain overview page displays aggregated statistics:
   - `?` — show keyboard shortcuts help dialog
   - Arrow keys — navigate neuron lists (in thought viewer)
 
-## 23. Theming
+## 25. Theming
 
 - Dark and light mode support via `next-themes`
 - Theme toggle in sidebar
 - Preference persisted in browser localStorage
 
-## 24. Responsive Design
+## 26. Responsive Design
 
 - Mobile-friendly layout with collapsible sidebar
 - Sidebar auto-collapses on small screens
 - Touch-friendly controls and spacing
 
-## 25. Spaced Repetition
+## 27. Spaced Repetition
 
 SM-2 algorithm-based review scheduling for neurons, enabling long-term retention of knowledge.
 
@@ -332,7 +389,7 @@ SM-2 algorithm-based review scheduling for neurons, enabling long-term retention
 - **Sidebar badge:** Review link shows count of items due for review
 - **Initial values:** easeFactor = 2.5, intervalDays = 0, repetitions = 0
 
-## 26. Neuron Sharing
+## 28. Neuron Sharing
 
 Token-based read-only sharing of individual neurons with optional expiration.
 
@@ -348,7 +405,7 @@ Token-based read-only sharing of individual neurons with optional expiration.
 - **Revoke:** share links can be revoked from the share dialog
 - **Multiple shares:** a neuron can have multiple active share links simultaneously
 
-## 27. Markdown Export
+## 29. Markdown Export
 
 Export neurons and brains as markdown documents.
 
@@ -361,7 +418,7 @@ Export neurons and brains as markdown documents.
   - Diagram sections: Mermaid wrapped in fenced code blocks
   - Callout sections: blockquoted with type prefix
 
-## 28. Table of Contents
+## 30. Table of Contents
 
 - Auto-generated from H1, H2, and H3 headings in rich-text sections
 - Toggle visibility via `Ctrl+Shift+O` or command palette
@@ -408,5 +465,7 @@ Export neurons and brains as markdown documents.
 
 The following features are under consideration but not yet implemented:
 
+- **Project Cluster** — codebase exploration via cloned git repositories with tree-sitter code intelligence (see `specs/future/project-cluster.md`)
+- **Cluster-level AI features** — Q&A, gap analysis, summaries, organization suggestions, study guides (see `specs/future/intelligence-features.md`)
 - **Layered/hierarchical graph view** — graph nodes grouped into collapsible cluster boxes, with drill-down navigation and cross-cluster edge summaries
 - **Node focus mode** — in graph view, highlight a selected node and dim all unrelated nodes, showing only direct connections

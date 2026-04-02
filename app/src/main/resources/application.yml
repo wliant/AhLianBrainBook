@@ -34,6 +34,9 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+  mvc:
+    async:
+      request-timeout: ${SPRING_MVC_ASYNC_TIMEOUT:600000}
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
@@ -52,6 +55,10 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+intelligence:
+  base-url: ${INTELLIGENCE_BASE_URL:http://localhost:8001}
+  timeout-seconds: ${INTELLIGENCE_TIMEOUT:600}
 
 app:
   neuron:

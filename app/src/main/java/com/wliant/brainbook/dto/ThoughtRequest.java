@@ -22,7 +22,6 @@ public record ThoughtRequest(
         @Pattern(regexp = "any|all", message = "brainTagMode must be 'any' or 'all'")
         String brainTagMode,
 
-        @NotEmpty(message = "At least one neuron tag is required")
         List<UUID> neuronTagIds,
 
         List<UUID> brainTagIds

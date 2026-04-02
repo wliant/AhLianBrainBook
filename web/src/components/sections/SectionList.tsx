@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useEffect, lazy, Suspense } from "react";
+import { useCallback, useRef, useEffect, useState, lazy, Suspense } from "react";
 import type { Section, SectionType, SectionsDocument } from "@/types";
+import { AI_SUPPORTED_SECTION_TYPES } from "@/types";
+import { AiAssistDialog } from "./AiAssistDialog";
 import { createSection } from "./sectionUtils";
 import { SectionWrapper } from "./SectionWrapper";
 import { AddSectionButton } from "./AddSectionButton";
@@ -43,6 +45,10 @@ export function SectionList({
   const sections = document.sections;
   const sectionsRef = useRef(sections);
   sectionsRef.current = sections;
+  const [aiAssistSectionId, setAiAssistSectionId] = useState<string | null>(null);
+  const aiAssistSection = aiAssistSectionId
+    ? sections.find((s) => s.id === aiAssistSectionId) ?? null
+    : null;
 
   useEffect(() => {
     if (sections.length === 0) return;
@@ -231,6 +237,18 @@ export function SectionList({
           <AddSectionButton onAdd={(type) => addSection(type, -1)} />
         </div>
       )}
+      {aiAssistSection && neuronId && (
+        <AiAssistDialog
+          open={true}
+          onClose={() => setAiAssistSectionId(null)}
+          onSave={(content) => {
+            updateSection(aiAssistSection.id, content);
+            setAiAssistSectionId(null);
+          }}
+          section={aiAssistSection}
+          neuronId={neuronId}
+        />
+      )}
       {sections.map((section, idx) => {
         const isEditing = viewMode ? false : !section.meta?.preview;
         return (
@@ -243,6 +261,11 @@ export function SectionList({
               onMoveDown={() => moveSection(section.id, "down")}
               onDelete={() => deleteSection(section.id)}
               onTogglePreview={() => togglePreview(section.id)}
+              onAiAssist={
+                !viewMode && AI_SUPPORTED_SECTION_TYPES.includes(section.type)
+                  ? () => setAiAssistSectionId(section.id)
+                  : undefined
+              }
               viewMode={viewMode}
             >
               {renderSection(section, isEditing)}

@@ -21,6 +21,8 @@ import {
   Settings,
   X,
   GraduationCap,
+  Sparkles,
+  Code,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -69,6 +71,8 @@ export function Sidebar({
   const { thoughts, createThought, deleteThought } = useThoughts();
   const { queue } = useSpacedRepetition();
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const isResizing = useRef(false);
   const [expandedBrains, setExpandedBrains] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [thoughtsExpanded, setThoughtsExpanded] = useState(true);
@@ -85,6 +89,30 @@ export function Sidebar({
       onOpenChange(false);
     }
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sidebar resize
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const newWidth = Math.max(200, Math.min(480, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [sidebarWidth]);
 
   const toggleBrain = (id: string) => {
     setExpandedBrains((prev) => {
@@ -209,7 +237,7 @@ export function Sidebar({
                 <Settings className="h-4 w-4" />
               </Button>
             </Link>
-            <ThemeToggle />
+            <ThemeToggle iconOnly />
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(false)}>
               <PanelLeftOpen className="h-4 w-4" />
             </Button>
@@ -310,7 +338,7 @@ export function Sidebar({
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="px-2 pb-4 space-y-0.5">
+            <div className="pl-2 pr-3 pb-4 space-y-0.5">
               {brains.map((brain) => (
                 <BrainItem
                   key={brain.id}
@@ -326,6 +354,12 @@ export function Sidebar({
                   onDelete={() => deleteBrain(brain.id)}
                   onCreateCluster={() => handleCreateCluster(brain.id)}
                   onRenameCluster={handleRenameCluster}
+                  onDeleteCluster={async (cluster) => {
+                    if (confirm(`Delete cluster "${cluster.name}"?`)) {
+                      await api.delete(`/api/clusters/${cluster.id}`);
+                      queryClient.invalidateQueries({ queryKey: ["clusters", brain.id] });
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -387,14 +421,22 @@ export function Sidebar({
       <aside
         data-testid="sidebar"
         className={cn(
-          "flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+          "relative flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
           // Desktop: static sidebar with collapse
           "hidden lg:flex lg:h-full",
-          collapsed ? "lg:w-14" : "lg:w-64",
+          collapsed && "lg:w-14",
           // Mobile: fixed overlay
           open && "fixed inset-y-0 left-0 z-50 flex w-64 h-full lg:relative"
         )}
+        style={!collapsed && !open ? { width: sidebarWidth } : undefined}
       >
+        {/* Resize handle */}
+        {!collapsed && (
+          <div
+            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 active:bg-primary/40 z-10 hidden lg:block"
+            onMouseDown={handleResizeStart}
+          />
+        )}
         {/* Header */}
         <div className="flex items-center justify-between border-b px-3 py-3">
           <Link href="/" className="flex items-center gap-2 font-semibold">
@@ -444,6 +486,7 @@ function BrainItem({
   onDelete,
   onCreateCluster,
   onRenameCluster,
+  onDeleteCluster,
 }: {
   brain: BrainType;
   isExpanded: boolean;
@@ -457,15 +500,22 @@ function BrainItem({
   onDelete: () => void;
   onCreateCluster: () => void;
   onRenameCluster: (cluster: ClusterType) => void;
+  onDeleteCluster: (cluster: ClusterType) => void;
 }) {
-  const { clusters } = useClusters(isExpanded ? brain.id : null);
+  const { clusters: rawClusters } = useClusters(isExpanded ? brain.id : null);
+  // Sort: AI Research first, then by sortOrder
+  const clusters = [...rawClusters].sort((a, b) => {
+    if (a.type === "ai-research" && b.type !== "ai-research") return -1;
+    if (a.type !== "ai-research" && b.type === "ai-research") return 1;
+    return a.sortOrder - b.sortOrder;
+  });
 
   return (
     <div>
       <div
         data-testid={`sidebar-brain-${brain.id}`}
         className={cn(
-          "group flex items-center rounded-md px-2 py-1.5 text-sm",
+          "group flex items-center rounded-md py-1.5 text-sm",
           isActive && "bg-sidebar-accent"
         )}
       >
@@ -476,7 +526,7 @@ function BrainItem({
         </button>
         <Link
           href={`/brain/${brain.id}`}
-          className="flex-1 truncate"
+          className="flex-1 min-w-0 truncate"
           style={{ color: brain.color || undefined }}
         >
           {brain.icon && <span className="mr-1">{brain.icon}</span>}
@@ -484,7 +534,7 @@ function BrainItem({
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-sidebar-accent rounded" data-testid={`sidebar-brain-menu-${brain.id}`}>
+            <button className="p-0.5 opacity-30 group-hover:opacity-100 hover:bg-sidebar-accent rounded shrink-0" data-testid={`sidebar-brain-menu-${brain.id}`}>
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -513,6 +563,7 @@ function BrainItem({
                 activeNeuronId={activeNeuronId}
                 onToggle={() => onToggleCluster(cluster.id)}
                 onRenameCluster={onRenameCluster}
+                onDeleteCluster={onDeleteCluster}
               />
             ))}
         </div>
@@ -529,6 +580,7 @@ function ClusterItem({
   activeNeuronId,
   onToggle,
   onRenameCluster,
+  onDeleteCluster,
 }: {
   cluster: ClusterType;
   brainId: string;
@@ -537,8 +589,11 @@ function ClusterItem({
   activeNeuronId?: string;
   onToggle: () => void;
   onRenameCluster: (cluster: ClusterType) => void;
+  onDeleteCluster: (cluster: ClusterType) => void;
 }) {
-  const { neurons } = useNeurons(isExpanded ? cluster.id : null);
+  const isAiResearch = cluster.type === "ai-research";
+  const canExpand = !isAiResearch;
+  const { neurons } = useNeurons(isExpanded && canExpand ? cluster.id : null);
   const VIRTUAL_THRESHOLD = 20;
   const neuronListRef = useRef<HTMLDivElement>(null);
 
@@ -555,35 +610,44 @@ function ClusterItem({
       <div
         data-testid={`sidebar-cluster-${cluster.id}`}
         className={cn(
-          "group/cluster flex items-center rounded-md px-2 py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
+          "group/cluster flex items-center rounded-md py-1 text-sm text-sidebar-foreground hover:bg-sidebar-accent",
           isActive && !activeNeuronId && "bg-sidebar-accent font-medium"
         )}
       >
-        <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded" data-testid={`sidebar-cluster-toggle-${cluster.id}`}>
-          <ChevronRight
-            className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
-          />
-        </button>
+        {canExpand ? (
+          <button onClick={onToggle} className="mr-1 p-0.5 hover:bg-sidebar-accent rounded" data-testid={`sidebar-cluster-toggle-${cluster.id}`}>
+            <ChevronRight
+              className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")}
+            />
+          </button>
+        ) : (
+          <span className="mr-1 w-4" />
+        )}
         <Link
           href={`/brain/${brainId}/cluster/${cluster.id}`}
           className="flex items-center gap-1.5 flex-1 truncate"
         >
-          <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+          {cluster.type === "ai-research" ? <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            : cluster.type === "project" ? <Code className="h-3.5 w-3.5 shrink-0" />
+            : <FolderOpen className="h-3.5 w-3.5 shrink-0" />}
           <span className="truncate">{cluster.name}</span>
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 opacity-0 group-hover/cluster:opacity-100 hover:bg-sidebar-accent rounded">
+            <button className="p-0.5 opacity-30 group-hover/cluster:opacity-100 hover:bg-sidebar-accent rounded shrink-0">
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onRenameCluster(cluster)}>Rename</DropdownMenuItem>
+            {!isAiResearch && (
+              <DropdownMenuItem onClick={() => onRenameCluster(cluster)}>Rename</DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="text-destructive" onClick={() => onDeleteCluster(cluster)}>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {isExpanded && (
+      {isExpanded && canExpand && (
         <div className="ml-4 space-y-0.5">
           {neurons.length > VIRTUAL_THRESHOLD ? (
             <div

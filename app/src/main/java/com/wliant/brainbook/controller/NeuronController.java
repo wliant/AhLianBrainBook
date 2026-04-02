@@ -1,5 +1,7 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.dto.AiAssistRequest;
+import com.wliant.brainbook.dto.AiAssistResponse;
 import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
@@ -8,6 +10,7 @@ import com.wliant.brainbook.dto.NeuronSummary;
 import com.wliant.brainbook.dto.ReminderRequest;
 import com.wliant.brainbook.dto.ReminderResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
+import com.wliant.brainbook.service.IntelligenceService;
 import com.wliant.brainbook.service.NeuronService;
 import com.wliant.brainbook.service.ReminderService;
 import jakarta.validation.Valid;
@@ -36,10 +39,14 @@ public class NeuronController {
 
     private final NeuronService neuronService;
     private final ReminderService reminderService;
+    private final IntelligenceService intelligenceService;
 
-    public NeuronController(NeuronService neuronService, ReminderService reminderService) {
+    public NeuronController(NeuronService neuronService,
+                            ReminderService reminderService,
+                            IntelligenceService intelligenceService) {
         this.neuronService = neuronService;
         this.reminderService = reminderService;
+        this.intelligenceService = intelligenceService;
     }
 
     @GetMapping("/cluster/{clusterId}")
@@ -155,6 +162,15 @@ public class NeuronController {
     public ResponseEntity<Void> permanentDelete(@PathVariable UUID id) {
         neuronService.permanentDelete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // AI assist endpoint
+
+    @PostMapping("/{id}/sections/{sectionId}/ai-assist")
+    public ResponseEntity<AiAssistResponse> aiAssist(@PathVariable UUID id,
+                                                      @PathVariable String sectionId,
+                                                      @RequestBody AiAssistRequest request) {
+        return ResponseEntity.ok(intelligenceService.aiAssist(id, sectionId, request));
     }
 
     // Reminder endpoints

@@ -13,12 +13,48 @@ export interface Brain {
   tags: Tag[];
 }
 
+export type ClusterType = "knowledge" | "ai-research" | "project";
+
+export type ClusterStatusType = "generating" | "ready";
+export type ResearchTopicStatusType = "generating" | "ready" | "updating" | "error";
+
 export interface Cluster {
   id: string;
   brainId: string;
   name: string;
+  type: ClusterType;
+  status: ClusterStatusType;
+  researchGoal: string | null;
   sortOrder: number;
   isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  lastUpdatedBy: string;
+}
+
+export type CompletenessLevel = "none" | "partial" | "good" | "complete";
+
+export interface BulletItem {
+  id: string;
+  text: string;
+  explanation: string;
+  completeness: CompletenessLevel;
+  linkedNeuronIds: string[];
+  children: BulletItem[];
+}
+
+export interface ResearchTopic {
+  id: string;
+  clusterId: string;
+  brainId: string;
+  title: string;
+  prompt: string;
+  contentJson: { version: number; items: BulletItem[] } | null;
+  overallCompleteness: CompletenessLevel;
+  status: ResearchTopicStatusType;
+  lastRefreshedAt: string | null;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -244,4 +280,60 @@ export interface SharedNeuron {
   tags: Tag[];
   brainName: string | null;
   createdAt: string;
+}
+
+// AI Assist types
+
+export const AI_SUPPORTED_SECTION_TYPES: SectionType[] = [
+  "rich-text",
+  "code",
+  "math",
+  "diagram",
+  "callout",
+  "table",
+];
+
+export interface AiAssistQuestion {
+  id: string;
+  text: string;
+  inputType: "single-select" | "multi-select" | "free-text";
+  options?: string[];
+  required?: boolean;
+}
+
+export interface AiAssistQuestionAnswer {
+  questionId: string;
+  value: string | string[];
+}
+
+export type ConversationTurnContent =
+  | { type: "text"; text: string }
+  | { type: "questions"; questions: AiAssistQuestion[] }
+  | { type: "answers"; answers: AiAssistQuestionAnswer[] }
+  | { type: "section_content"; sectionContent: Record<string, unknown> }
+  | { type: "reply"; text: string }
+  | { type: "message"; text: string; severity: "info" | "warning" | "error" };
+
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: ConversationTurnContent;
+}
+
+export interface AiAssistRequest {
+  sectionType: SectionType;
+  currentContent: Record<string, unknown> | null;
+  userMessage: string;
+  conversationHistory: ConversationTurn[];
+  questionAnswers?: AiAssistQuestionAnswer[];
+  regenerate?: boolean;
+}
+
+export interface AiAssistResponse {
+  responseType: "questions" | "content" | "reply" | "message";
+  questions?: AiAssistQuestion[];
+  sectionContent?: Record<string, unknown>;
+  message?: string;
+  messageSeverity?: "info" | "warning" | "error";
+  explanation?: string;
+  conversationHistory: ConversationTurn[];
 }

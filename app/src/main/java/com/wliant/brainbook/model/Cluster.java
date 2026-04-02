@@ -1,6 +1,7 @@
 package com.wliant.brainbook.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -34,6 +35,10 @@ public class Cluster {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "type", nullable = false, length = 20)
+    @Convert(converter = ClusterType.JpaConverter.class)
+    private ClusterType type;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
@@ -52,11 +57,24 @@ public class Cluster {
     @Column(name = "last_updated_by", nullable = false, length = 100)
     private String lastUpdatedBy;
 
+    @Column(name = "research_goal", columnDefinition = "text")
+    private String researchGoal;
+
+    @Column(name = "status", nullable = false, length = 20)
+    @Convert(converter = ClusterStatus.JpaConverter.class)
+    private ClusterStatus status;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.type == null) {
+            this.type = ClusterType.KNOWLEDGE;
+        }
+        if (this.status == null) {
+            this.status = ClusterStatus.READY;
+        }
     }
 
     @PreUpdate
@@ -94,6 +112,14 @@ public class Cluster {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public ClusterType getType() {
+        return type;
+    }
+
+    public void setType(ClusterType type) {
+        this.type = type;
     }
 
     public int getSortOrder() {
@@ -142,5 +168,21 @@ public class Cluster {
 
     public void setLastUpdatedBy(String lastUpdatedBy) {
         this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public String getResearchGoal() {
+        return researchGoal;
+    }
+
+    public void setResearchGoal(String researchGoal) {
+        this.researchGoal = researchGoal;
+    }
+
+    public ClusterStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ClusterStatus status) {
+        this.status = status;
     }
 }
