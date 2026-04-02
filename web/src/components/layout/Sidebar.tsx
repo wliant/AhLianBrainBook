@@ -500,7 +500,7 @@ function BrainItem({
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 opacity-30 group-hover:opacity-100 hover:bg-sidebar-accent rounded" data-testid={`sidebar-brain-menu-${brain.id}`}>
+            <button className="p-0.5 opacity-30 group-hover:opacity-100 hover:bg-sidebar-accent rounded shrink-0" data-testid={`sidebar-brain-menu-${brain.id}`}>
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -600,7 +600,7 @@ function ClusterItem({
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-0.5 opacity-30 group-hover/cluster:opacity-100 hover:bg-sidebar-accent rounded">
+            <button className="p-0.5 opacity-30 group-hover/cluster:opacity-100 hover:bg-sidebar-accent rounded shrink-0">
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
