@@ -71,6 +71,8 @@ export function Sidebar({
   const { thoughts, createThought, deleteThought } = useThoughts();
   const { queue } = useSpacedRepetition();
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const isResizing = useRef(false);
   const [expandedBrains, setExpandedBrains] = useState<Set<string>>(new Set());
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [thoughtsExpanded, setThoughtsExpanded] = useState(true);
@@ -87,6 +89,30 @@ export function Sidebar({
       onOpenChange(false);
     }
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sidebar resize
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const newWidth = Math.max(200, Math.min(480, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [sidebarWidth]);
 
   const toggleBrain = (id: string) => {
     setExpandedBrains((prev) => {
@@ -312,7 +338,7 @@ export function Sidebar({
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="px-2 pb-4 space-y-0.5">
+            <div className="pl-2 pr-3 pb-4 space-y-0.5">
               {brains.map((brain) => (
                 <BrainItem
                   key={brain.id}
@@ -395,14 +421,22 @@ export function Sidebar({
       <aside
         data-testid="sidebar"
         className={cn(
-          "flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+          "relative flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
           // Desktop: static sidebar with collapse
           "hidden lg:flex lg:h-full",
-          collapsed ? "lg:w-14" : "lg:w-64",
+          collapsed && "lg:w-14",
           // Mobile: fixed overlay
           open && "fixed inset-y-0 left-0 z-50 flex w-64 h-full lg:relative"
         )}
+        style={!collapsed && !open ? { width: sidebarWidth } : undefined}
       >
+        {/* Resize handle */}
+        {!collapsed && (
+          <div
+            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 active:bg-primary/40 z-10 hidden lg:block"
+            onMouseDown={handleResizeStart}
+          />
+        )}
         {/* Header */}
         <div className="flex items-center justify-between border-b px-3 py-3">
           <Link href="/" className="flex items-center gap-2 font-semibold">
@@ -492,7 +526,7 @@ function BrainItem({
         </button>
         <Link
           href={`/brain/${brain.id}`}
-          className="flex-1 truncate"
+          className="flex-1 min-w-0 truncate"
           style={{ color: brain.color || undefined }}
         >
           {brain.icon && <span className="mr-1">{brain.icon}</span>}
