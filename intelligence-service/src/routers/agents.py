@@ -1,3 +1,6 @@
+import logging
+import time
+
 from fastapi import APIRouter, HTTPException
 
 from src.agents.placeholder import invoke_placeholder_agent
@@ -16,6 +19,8 @@ from src.schemas.research import (
     ExpandBulletRequest, ExpandBulletResponse,
 )
 from src.schemas.review_qa import ReviewQARequest, ReviewQAResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -40,29 +45,78 @@ async def invoke_agent(request: AgentRequest):
 
 @router.post("/agents/section-author", response_model=SectionAuthorResponse)
 async def section_author(request: SectionAuthorRequest):
-    return await invoke_section_author(request)
+    neuron_title = getattr(request.context, "neuron_title", "?") if request.context else "?"
+    logger.info("agent=section-author section_type=%s neuron=%s", request.section_type, neuron_title[:80])
+    start = time.time()
+    try:
+        result = await invoke_section_author(request)
+        logger.info("agent=section-author status=ok response_type=%s duration=%.2fs", result.response_type, time.time() - start)
+        return result
+    except Exception:
+        logger.exception("agent=section-author status=error duration=%.2fs", time.time() - start)
+        raise
 
 
 @router.post("/agents/research-goal-generator", response_model=GenerateGoalResponse)
 async def research_goal_generator(request: GenerateGoalRequest):
-    return await invoke_research_goal_generator(request)
+    logger.info("agent=research-goal-generator brain=%r neurons=%d", request.brain_name, len(request.neurons))
+    start = time.time()
+    try:
+        result = await invoke_research_goal_generator(request)
+        logger.info("agent=research-goal-generator status=ok goal_length=%d duration=%.2fs", len(result.research_goal), time.time() - start)
+        return result
+    except Exception:
+        logger.exception("agent=research-goal-generator status=error duration=%.2fs", time.time() - start)
+        raise
 
 
 @router.post("/agents/research-topic-generator", response_model=GenerateTopicResponse)
 async def research_topic_generator(request: GenerateTopicRequest):
-    return await invoke_research_topic_generator(request)
+    logger.info("agent=research-topic-generator prompt=%r brain=%r", request.prompt[:80], request.context.brain_name)
+    start = time.time()
+    try:
+        result = await invoke_research_topic_generator(request)
+        logger.info("agent=research-topic-generator status=ok title=%r items=%d duration=%.2fs", result.title, len(result.items), time.time() - start)
+        return result
+    except Exception:
+        logger.exception("agent=research-topic-generator status=error duration=%.2fs", time.time() - start)
+        raise
 
 
 @router.post("/agents/research-topic-scorer", response_model=ScoreTopicResponse)
 async def research_topic_scorer(request: ScoreTopicRequest):
-    return await invoke_research_topic_scorer(request)
+    logger.info("agent=research-topic-scorer items=%d brain=%r", len(request.items), request.context.brain_name)
+    start = time.time()
+    try:
+        result = await invoke_research_topic_scorer(request)
+        logger.info("agent=research-topic-scorer status=ok completeness=%s duration=%.2fs", result.overall_completeness, time.time() - start)
+        return result
+    except Exception:
+        logger.exception("agent=research-topic-scorer status=error duration=%.2fs", time.time() - start)
+        raise
 
 
 @router.post("/agents/research-bullet-expander", response_model=ExpandBulletResponse)
 async def research_bullet_expander(request: ExpandBulletRequest):
-    return await invoke_research_bullet_expander(request)
+    logger.info("agent=research-bullet-expander bullet=%r brain=%r", request.bullet.text[:80], request.context.brain_name)
+    start = time.time()
+    try:
+        result = await invoke_research_bullet_expander(request)
+        logger.info("agent=research-bullet-expander status=ok children=%d duration=%.2fs", len(result.children), time.time() - start)
+        return result
+    except Exception:
+        logger.exception("agent=research-bullet-expander status=error duration=%.2fs", time.time() - start)
+        raise
 
 
 @router.post("/agents/review-qa-generator", response_model=ReviewQAResponse)
 async def review_qa_generator(request: ReviewQARequest):
-    return await invoke_review_qa_generator(request)
+    logger.info("agent=review-qa-generator neuron=%r questions=%d brain=%r", request.neuron_title[:80], request.question_count, request.brain_name)
+    start = time.time()
+    try:
+        result = await invoke_review_qa_generator(request)
+        logger.info("agent=review-qa-generator status=ok items=%d duration=%.2fs", len(result.items), time.time() - start)
+        return result
+    except Exception:
+        logger.exception("agent=review-qa-generator status=error duration=%.2fs", time.time() - start)
+        raise
