@@ -6,6 +6,7 @@ from src.agents.research_goal_generator import invoke_research_goal_generator
 from src.agents.research_topic_generator import invoke_research_topic_generator
 from src.agents.research_topic_scorer import invoke_research_topic_scorer
 from src.agents.research_bullet_expander import invoke_research_bullet_expander
+from src.agents.review_qa_generator import invoke_review_qa_generator
 from src.schemas.agents import AgentRequest, AgentResponse
 from src.schemas.section_author import SectionAuthorRequest, SectionAuthorResponse
 from src.schemas.research import (
@@ -14,6 +15,7 @@ from src.schemas.research import (
     ScoreTopicRequest, ScoreTopicResponse,
     ExpandBulletRequest, ExpandBulletResponse,
 )
+from src.schemas.review_qa import ReviewQARequest, ReviewQAResponse
 
 router = APIRouter()
 
@@ -59,3 +61,8 @@ async def research_topic_scorer(request: ScoreTopicRequest):
 @router.post("/agents/research-bullet-expander", response_model=ExpandBulletResponse)
 async def research_bullet_expander(request: ExpandBulletRequest):
     return await invoke_research_bullet_expander(request)
+
+
+@router.post("/agents/review-qa-generator", response_model=ReviewQAResponse)
+async def review_qa_generator(request: ReviewQARequest):
+    return await invoke_review_qa_generator(request)

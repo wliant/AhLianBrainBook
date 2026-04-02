@@ -24,6 +24,8 @@ export function SpacedRepetitionPanel({
   const [item, setItem] = useState<SpacedRepetitionItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [questionCount, setQuestionCount] = useState(5);
+  const [updatingCount, setUpdatingCount] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +35,10 @@ export function SpacedRepetitionPanel({
     api.spacedRepetition
       .getItem(neuronId)
       .then((data) => {
-        if (!cancelled) setItem(data);
+        if (!cancelled) {
+          setItem(data);
+          setQuestionCount(data.questionCount);
+        }
       })
       .catch(() => {
         if (!cancelled) setItem(null);
@@ -121,6 +126,40 @@ export function SpacedRepetitionPanel({
                 <span className="text-muted-foreground">Added</span>
                 <span className="text-right">{formatRelativeTime(item.createdAt)}</span>
               </div>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <span className="text-xs font-medium text-muted-foreground">Quiz Questions</span>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground" htmlFor="question-count">
+                  Number of questions
+                </label>
+                <select
+                  id="question-count"
+                  value={questionCount}
+                  onChange={async (e) => {
+                    const val = Number(e.target.value);
+                    setQuestionCount(val);
+                    setUpdatingCount(true);
+                    try {
+                      const updated = await api.spacedRepetition.updateQuestionCount(item.id, val);
+                      setItem(updated);
+                    } catch { /* ignore */ }
+                    finally { setUpdatingCount(false); }
+                  }}
+                  disabled={updatingCount}
+                  className="h-7 rounded-md border bg-background px-2 text-xs"
+                  data-testid="question-count-select"
+                >
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                {updatingCount && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {item.hasQuestions ? "Questions ready for review" : item.quizEligible ? "Questions will be generated before next review" : "Content too short for quiz mode"}
+              </p>
             </div>
 
             <Button

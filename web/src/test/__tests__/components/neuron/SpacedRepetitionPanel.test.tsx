@@ -18,6 +18,9 @@ const makeSRItem = (overrides: Record<string, unknown> = {}) => ({
   nextReviewAt: new Date(Date.now() + 3.5 * 24 * 3600_000).toISOString(),
   lastReviewedAt: new Date(Date.now() - 2 * 24 * 3600_000).toISOString(),
   createdAt: '2024-01-01T00:00:00',
+  questionCount: 5,
+  hasQuestions: false,
+  quizEligible: false,
   ...overrides,
 });
 

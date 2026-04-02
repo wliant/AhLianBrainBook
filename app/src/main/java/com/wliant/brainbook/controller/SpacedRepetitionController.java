@@ -1,13 +1,17 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.dto.QuestionCountRequest;
+import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
+import com.wliant.brainbook.service.ReviewQuestionService;
 import com.wliant.brainbook.service.SpacedRepetitionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,9 +26,12 @@ import java.util.UUID;
 public class SpacedRepetitionController {
 
     private final SpacedRepetitionService spacedRepetitionService;
+    private final ReviewQuestionService reviewQuestionService;
 
-    public SpacedRepetitionController(SpacedRepetitionService spacedRepetitionService) {
+    public SpacedRepetitionController(SpacedRepetitionService spacedRepetitionService,
+                                       ReviewQuestionService reviewQuestionService) {
         this.spacedRepetitionService = spacedRepetitionService;
+        this.reviewQuestionService = reviewQuestionService;
     }
 
     @PostMapping("/items/{neuronId}")
@@ -58,5 +65,26 @@ public class SpacedRepetitionController {
             @PathVariable UUID itemId,
             @Valid @RequestBody SpacedRepetitionReviewRequest request) {
         return ResponseEntity.ok(spacedRepetitionService.submitReview(itemId, request.quality()));
+    }
+
+    @GetMapping("/items/{itemId}/questions")
+    public ResponseEntity<List<ReviewQuestionResponse>> getQuestions(@PathVariable UUID itemId) {
+        return ResponseEntity.ok(reviewQuestionService.getQuestionsForItem(itemId));
+    }
+
+    @PostMapping("/items/{itemId}/questions/regenerate")
+    public ResponseEntity<Void> regenerateQuestions(@PathVariable UUID itemId) {
+        // Trigger async regeneration by clearing existing and letting scheduler pick up
+        reviewQuestionService.markStaleByNeuron(
+                spacedRepetitionService.getItemEntity(itemId).getNeuronId(), "");
+        return ResponseEntity.accepted().build();
+    }
+
+    @PatchMapping("/items/{itemId}/question-count")
+    public ResponseEntity<SpacedRepetitionItemResponse> updateQuestionCount(
+            @PathVariable UUID itemId,
+            @Valid @RequestBody QuestionCountRequest request) {
+        spacedRepetitionService.updateQuestionCount(itemId, request.questionCount());
+        return ResponseEntity.ok(spacedRepetitionService.getItemById(itemId));
     }
 }

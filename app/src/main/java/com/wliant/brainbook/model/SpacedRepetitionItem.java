@@ -40,6 +40,9 @@ public class SpacedRepetitionItem {
     @Column(name = "repetitions", nullable = false)
     private int repetitions = 0;
 
+    @Column(name = "question_count", nullable = false)
+    private int questionCount = 5;
+
     @Column(name = "next_review_at", nullable = false)
     private LocalDateTime nextReviewAt;
 
@@ -80,5 +83,7 @@ public class SpacedRepetitionItem {
     public LocalDateTime getLastReviewedAt() { return lastReviewedAt; }
     public void setLastReviewedAt(LocalDateTime lastReviewedAt) { this.lastReviewedAt = lastReviewedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public int getQuestionCount() { return questionCount; }
+    public void setQuestionCount(int questionCount) { this.questionCount = questionCount; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

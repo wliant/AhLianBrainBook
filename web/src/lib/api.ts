@@ -225,6 +225,15 @@ export const api = {
         method: "POST",
         body: { quality },
       }),
+    getQuestions: (itemId: string) =>
+      request<import("@/types").ReviewQuestion[]>(`/api/spaced-repetition/items/${itemId}/questions`),
+    regenerateQuestions: (itemId: string) =>
+      request<void>(`/api/spaced-repetition/items/${itemId}/questions/regenerate`, { method: "POST" }),
+    updateQuestionCount: (itemId: string, questionCount: number) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${itemId}/question-count`, {
+        method: "PATCH",
+        body: { questionCount },
+      }),
   },
 
   aiAssist: {

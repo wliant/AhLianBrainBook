@@ -50,6 +50,7 @@ public class NeuronService {
     private final TagService tagService;
     private final NeuronSnapshotSchedulerService snapshotScheduler;
     private final SettingsService settingsService;
+    private final ReviewQuestionService reviewQuestionService;
     private final ObjectMapper objectMapper;
 
     public NeuronService(NeuronRepository neuronRepository,
@@ -59,6 +60,7 @@ public class NeuronService {
                          TagService tagService,
                          NeuronSnapshotSchedulerService snapshotScheduler,
                          SettingsService settingsService,
+                         ReviewQuestionService reviewQuestionService,
                          ObjectMapper objectMapper) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
@@ -67,6 +69,7 @@ public class NeuronService {
         this.tagService = tagService;
         this.snapshotScheduler = snapshotScheduler;
         this.settingsService = settingsService;
+        this.reviewQuestionService = reviewQuestionService;
         this.objectMapper = objectMapper;
     }
 
@@ -173,6 +176,7 @@ public class NeuronService {
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         snapshotScheduler.recordUpdate(id);
+        reviewQuestionService.markStaleByNeuron(id, reviewQuestionService.computeContentHash(req.contentText()));
         syncEditorLinks(id, req.contentJson());
         return toResponse(saved);
     }

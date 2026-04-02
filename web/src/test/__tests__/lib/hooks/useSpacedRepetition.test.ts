@@ -18,6 +18,9 @@ const makeSRItem = (overrides: Partial<SpacedRepetitionItem> = {}): SpacedRepeti
   nextReviewAt: new Date().toISOString(),
   lastReviewedAt: null,
   createdAt: '2024-01-01T00:00:00',
+  questionCount: 5,
+  hasQuestions: false,
+  quizEligible: false,
   ...overrides,
 });
 

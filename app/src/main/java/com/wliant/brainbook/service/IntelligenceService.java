@@ -231,6 +231,18 @@ public class IntelligenceService {
         return callAgent("/api/agents/research-bullet-expander", request);
     }
 
+    public Map<String, Object> generateReviewQA(String neuronTitle, String contentText,
+                                                int questionCount, String brainName, List<String> tags) {
+        Map<String, Object> request = Map.of(
+                "neuron_title", neuronTitle != null ? neuronTitle : "Untitled",
+                "content_text", contentText != null ? contentText : "",
+                "question_count", questionCount,
+                "brain_name", brainName != null ? brainName : "",
+                "tags", tags != null ? tags : List.of()
+        );
+        return callAgent("/api/agents/review-qa-generator", request);
+    }
+
     Map<String, Object> callAgent(String uri, Map<String, Object> request) {
         return intelligenceRestClient.post()
                 .uri(uri)

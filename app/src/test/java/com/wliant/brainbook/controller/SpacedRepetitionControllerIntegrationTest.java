@@ -8,6 +8,8 @@ import com.wliant.brainbook.dto.CreateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.QuestionCountRequest;
+import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
 import io.minio.MinioClient;
@@ -18,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -278,5 +281,61 @@ class SpacedRepetitionControllerIntegrationTest {
                 item.id());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // ── getQuestions ──
+
+    @Test
+    void getQuestions_returns200EmptyList() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        ResponseEntity<List<ReviewQuestionResponse>> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/questions", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<ReviewQuestionResponse>>() {}, item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEmpty();
+    }
+
+    // ── updateQuestionCount ──
+
+    @Test
+    void updateQuestionCount_returns200() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/question-count",
+                HttpMethod.PATCH,
+                new HttpEntity<>(new QuestionCountRequest(3)),
+                SpacedRepetitionItemResponse.class,
+                item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().questionCount()).isEqualTo(3);
+    }
+
+    @Test
+    void updateQuestionCount_returns400ForInvalidCount() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/question-count",
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("questionCount", 0)),
+                Void.class,
+                item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    // ── addItem includes new fields ──
+
+    @Test
+    void addItem_responseIncludesQuizFields() {
+        ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.postForEntity(
+                "/api/spaced-repetition/items/{neuronId}", null, SpacedRepetitionItemResponse.class, neuronId);
+
+        assertThat(response.getBody().questionCount()).isEqualTo(5);
+        assertThat(response.getBody().hasQuestions()).isFalse();
     }
 }

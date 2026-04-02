@@ -23,11 +23,14 @@ public class SpacedRepetitionService {
 
     private final SpacedRepetitionRepository srRepository;
     private final NeuronRepository neuronRepository;
+    private final ReviewQuestionService reviewQuestionService;
 
     public SpacedRepetitionService(SpacedRepetitionRepository srRepository,
-                                   NeuronRepository neuronRepository) {
+                                   NeuronRepository neuronRepository,
+                                   ReviewQuestionService reviewQuestionService) {
         this.srRepository = srRepository;
         this.neuronRepository = neuronRepository;
+        this.reviewQuestionService = reviewQuestionService;
     }
 
     public SpacedRepetitionItemResponse addItem(UUID neuronId) {
@@ -47,6 +50,17 @@ public class SpacedRepetitionService {
         SpacedRepetitionItem saved = srRepository.save(item);
         log.info("Added neuron {} ('{}') to spaced repetition", neuronId, neuron.getTitle());
         return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public SpacedRepetitionItem getItemEntity(UUID itemId) {
+        return srRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public SpacedRepetitionItemResponse getItemById(UUID itemId) {
+        return toResponse(getItemEntity(itemId));
     }
 
     public void removeItem(UUID neuronId) {
@@ -119,7 +133,17 @@ public class SpacedRepetitionService {
                 item.getRepetitions(), item.getIntervalDays(), item.getEaseFactor());
     }
 
+    public void updateQuestionCount(UUID itemId, int questionCount) {
+        SpacedRepetitionItem item = srRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
+        item.setQuestionCount(questionCount);
+        srRepository.save(item);
+        log.info("Updated question count to {} for SR item {}", questionCount, itemId);
+    }
+
     private SpacedRepetitionItemResponse toResponse(SpacedRepetitionItem item) {
+        boolean hasQuestions = reviewQuestionService.hasReadyQuestions(item.getId());
+        boolean quizEligible = reviewQuestionService.isSubstantiveContent(item.getNeuron());
         return new SpacedRepetitionItemResponse(
                 item.getId(),
                 item.getNeuron().getId(),
@@ -129,7 +153,10 @@ public class SpacedRepetitionService {
                 item.getRepetitions(),
                 item.getNextReviewAt(),
                 item.getLastReviewedAt(),
-                item.getCreatedAt()
+                item.getCreatedAt(),
+                item.getQuestionCount(),
+                hasQuestions,
+                quizEligible
         );
     }
 }

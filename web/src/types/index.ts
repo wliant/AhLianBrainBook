@@ -227,6 +227,16 @@ export interface SpacedRepetitionItem {
   nextReviewAt: string;
   lastReviewedAt: string | null;
   createdAt: string;
+  questionCount: number;
+  hasQuestions: boolean;
+  quizEligible: boolean;
+}
+
+export interface ReviewQuestion {
+  id: string;
+  questionText: string;
+  answerText: string;
+  questionOrder: number;
 }
 
 export interface BrainExport {

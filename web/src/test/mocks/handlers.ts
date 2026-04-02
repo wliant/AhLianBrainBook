@@ -176,11 +176,17 @@ export const handlers = [
         nextReviewAt: new Date().toISOString(),
         lastReviewedAt: null,
         createdAt: '2024-01-01T00:00:00',
+        questionCount: 5,
+        hasQuestions: false,
+        quizEligible: false,
       },
       { status: 201 }
     )
   ),
   http.delete(`${API_BASE}/api/spaced-repetition/items/:neuronId`, () =>
     new HttpResponse(null, { status: 204 })
+  ),
+  http.get(`${API_BASE}/api/spaced-repetition/items/:itemId/questions`, () =>
+    HttpResponse.json([])
   ),
 ];
