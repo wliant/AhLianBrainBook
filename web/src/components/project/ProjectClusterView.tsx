@@ -16,6 +16,7 @@ import { NeuronPanel } from "./NeuronPanel";
 import { ProvisionSandboxDialog } from "./ProvisionSandboxDialog";
 import { SandboxStatusBar } from "./SandboxStatusBar";
 import { GitLogPanel } from "./GitLogPanel";
+import { DiffView } from "./DiffView";
 import { FileStructurePanel } from "./FileStructurePanel";
 import { QuickOpenDialog } from "./QuickOpenDialog";
 import { useCodeStructure } from "@/lib/hooks/useCodeStructure";
@@ -300,6 +301,17 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           repoUrl={config.repoUrl}
           defaultBranch={config.defaultBranch}
           onProvision={handleProvision}
+        />
+      )}
+
+      {/* Diff View Dialog */}
+      {diffView && (
+        <DiffView
+          open={!!diffView}
+          onOpenChange={(open) => { if (!open) setDiffView(null); }}
+          clusterId={cluster.id}
+          from={diffView.from}
+          to={diffView.to}
         />
       )}
 
