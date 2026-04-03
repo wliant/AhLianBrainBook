@@ -51,6 +51,7 @@ export function useSandbox(clusterId: string | null) {
   const terminate = async () => {
     if (!clusterId) return;
     await api.sandbox.terminate(clusterId);
+    queryClient.setQueryData(["sandbox", clusterId], null);
     invalidateSandboxQueries();
   };
 
