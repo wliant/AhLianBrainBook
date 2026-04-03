@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
 import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap, Share2 } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
@@ -40,6 +41,7 @@ function NeuronPageContent({
   const router = useRouter();
   const pathname = usePathname();
   const viewMode = searchParams.get("mode") === "view";
+  const queryClient = useQueryClient();
 
   const [neuron, setNeuron] = useState<Neuron | null>(null);
   const [title, setTitle] = useState("");
@@ -62,6 +64,7 @@ function NeuronPageContent({
   const latestDoc = useRef<SectionsDocument>({ version: 2, sections: [] });
   const richTextTextsRef = useRef<Map<string, string>>(new Map());
   const viewRevisionTextsRef = useRef<Map<string, string>>(new Map());
+  const titleRef = useRef("");
 
   useEffect(() => {
     api.get<Neuron>(`/api/neurons/${neuronId}`).then((n) => {
@@ -72,6 +75,7 @@ function NeuronPageContent({
       const parsed = { ...n, contentJson: parsedJson };
       setNeuron(parsed);
       setTitle(parsed.title);
+      titleRef.current = parsed.title;
       versionRef.current = parsed.version;
       const doc = normalizeContent(parsedJson);
       setSectionsDoc(doc);
@@ -125,6 +129,7 @@ function NeuronPageContent({
         });
         if (newTitle !== neuron?.title) {
           await api.patch(`/api/neurons/${neuronId}`, { title: newTitle });
+          queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
         }
         versionRef.current += 1;
         setSaveStatus("saved");
@@ -132,7 +137,7 @@ function NeuronPageContent({
         setSaveStatus("error");
       }
     },
-    [neuronId, neuron?.title]
+    [neuronId, neuron?.title, clusterId, queryClient]
   );
 
   const debouncedSave = useCallback(
@@ -145,6 +150,7 @@ function NeuronPageContent({
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
+    titleRef.current = e.target.value;
     debouncedSave(e.target.value);
   };
 
@@ -152,9 +158,9 @@ function NeuronPageContent({
     (doc: SectionsDocument) => {
       latestDoc.current = doc;
       setSectionsDoc(doc);
-      debouncedSave(title);
+      debouncedSave(titleRef.current);
     },
-    [debouncedSave, title]
+    [debouncedSave]
   );
 
   const toggleFavorite = async () => {
@@ -210,15 +216,17 @@ function NeuronPageContent({
     });
   };
 
+  const saveContentRef = useRef(saveContent);
+  useEffect(() => { saveContentRef.current = saveContent; }, [saveContent]);
+
   // Flush pending save on unmount
   useEffect(() => {
     return () => {
       if (saveTimeout.current) {
         clearTimeout(saveTimeout.current);
-        saveContent(title);
+        saveContentRef.current(titleRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
