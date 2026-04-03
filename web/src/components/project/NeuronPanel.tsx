@@ -1,9 +1,11 @@
 "use client";
 
-import { FileText, AlertTriangle, CheckCircle, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { FileText, FileCode, AlertTriangle, CheckCircle, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useNeurons } from "@/lib/hooks/useNeurons";
+import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import type { NeuronAnchor } from "@/types";
 
 interface NeuronPanelProps {
@@ -25,14 +27,27 @@ export function NeuronPanel({
 }: NeuronPanelProps) {
   const { neurons } = useNeurons(clusterId);
   const { confirmDrift, deleteAnchor } = useNeuronAnchors(clusterId);
+  const [expandedNeurons, setExpandedNeurons] = useState<Set<string>>(new Set());
 
-  // Build neuron title lookup
-  const neuronTitles = new Map(neurons.map((n) => [n.id, n.title]));
+  // Build neuron lookup
+  const neuronMap = new Map(neurons.map((n) => [n.id, n]));
 
   const activeAnchors = fileAnchors.filter((a) => a.status === "active");
   const needsReview = fileAnchors.filter(
     (a) => a.status === "drifted" || a.status === "orphaned"
   );
+
+  const toggleExpanded = (neuronId: string) => {
+    setExpandedNeurons((prev) => {
+      const next = new Set(prev);
+      if (next.has(neuronId)) {
+        next.delete(neuronId);
+      } else {
+        next.add(neuronId);
+      }
+      return next;
+    });
+  };
 
   const handleConfirmDrift = async (anchor: NeuronAnchor) => {
     try {
@@ -78,28 +93,70 @@ export function NeuronPanel({
             <p className="text-xs mt-1">Click line numbers to select a range, then shift+click to create an anchor.</p>
           </div>
         ) : (
-          activeAnchors.map((anchor) => (
-            <button
-              key={anchor.id}
-              className="w-full text-left p-2 rounded-md hover:bg-accent transition-colors"
-              onClick={() => onAnchorClick(anchor.startLine)}
-            >
-              <div className="flex items-center gap-2">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm font-medium truncate">
-                  {neuronTitles.get(anchor.neuronId) || "Untitled"}
-                </span>
+          activeAnchors.map((anchor) => {
+            const neuron = neuronMap.get(anchor.neuronId);
+            const isExpanded = expandedNeurons.has(anchor.neuronId);
+            const contentJson = neuron?.contentJson
+              ? (typeof neuron.contentJson === "string"
+                  ? JSON.parse(neuron.contentJson)
+                  : neuron.contentJson)
+              : null;
+            const hasContent = contentJson && contentJson.content?.length > 0;
+
+            return (
+              <div key={anchor.id} className="rounded-md border border-border/50">
+                <button
+                  className="w-full text-left p-2 hover:bg-accent transition-colors rounded-t-md"
+                  onClick={() => onAnchorClick(anchor.startLine)}
+                >
+                  <div className="flex items-center gap-2">
+                    {hasContent ? (
+                      <button
+                        className="shrink-0 p-0.5 hover:bg-accent rounded"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpanded(anchor.neuronId);
+                        }}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </button>
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="text-sm font-medium truncate">
+                      {neuron?.title || "Untitled"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 ml-5.5">
+                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">
+                      <FileCode className="h-2.5 w-2.5" />
+                      L{anchor.startLine}
+                      {anchor.endLine !== anchor.startLine
+                        ? `–${anchor.endLine}`
+                        : ""}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Expanded content */}
+                {isExpanded && contentJson && (
+                  <div className="px-3 pb-2 border-t border-border/30">
+                    <div className="mt-2 text-sm">
+                      <TiptapEditor
+                        content={contentJson}
+                        onUpdate={() => {}}
+                        editable={false}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2 mt-0.5 ml-5.5">
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">
-                  L{anchor.startLine}
-                  {anchor.endLine !== anchor.startLine
-                    ? `–${anchor.endLine}`
-                    : ""}
-                </span>
-              </div>
-            </button>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -118,7 +175,7 @@ export function NeuronPanel({
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium truncate">
-                    {neuronTitles.get(anchor.neuronId) || "Untitled"}
+                    {neuronMap.get(anchor.neuronId)?.title || "Untitled"}
                   </span>
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded ${

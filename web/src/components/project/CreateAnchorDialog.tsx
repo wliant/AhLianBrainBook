@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { FileCode } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import { api } from "@/lib/api";
 import type { Neuron } from "@/types";
 
@@ -36,12 +37,23 @@ export function CreateAnchorDialog({
 }: CreateAnchorDialogProps) {
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
+  const contentJsonRef = useRef<Record<string, unknown> | null>(null);
+  const contentTextRef = useRef<string>("");
   const queryClient = useQueryClient();
 
-  // Reset title when dialog opens or selection changes
+  // Reset when dialog opens or selection changes
   useEffect(() => {
-    if (open) setTitle("");
+    if (open) {
+      setTitle("");
+      contentJsonRef.current = null;
+      contentTextRef.current = "";
+    }
   }, [open, startLine, endLine]);
+
+  const handleEditorUpdate = (json: Record<string, unknown>, text: string) => {
+    contentJsonRef.current = json;
+    contentTextRef.current = text;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +66,8 @@ export function CreateAnchorDialog({
         title: title.trim(),
         brainId,
         clusterId,
+        contentJson: contentJsonRef.current ? JSON.stringify(contentJsonRef.current) : undefined,
+        contentText: contentTextRef.current || undefined,
         anchor: {
           filePath,
           startLine,
@@ -73,24 +87,30 @@ export function CreateAnchorDialog({
     }
   };
 
+  const fileName = filePath.split("/").pop() ?? filePath;
+  const lineLabel = endLine !== startLine ? `L${startLine}–${endLine}` : `L${startLine}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Create Anchored Neuron</DialogTitle>
-          <DialogDescription>
-            Anchor a new neuron to{" "}
-            <span className="font-mono text-xs">{filePath}</span> at lines{" "}
-            {startLine}
-            {endLine !== startLine ? `–${endLine}` : ""}.
-          </DialogDescription>
         </DialogHeader>
+
+        {/* File/line callout */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-sm">
+          <FileCode className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="font-mono text-xs truncate">{fileName}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 shrink-0">
+            {lineLabel}
+          </span>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label htmlFor="neuron-title" className="text-sm font-medium">
-                Neuron Title
+                Title
               </label>
               <Input
                 id="neuron-title"
@@ -100,6 +120,17 @@ export function CreateAnchorDialog({
                 autoFocus
                 data-testid="anchor-neuron-title"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <div className="mt-1 border rounded-md p-2 min-h-[120px] max-h-[300px] overflow-y-auto">
+                <TiptapEditor
+                  content={null}
+                  onUpdate={handleEditorUpdate}
+                  editable={true}
+                />
+              </div>
             </div>
           </div>
 
