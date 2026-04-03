@@ -1,4 +1,6 @@
-# Project Cluster
+# Project Cluster (Superseded)
+
+> **This spec has been superseded by [`specs/06-project-cluster.md`](../06-project-cluster.md)**, which merges V1+V2, adds neuron-to-line anchoring, dual mode (URL browse vs sandbox), and incorporates all design decisions from the April 2026 review. This file is kept for historical reference only.
 
 ## Context
 
