@@ -234,6 +234,11 @@ export const api = {
         method: "PATCH",
         body: { questionCount },
       }),
+    updateQuizEnabled: (itemId: string, quizEnabled: boolean) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${itemId}/quiz-enabled`, {
+        method: "PATCH",
+        body: { quizEnabled },
+      }),
   },
 
   aiAssist: {

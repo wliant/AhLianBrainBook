@@ -1,6 +1,7 @@
 package com.wliant.brainbook.controller;
 
 import com.wliant.brainbook.dto.QuestionCountRequest;
+import com.wliant.brainbook.dto.QuizEnabledRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
@@ -78,6 +79,14 @@ public class SpacedRepetitionController {
         reviewQuestionService.markStaleByNeuron(
                 spacedRepetitionService.getItemEntity(itemId).getNeuronId(), "");
         return ResponseEntity.accepted().build();
+    }
+
+    @PatchMapping("/items/{itemId}/quiz-enabled")
+    public ResponseEntity<SpacedRepetitionItemResponse> updateQuizEnabled(
+            @PathVariable UUID itemId,
+            @Valid @RequestBody QuizEnabledRequest request) {
+        spacedRepetitionService.updateQuizEnabled(itemId, request.quizEnabled());
+        return ResponseEntity.ok(spacedRepetitionService.getItemById(itemId));
     }
 
     @PatchMapping("/items/{itemId}/question-count")

@@ -230,6 +230,7 @@ export interface SpacedRepetitionItem {
   questionCount: number;
   hasQuestions: boolean;
   quizEligible: boolean;
+  quizEnabled: boolean;
 }
 
 export interface ReviewQuestion {

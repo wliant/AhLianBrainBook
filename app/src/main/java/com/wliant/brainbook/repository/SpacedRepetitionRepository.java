@@ -27,6 +27,7 @@ public interface SpacedRepetitionRepository extends JpaRepository<SpacedRepetiti
 
     @Query("SELECT i FROM SpacedRepetitionItem i JOIN FETCH i.neuron "
             + "WHERE i.nextReviewAt <= :horizon "
+            + "AND i.quizEnabled = true "
             + "AND NOT EXISTS (SELECT 1 FROM ReviewQuestion q WHERE q.srItemId = i.id "
             + "AND q.status = com.wliant.brainbook.model.ReviewQuestionStatus.READY)")
     List<SpacedRepetitionItem> findDueWithoutReadyQuestions(@Param("horizon") LocalDateTime horizon);

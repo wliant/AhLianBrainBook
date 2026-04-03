@@ -179,6 +179,7 @@ export const handlers = [
         questionCount: 5,
         hasQuestions: false,
         quizEligible: false,
+        quizEnabled: true,
       },
       { status: 201 }
     )
