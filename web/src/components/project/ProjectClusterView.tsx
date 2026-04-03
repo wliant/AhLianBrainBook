@@ -1,15 +1,21 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { GitBranch } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { GitBranch, Box } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
 import { useFileTree } from "@/lib/hooks/useFileTree";
 import { useFileContent } from "@/lib/hooks/useFileContent";
 import { useFileAnchors } from "@/lib/hooks/useNeuronAnchors";
+import { useSandbox } from "@/lib/hooks/useSandbox";
+import { api } from "@/lib/api";
 import { FileTreePanel } from "./FileTreePanel";
 import { CodeViewer } from "./CodeViewer";
 import { NeuronPanel } from "./NeuronPanel";
-import type { Cluster } from "@/types";
+import { ProvisionSandboxDialog } from "./ProvisionSandboxDialog";
+import { SandboxStatusBar } from "./SandboxStatusBar";
+import type { Cluster, FileTreeEntry, FileContent } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 interface ProjectClusterViewProps {
   cluster: Cluster;
@@ -18,14 +24,44 @@ interface ProjectClusterViewProps {
 
 export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps) {
   const { config } = useProjectConfig(cluster.id);
+  const { sandbox, provision, terminate, pull } = useSandbox(cluster.id);
+  const isSandboxActive = sandbox?.status === "active";
   const ref = config?.defaultBranch ?? undefined;
+
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [scrollToLine, setScrollToLine] = useState<number | null>(null);
-
-  const { entries, loading: treeLoading } = useFileTree(cluster.id, ref);
-  const { fileContent, loading: fileLoading } = useFileContent(cluster.id, selectedPath, ref);
-  const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(cluster.id, selectedPath);
   const [scrollKey, setScrollKey] = useState(0);
+  const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
+  const [pulling, setPulling] = useState(false);
+
+  // File tree: use sandbox endpoint when active, otherwise GitHub API
+  const { data: sandboxEntries = [], isLoading: sandboxTreeLoading } = useQuery({
+    queryKey: ["sandbox-tree", cluster.id, selectedPath ? "" : "root"],
+    queryFn: () => api.sandbox.tree(cluster.id, ""),
+    enabled: isSandboxActive,
+  });
+  const { entries: browseEntries, loading: browseTreeLoading } = useFileTree(
+    isSandboxActive ? null : cluster.id,
+    ref
+  );
+  const entries = isSandboxActive ? sandboxEntries : browseEntries;
+  const treeLoading = isSandboxActive ? sandboxTreeLoading : browseTreeLoading;
+
+  // File content: use sandbox endpoint when active
+  const { data: sandboxFileContent, isLoading: sandboxFileLoading } = useQuery({
+    queryKey: ["sandbox-file", cluster.id, selectedPath],
+    queryFn: () => api.sandbox.file(cluster.id, selectedPath!),
+    enabled: isSandboxActive && !!selectedPath,
+  });
+  const { fileContent: browseFileContent, loading: browseFileLoading } = useFileContent(
+    isSandboxActive ? null : cluster.id,
+    selectedPath,
+    ref
+  );
+  const fileContent = isSandboxActive ? sandboxFileContent : browseFileContent;
+  const fileLoading = isSandboxActive ? sandboxFileLoading : browseFileLoading;
+
+  const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(cluster.id, selectedPath);
 
   const handleSelectFile = useCallback((path: string) => {
     setSelectedPath(path);
@@ -37,14 +73,45 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     setScrollKey((k) => k + 1);
   }, []);
 
+  const handleProvision = async (body: { branch: string; shallow: boolean }) => {
+    await provision(body);
+  };
+
+  const handlePull = async () => {
+    setPulling(true);
+    try {
+      await pull();
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const handleTerminate = async () => {
+    if (confirm("This will delete the cloned repository from the server. Your notes and anchors will be preserved.")) {
+      await terminate();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full" data-testid="project-cluster-view">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground">
         <GitBranch className="h-4 w-4" />
-        <span>{config?.defaultBranch ?? "main"}</span>
+        <span>{sandbox?.currentBranch ?? config?.defaultBranch ?? "main"}</span>
         {config?.repoUrl && (
           <span className="text-xs opacity-60 truncate ml-2">{config.repoUrl}</span>
+        )}
+        <div className="flex-1" />
+        {!sandbox && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => setProvisionDialogOpen(true)}
+          >
+            <Box className="h-3 w-3 mr-1" />
+            Provision Sandbox
+          </Button>
         )}
       </div>
 
@@ -90,6 +157,27 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           />
         </div>
       </div>
+
+      {/* Sandbox Status Bar */}
+      {sandbox && (
+        <SandboxStatusBar
+          sandbox={sandbox}
+          onPull={handlePull}
+          onTerminate={handleTerminate}
+          pulling={pulling}
+        />
+      )}
+
+      {/* Provision Dialog */}
+      {config && (
+        <ProvisionSandboxDialog
+          open={provisionDialogOpen}
+          onOpenChange={setProvisionDialogOpen}
+          repoUrl={config.repoUrl}
+          defaultBranch={config.defaultBranch}
+          onProvision={handleProvision}
+        />
+      )}
     </div>
   );
 }
