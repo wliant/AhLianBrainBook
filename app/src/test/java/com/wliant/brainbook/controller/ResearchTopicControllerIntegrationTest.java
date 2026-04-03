@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -56,7 +55,7 @@ class ResearchTopicControllerIntegrationTest {
     void setUp() {
         databaseCleaner.clean();
 
-        when(intelligenceService.generateResearchGoal(anyString(), anyList()))
+        when(intelligenceService.generateResearchGoal(anyString(), anyString()))
                 .thenReturn("Test research goal");
 
         BrainRequest brainReq = new BrainRequest("Test Brain", "icon", "#FF0000", null);
