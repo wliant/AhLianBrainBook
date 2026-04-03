@@ -152,6 +152,34 @@ export interface FileContent {
   size: number;
 }
 
+// --- Code Intelligence ---
+
+export interface CodeSymbol {
+  name: string;
+  kind: string;
+  startLine: number;
+  endLine: number;
+  children: CodeSymbol[];
+}
+
+export interface CodeLocation {
+  file: string | null;
+  line: number;
+  col: number;
+}
+
+export interface CodeStructureResponse {
+  symbols: CodeSymbol[];
+}
+
+export interface CodeDefinitionResponse {
+  location: CodeLocation | null;
+}
+
+export interface CodeReferencesResponse {
+  references: CodeLocation[];
+}
+
 export interface Neuron {
   id: string;
   brainId: string;

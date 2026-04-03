@@ -136,6 +136,12 @@ export const api = {
       request<string>(`/api/clusters/${clusterId}/sandbox/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
     list: () =>
       request<import("@/types").Sandbox[]>("/api/sandboxes"),
+    structure: (clusterId: string, path: string) =>
+      request<import("@/types").CodeStructureResponse>(`/api/clusters/${clusterId}/sandbox/structure?path=${encodeURIComponent(path)}`),
+    definition: (clusterId: string, path: string, line: number, col: number) =>
+      request<import("@/types").CodeDefinitionResponse>(`/api/clusters/${clusterId}/sandbox/definition?path=${encodeURIComponent(path)}&line=${line}&col=${col}`),
+    references: (clusterId: string, path: string, line: number, col: number) =>
+      request<import("@/types").CodeReferencesResponse>(`/api/clusters/${clusterId}/sandbox/references?path=${encodeURIComponent(path)}&line=${line}&col=${col}`),
   },
 
   // NeuronLink endpoints
