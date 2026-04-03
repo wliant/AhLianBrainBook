@@ -13,7 +13,7 @@ def test_compute_embedding_returns_vector(client):
     data = response.json()
     assert data["dimensions"] == 1024
     assert len(data["embedding"]) == 1024
-    assert data["model_name"] == "qwen3-embedding:4b"
+    assert data["model_name"] == "nomic-embed-text"
 
 
 def test_compute_embedding_empty_text_returns_400(client):

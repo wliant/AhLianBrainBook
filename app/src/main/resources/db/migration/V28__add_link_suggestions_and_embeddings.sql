@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE neuron_embeddings (
     neuron_id   UUID PRIMARY KEY REFERENCES neurons(id) ON DELETE CASCADE,
-    embedding   vector(2560),
+    embedding   vector(768),
     model_name  VARCHAR(100) NOT NULL,
     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -19,6 +19,5 @@ CREATE TABLE link_suggestions (
 
 CREATE INDEX idx_link_suggestions_source ON link_suggestions(source_neuron_id);
 CREATE INDEX idx_link_suggestions_target ON link_suggestions(target_neuron_id);
--- pgvector indexes (HNSW, IVFFlat) have a 2000-dim limit.
--- qwen3-embedding:4b outputs 2560-dim, so we use sequential scan.
--- This is adequate for the expected scale (thousands of neurons).
+CREATE INDEX idx_neuron_embeddings_hnsw ON neuron_embeddings
+    USING hnsw (embedding vector_cosine_ops);

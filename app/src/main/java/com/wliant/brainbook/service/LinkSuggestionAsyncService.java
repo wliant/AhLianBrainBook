@@ -68,7 +68,7 @@ public class LinkSuggestionAsyncService {
         String embeddingVector = toVectorString(embedding);
         try {
             transactionTemplate.executeWithoutResult(status -> {
-                neuronEmbeddingRepository.upsertEmbedding(neuronId, embeddingVector, "qwen3-embedding:4b");
+                neuronEmbeddingRepository.upsertEmbedding(neuronId, embeddingVector, "nomic-embed-text");
                 linkSuggestionService.recomputeRelatedSuggestions(neuronId, embeddingVector);
             });
         } catch (Exception e) {
