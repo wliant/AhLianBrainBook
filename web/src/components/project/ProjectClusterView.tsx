@@ -24,7 +24,8 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
   const { entries, loading: treeLoading } = useFileTree(cluster.id, ref);
   const { fileContent, loading: fileLoading } = useFileContent(cluster.id, selectedPath, ref);
-  const { anchors: fileAnchors } = useFileAnchors(cluster.id, selectedPath);
+  const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(cluster.id, selectedPath);
+  const [scrollKey, setScrollKey] = useState(0);
 
   const handleSelectFile = useCallback((path: string) => {
     setSelectedPath(path);
@@ -33,6 +34,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
   const handleAnchorClick = useCallback((line: number) => {
     setScrollToLine(line);
+    setScrollKey((k) => k + 1);
   }, []);
 
   return (
@@ -63,9 +65,9 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           {selectedPath && fileContent ? (
             <CodeViewer
               fileContent={fileContent}
-              loading={fileLoading}
               anchors={fileAnchors}
               scrollToLine={scrollToLine}
+              scrollKey={scrollKey}
               clusterId={cluster.id}
               brainId={brainId}
             />
@@ -82,6 +84,8 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             clusterId={cluster.id}
             brainId={brainId}
             selectedPath={selectedPath}
+            fileAnchors={fileAnchors}
+            anchorsLoading={anchorsLoading}
             onAnchorClick={handleAnchorClick}
           />
         </div>

@@ -56,18 +56,18 @@ const languageLoaders: Record<string, () => Promise<LanguageSupport>> = {
 
 interface CodeViewerProps {
   fileContent: FileContent;
-  loading: boolean;
   anchors: NeuronAnchor[];
   scrollToLine: number | null;
+  scrollKey: number;
   clusterId: string;
   brainId: string;
 }
 
 export function CodeViewer({
   fileContent,
-  loading,
   anchors,
   scrollToLine,
+  scrollKey,
   clusterId,
   brainId,
 }: CodeViewerProps) {
@@ -146,7 +146,7 @@ export function CodeViewer({
     });
   }, [anchors]);
 
-  // Scroll to line
+  // Scroll to line (scrollKey ensures re-trigger for same line)
   useEffect(() => {
     const view = viewRef.current;
     if (!view || scrollToLine === null) return;
@@ -157,7 +157,7 @@ export function CodeViewer({
     view.dispatch({
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
-  }, [scrollToLine]);
+  }, [scrollToLine, scrollKey]);
 
   // Handle line gutter click for anchor selection
   const handleContainerClick = useCallback(
@@ -189,14 +189,6 @@ export function CodeViewer({
     },
     [anchorSelection]
   );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-        Loading file...
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full">

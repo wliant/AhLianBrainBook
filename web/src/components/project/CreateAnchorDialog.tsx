@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -38,6 +38,11 @@ export function CreateAnchorDialog({
   const [creating, setCreating] = useState(false);
   const queryClient = useQueryClient();
 
+  // Reset title when dialog opens or selection changes
+  useEffect(() => {
+    if (open) setTitle("");
+  }, [open, startLine, endLine]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || creating) return;
@@ -56,7 +61,7 @@ export function CreateAnchorDialog({
         },
       });
 
-      queryClient.invalidateQueries({ queryKey: ["neurons"] });
+      queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
       queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
 
       setTitle("");

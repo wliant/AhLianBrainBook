@@ -164,6 +164,18 @@ export const handlers = [
     })
   ),
 
+  http.patch(`${API_BASE}/api/clusters/:clusterId/project-config`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: 'config-1',
+      clusterId: params.clusterId,
+      repoUrl: 'https://github.com/owner/repo',
+      defaultBranch: body.defaultBranch || 'main',
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    });
+  }),
+
   // Browse endpoints
   http.get(`${API_BASE}/api/clusters/:clusterId/browse/tree`, () =>
     HttpResponse.json([
@@ -216,6 +228,24 @@ export const handlers = [
       },
       { status: 201 }
     );
+  }),
+  http.patch(`${API_BASE}/api/neuron-anchors/:id`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: params.id,
+      neuronId: 'neuron-1',
+      clusterId: 'cluster-1',
+      filePath: body.filePath,
+      startLine: body.startLine,
+      endLine: body.endLine,
+      contentHash: 'updated-hash',
+      commitSha: null,
+      status: 'active',
+      driftedStartLine: null,
+      driftedEndLine: null,
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    });
   }),
   http.delete(`${API_BASE}/api/neuron-anchors/:id`, () =>
     new HttpResponse(null, { status: 204 })

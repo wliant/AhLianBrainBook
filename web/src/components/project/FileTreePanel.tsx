@@ -12,42 +12,69 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+function ensureDir(dirMap: Map<string, TreeNode>, root: TreeNode[], dirPath: string): TreeNode {
+  const existing = dirMap.get(dirPath);
+  if (existing) return existing;
+
+  const lastSlash = dirPath.lastIndexOf("/");
+  const name = lastSlash >= 0 ? dirPath.substring(lastSlash + 1) : dirPath;
+  const node: TreeNode = { name, path: dirPath, type: "directory", size: null, children: [] };
+  dirMap.set(dirPath, node);
+
+  if (lastSlash === -1) {
+    root.push(node);
+  } else {
+    const parent = ensureDir(dirMap, root, dirPath.substring(0, lastSlash));
+    parent.children.push(node);
+  }
+  return node;
+}
+
 function buildTree(entries: FileTreeEntry[]): TreeNode[] {
   const root: TreeNode[] = [];
   const dirMap = new Map<string, TreeNode>();
 
-  // Sort: directories first, then alphabetical
-  const sorted = [...entries].sort((a, b) => {
-    if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
-    return a.path.localeCompare(b.path);
-  });
+  // First pass: register all explicit directories
+  for (const entry of entries) {
+    if (entry.type === "directory") {
+      ensureDir(dirMap, root, entry.path);
+    }
+  }
 
-  for (const entry of sorted) {
+  // Second pass: add files, synthesizing missing parent dirs
+  const files = entries
+    .filter((e) => e.type === "file")
+    .sort((a, b) => a.path.localeCompare(b.path));
+
+  for (const entry of files) {
     const node: TreeNode = {
       name: entry.name,
       path: entry.path,
-      type: entry.type,
+      type: "file",
       size: entry.size,
       children: [],
     };
-
-    if (entry.type === "directory") {
-      dirMap.set(entry.path, node);
-    }
 
     const lastSlash = entry.path.lastIndexOf("/");
     if (lastSlash === -1) {
       root.push(node);
     } else {
-      const parentPath = entry.path.substring(0, lastSlash);
-      const parent = dirMap.get(parentPath);
-      if (parent) {
-        parent.children.push(node);
-      } else {
-        root.push(node);
-      }
+      const parent = ensureDir(dirMap, root, entry.path.substring(0, lastSlash));
+      parent.children.push(node);
     }
   }
+
+  // Sort children: directories first, then alphabetical
+  function sortChildren(nodes: TreeNode[]) {
+    nodes.sort((a, b) => {
+      if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    for (const n of nodes) {
+      if (n.children.length > 0) sortChildren(n.children);
+    }
+  }
+  sortChildren(root);
 
   return root;
 }

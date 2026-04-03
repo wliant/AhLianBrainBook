@@ -2,7 +2,7 @@
 
 import { FileText, AlertTriangle, CheckCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useFileAnchors, useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
+import { useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import type { NeuronAnchor } from "@/types";
 
@@ -10,6 +10,8 @@ interface NeuronPanelProps {
   clusterId: string;
   brainId: string;
   selectedPath: string | null;
+  fileAnchors: NeuronAnchor[];
+  anchorsLoading: boolean;
   onAnchorClick: (line: number) => void;
 }
 
@@ -17,12 +19,10 @@ export function NeuronPanel({
   clusterId,
   brainId,
   selectedPath,
+  fileAnchors,
+  anchorsLoading,
   onAnchorClick,
 }: NeuronPanelProps) {
-  const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(
-    clusterId,
-    selectedPath
-  );
   const { neurons } = useNeurons(clusterId);
   const { confirmDrift, deleteAnchor } = useNeuronAnchors(clusterId);
 

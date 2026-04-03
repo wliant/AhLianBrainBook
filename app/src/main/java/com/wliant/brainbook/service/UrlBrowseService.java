@@ -54,9 +54,9 @@ public class UrlBrowseService {
             Map.entry("yml", "yaml"),
             Map.entry("sh", "bash"),
             Map.entry("bash", "bash"),
-            Map.entry("kt", "java"),
-            Map.entry("gradle", "java"),
-            Map.entry("toml", "yaml")
+            Map.entry("kt", "kotlin"),
+            Map.entry("gradle", "groovy"),
+            Map.entry("toml", "toml")
     );
 
     private final ProjectConfigRepository projectConfigRepository;
@@ -85,7 +85,7 @@ public class UrlBrowseService {
         this.restClient = restClient;
     }
 
-    @Cacheable(value = "githubTree", key = "#clusterId + ':' + #ref")
+    @Cacheable(value = "githubTree", key = "'tree:' + #clusterId + ':' + #ref")
     public List<FileTreeEntryResponse> getTree(UUID clusterId, String ref) {
         ProjectConfig config = getProjectConfig(clusterId);
         String[] ownerRepo = parseGitHubRepo(config.getRepoUrl());
@@ -135,6 +135,13 @@ public class UrlBrowseService {
             throw new ResourceNotFoundException("File content not available: " + path);
         }
 
+        // GitHub API limits file content to 1MB; reject larger files early
+        long reportedSize = response.has("size") ? response.get("size").asLong() : 0;
+        if (reportedSize > 1_048_576) {
+            throw new IllegalArgumentException("File too large to display: " + path
+                    + " (" + (reportedSize / 1024) + " KB)");
+        }
+
         String base64Content = response.get("content").asText().replaceAll("\\s", "");
         String content = new String(Base64.getDecoder().decode(base64Content));
         long size = response.has("size") ? response.get("size").asLong() : content.length();
@@ -143,7 +150,7 @@ public class UrlBrowseService {
         return new FileContentResponse(path, content, language, size);
     }
 
-    @Cacheable(value = "githubTree", key = "#clusterId + ':branches'")
+    @Cacheable(value = "githubTree", key = "'branches:' + #clusterId")
     public List<Map<String, String>> getBranches(UUID clusterId) {
         ProjectConfig config = getProjectConfig(clusterId);
         String[] ownerRepo = parseGitHubRepo(config.getRepoUrl());
