@@ -82,6 +82,15 @@ function buildTree(entries: FileTreeEntry[]): TreeNode[] {
   return root;
 }
 
+function findNode(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    const found = findNode(node.children, path);
+    if (found) return found;
+  }
+  return null;
+}
+
 const CODE_EXTENSIONS = new Set([
   "java", "py", "js", "jsx", "ts", "tsx", "go", "rs", "cpp", "c", "h",
   "cs", "rb", "kt", "swift", "sql", "sh", "bash", "yml", "yaml", "json",
@@ -112,7 +121,11 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren,
       setLoading(true);
       try {
         const entries = await onLoadChildren(node.path);
-        const children = buildTree(entries);
+        // buildTree creates a full tree from paths — extract only the
+        // direct children of this node to avoid duplicating the parent.
+        const fullTree = buildTree(entries);
+        const parentInTree = findNode(fullTree, node.path);
+        const children = parentInTree ? parentInTree.children : fullTree;
         onChildrenLoaded(node.path, children);
       } catch (err) {
         console.error("Failed to load directory:", err);
