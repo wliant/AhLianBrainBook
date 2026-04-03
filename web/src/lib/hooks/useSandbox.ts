@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Sandbox, PullResponse } from "@/types";
@@ -29,6 +30,13 @@ export function useSandbox(clusterId: string | null) {
       return false;
     },
   });
+
+  // Keep sidebar sandbox list in sync during status transitions
+  useEffect(() => {
+    if (sandbox?.status) {
+      queryClient.invalidateQueries({ queryKey: ["sandboxes"] });
+    }
+  }, [sandbox?.status, queryClient]);
 
   const invalidateSandboxQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });

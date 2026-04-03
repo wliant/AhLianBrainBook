@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List, History, AlignLeft, AlertTriangle } from "lucide-react";
+import { GitBranch, Box, List, History, AlignLeft, AlertTriangle, Loader2 } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
@@ -9,6 +9,7 @@ import { useFileTree } from "@/lib/hooks/useFileTree";
 import { useFileContent } from "@/lib/hooks/useFileContent";
 import { useFileAnchors, useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useSandbox } from "@/lib/hooks/useSandbox";
+import { useResizeHandle } from "@/lib/hooks/useResizeHandle";
 import { api } from "@/lib/api";
 import { FileTreePanel } from "./FileTreePanel";
 import { CodeViewer } from "./CodeViewer";
@@ -47,6 +48,8 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [blameVisible, setBlameVisible] = useState(false);
   const [orphanListOpen, setOrphanListOpen] = useState(false);
   const [goToLineOpen, setGoToLineOpen] = useState(false);
+  const { size: leftPanelWidth, handleMouseDown: handleLeftResize } = useResizeHandle(250, 150, 500, "left");
+  const { size: rightPanelWidth, handleMouseDown: handleRightResize } = useResizeHandle(300, 200, 600, "right");
   const [pulling, setPulling] = useState(false);
   const [terminating, setTerminating] = useState(false);
 
@@ -145,6 +148,17 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
       }
     },
     [isSandboxActive, selectedPath, cluster.id]
+  );
+
+  const handleLoadChildren = useCallback(
+    async (path: string) => {
+      if (isSandboxActive) {
+        return api.sandbox.tree(cluster.id, path);
+      }
+      // Browse mode uses GitHub API which returns full recursive tree — no lazy loading needed
+      return [];
+    },
+    [isSandboxActive, cluster.id]
   );
 
   const handleSelectFile = useCallback((path: string) => {
@@ -257,16 +271,30 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         )}
       </div>
 
+      {/* Loading state during sandbox provisioning */}
+      {sandbox && (sandbox.status === "cloning" || sandbox.status === "indexing") && (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-sm">
+              {sandbox.status === "cloning" ? "Cloning repository..." : "Indexing files..."}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Three-panel layout */}
+      {!(sandbox && (sandbox.status === "cloning" || sandbox.status === "indexing")) && (
       <div className="flex flex-1 min-h-0">
         {/* File Tree + Structure Panel */}
-        <div className="w-[250px] border-r overflow-hidden flex-shrink-0 flex flex-col">
+        <div className="border-r overflow-hidden flex-shrink-0 flex flex-col" style={{ width: leftPanelWidth }}>
           <div className={structurePanelOpen ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-hidden"}>
             <FileTreePanel
               entries={entries}
               loading={treeLoading}
               selectedPath={selectedPath}
               onSelectFile={handleSelectFile}
+              onLoadChildren={isSandboxActive ? handleLoadChildren : undefined}
             />
           </div>
           {structurePanelOpen && isSandboxActive && selectedPath && (
@@ -292,6 +320,12 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           )}
         </div>
 
+        {/* Left resize handle */}
+        <div
+          className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 flex-shrink-0"
+          onMouseDown={handleLeftResize}
+        />
+
         {/* Code Viewer */}
         <div className="flex-1 min-w-0 overflow-hidden">
           {selectedPath && fileContent ? (
@@ -312,8 +346,14 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           )}
         </div>
 
+        {/* Right resize handle */}
+        <div
+          className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 flex-shrink-0"
+          onMouseDown={handleRightResize}
+        />
+
         {/* Neuron Panel / Orphan List */}
-        <div className="w-[300px] border-l overflow-hidden flex-shrink-0">
+        <div className="overflow-hidden flex-shrink-0" style={{ width: rightPanelWidth }}>
           {orphanListOpen ? (
             <OrphanList
               clusterId={cluster.id}
@@ -332,6 +372,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           )}
         </div>
       </div>
+      )}
 
       {/* Git Log Panel */}
       {gitLogOpen && isSandboxActive && (
