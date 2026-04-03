@@ -253,6 +253,20 @@ public class IntelligenceService {
                 });
     }
 
+    // --- Code Intelligence proxies ---
+
+    public Map<String, Object> getCodeStructure(String content, String language) {
+        return callAgent("/api/code/structure", Map.of("content", content, "language", language));
+    }
+
+    public Map<String, Object> getCodeDefinition(String content, String language, int line, int col) {
+        return callAgent("/api/code/definition", Map.of("content", content, "language", language, "line", line, "col", col));
+    }
+
+    public Map<String, Object> getCodeReferences(String content, String language, int line, int col) {
+        return callAgent("/api/code/references", Map.of("content", content, "language", language, "line", line, "col", col));
+    }
+
     Map<String, Object> callIntelligenceService(Map<String, Object> request) {
         return callAgent("/api/agents/section-author", request);
     }

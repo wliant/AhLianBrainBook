@@ -4,6 +4,7 @@ import com.wliant.brainbook.dto.*;
 import com.wliant.brainbook.model.Sandbox;
 import com.wliant.brainbook.service.AnchorService;
 import com.wliant.brainbook.service.GitOperationService;
+import com.wliant.brainbook.service.IntelligenceService;
 import com.wliant.brainbook.service.SandboxService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,13 +22,16 @@ public class SandboxController {
     private final SandboxService sandboxService;
     private final GitOperationService gitOperationService;
     private final AnchorService anchorService;
+    private final IntelligenceService intelligenceService;
 
     public SandboxController(SandboxService sandboxService,
                              GitOperationService gitOperationService,
-                             AnchorService anchorService) {
+                             AnchorService anchorService,
+                             IntelligenceService intelligenceService) {
         this.sandboxService = sandboxService;
         this.gitOperationService = gitOperationService;
         this.anchorService = anchorService;
+        this.intelligenceService = intelligenceService;
     }
 
     // --- Lifecycle ---
@@ -159,6 +163,45 @@ public class SandboxController {
         sandboxService.updateLastAccessed(clusterId);
         Path repoDir = Path.of(sandbox.getSandboxPath(), "repo");
         return ResponseEntity.ok(gitOperationService.diff(repoDir, from, to));
+    }
+
+    // --- Code Intelligence (proxy to intelligence service) ---
+
+    @GetMapping("/api/clusters/{clusterId}/sandbox/structure")
+    public ResponseEntity<java.util.Map<String, Object>> structure(
+            @PathVariable UUID clusterId,
+            @RequestParam String path) throws IOException {
+        sandboxService.requireActiveSandbox(clusterId);
+        sandboxService.updateLastAccessed(clusterId);
+        validatePath(path);
+        FileContentResponse file = sandboxService.getFileContent(clusterId, path);
+        return ResponseEntity.ok(intelligenceService.getCodeStructure(file.content(), file.language()));
+    }
+
+    @GetMapping("/api/clusters/{clusterId}/sandbox/definition")
+    public ResponseEntity<java.util.Map<String, Object>> definition(
+            @PathVariable UUID clusterId,
+            @RequestParam String path,
+            @RequestParam int line,
+            @RequestParam int col) throws IOException {
+        sandboxService.requireActiveSandbox(clusterId);
+        sandboxService.updateLastAccessed(clusterId);
+        validatePath(path);
+        FileContentResponse file = sandboxService.getFileContent(clusterId, path);
+        return ResponseEntity.ok(intelligenceService.getCodeDefinition(file.content(), file.language(), line, col));
+    }
+
+    @GetMapping("/api/clusters/{clusterId}/sandbox/references")
+    public ResponseEntity<java.util.Map<String, Object>> references(
+            @PathVariable UUID clusterId,
+            @RequestParam String path,
+            @RequestParam int line,
+            @RequestParam int col) throws IOException {
+        sandboxService.requireActiveSandbox(clusterId);
+        sandboxService.updateLastAccessed(clusterId);
+        validatePath(path);
+        FileContentResponse file = sandboxService.getFileContent(clusterId, path);
+        return ResponseEntity.ok(intelligenceService.getCodeReferences(file.content(), file.language(), line, col));
     }
 
     private void validatePath(String path) {
