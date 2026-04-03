@@ -17,6 +17,7 @@ import { NeuronPanel } from "./NeuronPanel";
 import { ProvisionSandboxDialog } from "./ProvisionSandboxDialog";
 import { SandboxStatusBar } from "./SandboxStatusBar";
 import { GitLogPanel } from "./GitLogPanel";
+import { BlameView } from "./BlameView";
 import { DiffView } from "./DiffView";
 import { OrphanList } from "./OrphanList";
 import { GoToLineDialog } from "./GoToLineDialog";
@@ -378,6 +379,15 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
       {gitLogOpen && isSandboxActive && (
         <GitLogPanel
           clusterId={cluster.id}
+          onViewDiff={(sha) => setDiffView({ from: sha + "~1", to: sha })}
+        />
+      )}
+
+      {/* Blame View */}
+      {blameVisible && isSandboxActive && selectedPath && blameData && blameData.length > 0 && (
+        <BlameView
+          blameData={blameData}
+          selectedPath={selectedPath}
           onViewDiff={(sha) => setDiffView({ from: sha + "~1", to: sha })}
         />
       )}
