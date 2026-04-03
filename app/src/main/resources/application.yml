@@ -64,6 +64,15 @@ app:
   neuron:
     snapshot:
       idle-minutes: 60
+  sandbox:
+    root-path: ${SANDBOX_ROOT_PATH:/data/brainbook/sandboxes}
+    max-repo-size-mb: ${SANDBOX_MAX_REPO_SIZE_MB:1000}
+    max-total-disk-mb: ${SANDBOX_MAX_TOTAL_DISK_MB:5120}
+    clone-timeout-sec: ${SANDBOX_CLONE_TIMEOUT_SEC:300}
+    max-concurrent-clones: ${SANDBOX_MAX_CONCURRENT_CLONES:2}
+    max-count: ${SANDBOX_MAX_COUNT:10}
+    fuzzy-threshold: ${ANCHOR_FUZZY_THRESHOLD:0.7}
+    stale-days: ${SANDBOX_STALE_DAYS:30}
 
 springdoc:
   api-docs:
