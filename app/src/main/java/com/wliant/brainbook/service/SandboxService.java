@@ -13,7 +13,6 @@ import com.wliant.brainbook.repository.ProjectConfigRepository;
 import com.wliant.brainbook.repository.SandboxRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +24,6 @@ import java.net.UnknownHostException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,20 +37,21 @@ public class SandboxService {
     private final ClusterRepository clusterRepository;
     private final ProjectConfigRepository projectConfigRepository;
     private final GitOperationService gitOperationService;
+    private final SandboxCloneService sandboxCloneService;
     private final SandboxConfig config;
-    private final Semaphore cloneSemaphore;
 
     public SandboxService(SandboxRepository sandboxRepository,
                           ClusterRepository clusterRepository,
                           ProjectConfigRepository projectConfigRepository,
                           GitOperationService gitOperationService,
+                          SandboxCloneService sandboxCloneService,
                           SandboxConfig config) {
         this.sandboxRepository = sandboxRepository;
         this.clusterRepository = clusterRepository;
         this.projectConfigRepository = projectConfigRepository;
         this.gitOperationService = gitOperationService;
+        this.sandboxCloneService = sandboxCloneService;
         this.config = config;
-        this.cloneSemaphore = new Semaphore(config.getMaxConcurrentClones());
     }
 
     public SandboxResponse provision(UUID clusterId, ProvisionSandboxRequest req) {
@@ -95,47 +93,9 @@ public class SandboxService {
         sandbox.setStatus(SandboxStatus.CLONING);
 
         Sandbox saved = sandboxRepository.save(sandbox);
-        asyncClone(saved.getId(), repoUrl, branch, Path.of(sandboxPath, "repo"), req.isShallow());
+        sandboxCloneService.asyncClone(saved.getId(), repoUrl, branch,
+                Path.of(saved.getSandboxPath(), "repo"), req.isShallow());
         return toResponse(saved);
-    }
-
-    @Async
-    public void asyncClone(UUID sandboxId, String repoUrl, String branch, Path targetDir, boolean shallow) {
-        if (!cloneSemaphore.tryAcquire()) {
-            sandboxRepository.findById(sandboxId).ifPresent(s -> {
-                s.setStatus(SandboxStatus.ERROR);
-                s.setErrorMessage("Too many concurrent clones. Please try again later.");
-                sandboxRepository.save(s);
-            });
-            return;
-        }
-
-        try {
-            gitOperationService.cloneRepository(repoUrl, branch, targetDir, shallow);
-
-            sandboxRepository.findById(sandboxId).ifPresent(s -> {
-                s.setStatus(SandboxStatus.ACTIVE);
-                try {
-                    s.setCurrentCommit(gitOperationService.getHeadCommit(targetDir));
-                    s.setDiskUsageBytes(calculateDiskUsage(targetDir));
-                } catch (IOException e) {
-                    logger.warn("Failed to read head commit after clone", e);
-                }
-                sandboxRepository.save(s);
-            });
-
-            logger.info("Sandbox {} clone complete", sandboxId);
-        } catch (Exception e) {
-            logger.error("Clone failed for sandbox {}: {}", sandboxId, e.getMessage(), e);
-            sandboxRepository.findById(sandboxId).ifPresent(s -> {
-                s.setStatus(SandboxStatus.ERROR);
-                s.setErrorMessage("Clone failed: " + e.getMessage());
-                sandboxRepository.save(s);
-            });
-            deleteDirectoryQuietly(targetDir.getParent());
-        } finally {
-            cloneSemaphore.release();
-        }
     }
 
     public void terminate(UUID clusterId) {
@@ -192,8 +152,26 @@ public class SandboxService {
         sandboxRepository.save(sandbox);
 
         Path targetDir = Path.of(sandbox.getSandboxPath(), "repo");
-        asyncClone(sandbox.getId(), sandbox.getRepoUrl(), sandbox.getCurrentBranch(), targetDir, sandbox.getIsShallow());
+        sandboxCloneService.asyncClone(sandbox.getId(), sandbox.getRepoUrl(),
+                sandbox.getCurrentBranch(), targetDir, sandbox.getIsShallow());
         return toResponse(sandbox);
+    }
+
+    public void updateAfterPull(UUID clusterId, String newCommit) {
+        sandboxRepository.findByClusterId(clusterId).ifPresent(s -> {
+            s.setCurrentCommit(newCommit);
+            s.setLastAccessedAt(java.time.LocalDateTime.now());
+            sandboxRepository.save(s);
+        });
+    }
+
+    public void updateAfterCheckout(UUID clusterId, String branch, String commit) {
+        sandboxRepository.findByClusterId(clusterId).ifPresent(s -> {
+            s.setCurrentBranch(branch);
+            s.setCurrentCommit(commit);
+            s.setLastAccessedAt(java.time.LocalDateTime.now());
+            sandboxRepository.save(s);
+        });
     }
 
     public void updateLastAccessed(UUID clusterId) {
@@ -314,6 +292,10 @@ public class SandboxService {
         if (requestedPath.startsWith("/") || requestedPath.contains("..")) {
             throw new SecurityException("Invalid path: " + requestedPath);
         }
+        // Block access to .git directory
+        if (requestedPath.equals(".git") || requestedPath.startsWith(".git/")) {
+            throw new SecurityException("Access to .git directory is not allowed");
+        }
         Path resolved = repoDir.resolve(requestedPath).normalize();
         if (!resolved.startsWith(repoDir.normalize())) {
             throw new SecurityException("Path traversal attempt: " + requestedPath);
@@ -343,22 +325,6 @@ public class SandboxService {
                 sandbox.getCreatedAt(),
                 sandbox.getUpdatedAt()
         );
-    }
-
-    private long calculateDiskUsage(Path dir) {
-        AtomicLong size = new AtomicLong(0);
-        try {
-            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    size.addAndGet(attrs.size());
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            logger.warn("Failed to calculate disk usage for {}", dir, e);
-        }
-        return size.get();
     }
 
     private void deleteDirectoryQuietly(Path dir) {

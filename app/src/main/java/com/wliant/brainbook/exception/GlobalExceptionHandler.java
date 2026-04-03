@@ -76,6 +76,12 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", ex.getMessage()));
     }
 
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<Map<String, String>> handleSecurity(SecurityException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
     @ExceptionHandler(StorageException.class)
     public ResponseEntity<Map<String, String>> handleStorage(StorageException ex) {
         log.error("Storage operation failed: {}", ex.getMessage(), ex);

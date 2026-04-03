@@ -76,8 +76,7 @@ public class SandboxController {
             }
         }
 
-        // Update sandbox commit
-        sandbox.setCurrentCommit(newCommit);
+        sandboxService.updateAfterPull(clusterId, newCommit);
 
         PullResponse response = new PullResponse(
                 newCommit,
@@ -98,8 +97,8 @@ public class SandboxController {
 
         Path repoDir = Path.of(sandbox.getSandboxPath(), "repo");
         gitOperationService.checkout(repoDir, req.branch());
-        sandbox.setCurrentBranch(req.branch());
-        sandbox.setCurrentCommit(gitOperationService.getHeadCommit(repoDir));
+        String newCommit = gitOperationService.getHeadCommit(repoDir);
+        sandboxService.updateAfterCheckout(clusterId, req.branch(), newCommit);
 
         return ResponseEntity.ok(sandboxService.getByClusterId(clusterId));
     }
@@ -136,7 +135,8 @@ public class SandboxController {
         Sandbox sandbox = sandboxService.requireActiveSandbox(clusterId);
         sandboxService.updateLastAccessed(clusterId);
         Path repoDir = Path.of(sandbox.getSandboxPath(), "repo");
-        return ResponseEntity.ok(gitOperationService.log(repoDir, limit, offset));
+        int clampedLimit = Math.min(limit, 200);
+        return ResponseEntity.ok(gitOperationService.log(repoDir, clampedLimit, offset));
     }
 
     @GetMapping("/api/clusters/{clusterId}/sandbox/blame")
@@ -145,6 +145,7 @@ public class SandboxController {
             @RequestParam String path) throws Exception {
         Sandbox sandbox = sandboxService.requireActiveSandbox(clusterId);
         sandboxService.updateLastAccessed(clusterId);
+        validatePath(path);
         Path repoDir = Path.of(sandbox.getSandboxPath(), "repo");
         return ResponseEntity.ok(gitOperationService.blame(repoDir, path));
     }
@@ -158,6 +159,15 @@ public class SandboxController {
         sandboxService.updateLastAccessed(clusterId);
         Path repoDir = Path.of(sandbox.getSandboxPath(), "repo");
         return ResponseEntity.ok(gitOperationService.diff(repoDir, from, to));
+    }
+
+    private void validatePath(String path) {
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Path is required");
+        }
+        if (path.contains("..") || path.startsWith("/") || path.equals(".git") || path.startsWith(".git/")) {
+            throw new IllegalArgumentException("Invalid path: " + path);
+        }
     }
 
     // --- Global listing (for sidebar) ---

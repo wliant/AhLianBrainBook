@@ -227,7 +227,6 @@ public class AnchorService {
 
         // Phase 2: Exact text search (content shifted)
         String normalizedAnchored = normalize(anchor.getAnchoredText());
-        String normalizedFile = normalize(fileContent);
         int anchorLineCount = anchor.getEndLine() - anchor.getStartLine() + 1;
 
         String[] fileLines = fileContent.split("\n", -1);
