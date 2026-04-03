@@ -1,0 +1,19 @@
+# Dependencies (reinstalled in build stage)
+node_modules/
+
+# Build outputs
+.next/
+out/
+
+# Test / lint artifacts
+coverage/
+*.tsbuildinfo
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Docs / scripts
+*.md

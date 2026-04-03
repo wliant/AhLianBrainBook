@@ -21,6 +21,7 @@ const makeSRItem = (overrides: Record<string, unknown> = {}) => ({
   questionCount: 5,
   hasQuestions: false,
   quizEligible: false,
+  quizEnabled: true,
   ...overrides,
 });
 

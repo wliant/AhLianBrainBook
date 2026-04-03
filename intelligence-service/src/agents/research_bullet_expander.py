@@ -1,6 +1,11 @@
 import json
+import logging
 
 from langchain_core.messages import SystemMessage, HumanMessage
+
+from src.utils import strip_code_fences
+
+logger = logging.getLogger(__name__)
 from langgraph.graph import StateGraph
 
 from src.config import settings
@@ -67,15 +72,19 @@ def invoke_llm(state: dict) -> dict:
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Expand this bullet into sub-points."),
     ]
+    logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
+    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
     return {"llm_raw_output": response.content}
 
 
 def validate_output(state: dict) -> dict:
     raw = state.get("llm_raw_output", "")
+    logger.debug("Validation input length=%d", len(raw))
     try:
-        data = json.loads(raw)
+        data = json.loads(strip_code_fences(raw))
     except json.JSONDecodeError:
+        logger.warning("JSON parse failed for bullet expander, raw=%r", raw[:200])
         return {"children": []}
 
     children = _normalize_items(data.get("children", []))
@@ -136,6 +145,8 @@ async def invoke_research_bullet_expander(
         children = [BulletItem(**item) for item in result.get("children", [])]
         return ExpandBulletResponse(children=children)
     except TimeoutError:
+        logger.warning("Timeout expanding bullet=%r", request.bullet.text[:80])
         return ExpandBulletResponse(children=[])
     except Exception:
+        logger.exception("Failed to expand bullet=%r", request.bullet.text[:80])
         return ExpandBulletResponse(children=[])

@@ -1,6 +1,11 @@
 import json
+import logging
 
 from langchain_core.messages import SystemMessage, HumanMessage
+
+from src.utils import strip_code_fences
+
+logger = logging.getLogger(__name__)
 from langgraph.graph import StateGraph
 
 from src.config import settings
@@ -52,15 +57,19 @@ def invoke_llm(state: dict) -> dict:
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Score the completeness of each bullet."),
     ]
+    logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
+    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
     return {"llm_raw_output": response.content}
 
 
 def validate_output(state: dict) -> dict:
     raw = state.get("llm_raw_output", "")
+    logger.debug("Validation input length=%d", len(raw))
     try:
-        data = json.loads(raw)
+        data = json.loads(strip_code_fences(raw))
     except json.JSONDecodeError:
+        logger.warning("JSON parse failed for topic scorer, raw=%r", raw[:200])
         return {
             "items": state.get("items", []),
             "overall_completeness": "none",
@@ -130,6 +139,8 @@ async def invoke_research_topic_scorer(
             overall_completeness=result.get("overall_completeness", "none"),
         )
     except TimeoutError:
+        logger.warning("Timeout scoring topic items=%d", len(request.items))
         return ScoreTopicResponse(items=request.items, overall_completeness="none")
     except Exception:
+        logger.exception("Failed to score topic items=%d", len(request.items))
         return ScoreTopicResponse(items=request.items, overall_completeness="none")

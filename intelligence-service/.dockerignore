@@ -1,0 +1,19 @@
+# Virtualenv (recreated by uv in build stage)
+.venv/
+
+# Test / cache
+tests/
+__pycache__/
+.pytest_cache/
+*.pyc
+.coverage
+htmlcov/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Docs / scripts
+*.md

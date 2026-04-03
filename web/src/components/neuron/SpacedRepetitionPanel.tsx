@@ -26,6 +26,8 @@ export function SpacedRepetitionPanel({
   const [toggling, setToggling] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
   const [updatingCount, setUpdatingCount] = useState(false);
+  const [quizEnabled, setQuizEnabled] = useState(true);
+  const [updatingQuizEnabled, setUpdatingQuizEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +40,7 @@ export function SpacedRepetitionPanel({
         if (!cancelled) {
           setItem(data);
           setQuestionCount(data.questionCount);
+          setQuizEnabled(data.quizEnabled);
         }
       })
       .catch(() => {
@@ -129,37 +132,63 @@ export function SpacedRepetitionPanel({
             </div>
 
             <div className="rounded-md border p-3 space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">Quiz Questions</span>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground" htmlFor="question-count">
-                  Number of questions
-                </label>
-                <select
-                  id="question-count"
-                  value={questionCount}
-                  onChange={async (e) => {
-                    const val = Number(e.target.value);
-                    setQuestionCount(val);
-                    setUpdatingCount(true);
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Quiz Mode</span>
+                <button
+                  onClick={async () => {
+                    const newVal = !quizEnabled;
+                    setQuizEnabled(newVal);
+                    setUpdatingQuizEnabled(true);
                     try {
-                      const updated = await api.spacedRepetition.updateQuestionCount(item.id, val);
+                      const updated = await api.spacedRepetition.updateQuizEnabled(item.id, newVal);
                       setItem(updated);
-                    } catch { /* ignore */ }
-                    finally { setUpdatingCount(false); }
+                    } catch { setQuizEnabled(!newVal); }
+                    finally { setUpdatingQuizEnabled(false); }
                   }}
-                  disabled={updatingCount}
-                  className="h-7 rounded-md border bg-background px-2 text-xs"
-                  data-testid="question-count-select"
+                  disabled={updatingQuizEnabled}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${quizEnabled ? "bg-purple-500" : "bg-muted"}`}
+                  data-testid="quiz-enabled-toggle"
                 >
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-                {updatingCount && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${quizEnabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {item.hasQuestions ? "Questions ready for review" : item.quizEligible ? "Questions will be generated before next review" : "Content too short for quiz mode"}
-              </p>
+              {quizEnabled && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground" htmlFor="question-count">
+                      Number of questions
+                    </label>
+                    <select
+                      id="question-count"
+                      value={questionCount}
+                      onChange={async (e) => {
+                        const val = Number(e.target.value);
+                        setQuestionCount(val);
+                        setUpdatingCount(true);
+                        try {
+                          const updated = await api.spacedRepetition.updateQuestionCount(item.id, val);
+                          setItem(updated);
+                        } catch { /* ignore */ }
+                        finally { setUpdatingCount(false); }
+                      }}
+                      disabled={updatingCount}
+                      className="h-7 rounded-md border bg-background px-2 text-xs"
+                      data-testid="question-count-select"
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    {updatingCount && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {item.hasQuestions ? "Questions ready for review" : item.quizEligible ? "Questions will be generated before next review" : "Content too short for quiz mode"}
+                  </p>
+                </>
+              )}
+              {!quizEnabled && (
+                <p className="text-xs text-muted-foreground">Quiz questions are disabled for this neuron</p>
+              )}
             </div>
 
             <Button

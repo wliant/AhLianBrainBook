@@ -133,6 +133,14 @@ public class SpacedRepetitionService {
                 item.getRepetitions(), item.getIntervalDays(), item.getEaseFactor());
     }
 
+    public void updateQuizEnabled(UUID itemId, boolean quizEnabled) {
+        SpacedRepetitionItem item = srRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
+        item.setQuizEnabled(quizEnabled);
+        srRepository.save(item);
+        log.info("Updated quiz enabled to {} for SR item {}", quizEnabled, itemId);
+    }
+
     public void updateQuestionCount(UUID itemId, int questionCount) {
         SpacedRepetitionItem item = srRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
@@ -156,7 +164,8 @@ public class SpacedRepetitionService {
                 item.getCreatedAt(),
                 item.getQuestionCount(),
                 hasQuestions,
-                quizEligible
+                quizEligible,
+                item.isQuizEnabled()
         );
     }
 }

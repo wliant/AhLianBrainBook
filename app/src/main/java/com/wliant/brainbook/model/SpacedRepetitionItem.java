@@ -43,6 +43,9 @@ public class SpacedRepetitionItem {
     @Column(name = "question_count", nullable = false)
     private int questionCount = 5;
 
+    @Column(name = "quiz_enabled", nullable = false)
+    private boolean quizEnabled = true;
+
     @Column(name = "next_review_at", nullable = false)
     private LocalDateTime nextReviewAt;
 
@@ -85,5 +88,7 @@ public class SpacedRepetitionItem {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public int getQuestionCount() { return questionCount; }
     public void setQuestionCount(int questionCount) { this.questionCount = questionCount; }
+    public boolean isQuizEnabled() { return quizEnabled; }
+    public void setQuizEnabled(boolean quizEnabled) { this.quizEnabled = quizEnabled; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

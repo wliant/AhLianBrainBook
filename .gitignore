@@ -8,6 +8,7 @@ app/build/
 app/.gradle/
 *.class
 *.jar
+!app/gradle/wrapper/gradle-wrapper.jar
 *.war
 
 # Node
@@ -36,6 +37,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 e2e-test/.env
+
+# Setup scripts (local copies)
+scripts/setup.ps1
+scripts/setup.sh
 
 # Claude Code
 .claude/settings.local.json

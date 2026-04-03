@@ -1,7 +1,12 @@
 package com.wliant.brainbook.controller;
 
+import com.wliant.brainbook.dto.CreateNeuronAnchorRequest;
+import com.wliant.brainbook.dto.FileContentResponse;
 import com.wliant.brainbook.dto.NeuronAnchorResponse;
+import com.wliant.brainbook.dto.UpdateNeuronAnchorRequest;
 import com.wliant.brainbook.service.AnchorService;
+import com.wliant.brainbook.service.UrlBrowseService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -9,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -17,9 +21,11 @@ import java.util.UUID;
 public class NeuronAnchorController {
 
     private final AnchorService anchorService;
+    private final UrlBrowseService urlBrowseService;
 
-    public NeuronAnchorController(AnchorService anchorService) {
+    public NeuronAnchorController(AnchorService anchorService, UrlBrowseService urlBrowseService) {
         this.anchorService = anchorService;
+        this.urlBrowseService = urlBrowseService;
     }
 
     @GetMapping("/cluster/{clusterId}")
@@ -45,15 +51,21 @@ public class NeuronAnchorController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> create() {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(Map.of("error", "Anchor creation requires file content resolution. Will be enabled in Phase 2/3."));
+    public ResponseEntity<NeuronAnchorResponse> create(
+            @Valid @RequestBody CreateNeuronAnchorRequest req) {
+        FileContentResponse file = urlBrowseService.getFile(req.clusterId(), null, req.filePath());
+        NeuronAnchorResponse response = anchorService.create(req, file.content());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Map<String, String>> update(@PathVariable UUID id) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(Map.of("error", "Re-anchoring requires file content resolution. Will be enabled in Phase 2/3."));
+    public ResponseEntity<NeuronAnchorResponse> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateNeuronAnchorRequest req) {
+        NeuronAnchorResponse existing = anchorService.getById(id);
+        FileContentResponse file = urlBrowseService.getFile(existing.clusterId(), null, req.filePath());
+        NeuronAnchorResponse response = anchorService.update(id, req, file.content());
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")

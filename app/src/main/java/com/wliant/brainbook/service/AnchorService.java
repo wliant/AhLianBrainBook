@@ -1,7 +1,9 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.SandboxConfig;
 import com.wliant.brainbook.dto.CreateNeuronAnchorRequest;
 import com.wliant.brainbook.dto.NeuronAnchorResponse;
+import com.wliant.brainbook.dto.ReconciliationResult;
 import com.wliant.brainbook.dto.UpdateNeuronAnchorRequest;
 import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
@@ -17,7 +19,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -30,16 +38,21 @@ import java.util.stream.Collectors;
 @Transactional
 public class AnchorService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AnchorService.class);
+
     private final NeuronAnchorRepository neuronAnchorRepository;
     private final NeuronRepository neuronRepository;
     private final ClusterRepository clusterRepository;
+    private final SandboxConfig sandboxConfig;
 
     public AnchorService(NeuronAnchorRepository neuronAnchorRepository,
                          NeuronRepository neuronRepository,
-                         ClusterRepository clusterRepository) {
+                         ClusterRepository clusterRepository,
+                         SandboxConfig sandboxConfig) {
         this.neuronAnchorRepository = neuronAnchorRepository;
         this.neuronRepository = neuronRepository;
         this.clusterRepository = clusterRepository;
+        this.sandboxConfig = sandboxConfig;
     }
 
     public NeuronAnchorResponse create(CreateNeuronAnchorRequest req, String fileContent) {
@@ -116,6 +129,10 @@ public class AnchorService {
     }
 
     public NeuronAnchorResponse confirmDrift(UUID id) {
+        return confirmDrift(id, null);
+    }
+
+    public NeuronAnchorResponse confirmDrift(UUID id, String fileContent) {
         NeuronAnchor anchor = neuronAnchorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Anchor not found: " + id));
 
@@ -132,10 +149,22 @@ public class AnchorService {
         anchor.setDriftedStartLine(null);
         anchor.setDriftedEndLine(null);
         anchor.setStatus(AnchorStatus.ACTIVE);
-        // Content hash will be recomputed when file content is available
+
+        // Recompute content hash if file content is available (sandbox mode)
+        if (fileContent != null) {
+            String anchoredText = extractLines(fileContent, anchor.getStartLine(), anchor.getEndLine());
+            anchor.setContentHash(normalizeAndHash(anchoredText));
+            anchor.setAnchoredText(anchoredText);
+        }
 
         NeuronAnchor saved = neuronAnchorRepository.save(anchor);
         return toResponse(saved);
+    }
+
+    public NeuronAnchorResponse getById(UUID id) {
+        NeuronAnchor anchor = neuronAnchorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Anchor not found: " + id));
+        return toResponse(anchor);
     }
 
     public NeuronAnchorResponse getByNeuronId(UUID neuronId) {
@@ -151,6 +180,149 @@ public class AnchorService {
                         a -> a.getNeuron() != null ? a.getNeuron().getId() : a.getNeuronId(),
                         this::toResponse
                 ));
+    }
+
+    // --- Anchor Reconciliation ---
+
+    public ReconciliationResult reconcile(UUID clusterId, List<String> changedFiles, Path repoDir) {
+        List<NeuronAnchor> anchors = neuronAnchorRepository.findByClusterIdAndFilePathIn(clusterId, changedFiles);
+        if (anchors.isEmpty()) return ReconciliationResult.empty();
+
+        int unchanged = 0, autoUpdated = 0, drifted = 0, orphaned = 0;
+        double threshold = sandboxConfig.getFuzzyThreshold();
+
+        for (NeuronAnchor anchor : anchors) {
+            try {
+                int result = reconcileAnchor(anchor, repoDir, threshold);
+                switch (result) {
+                    case 0 -> unchanged++;
+                    case 1 -> autoUpdated++;
+                    case 2 -> drifted++;
+                    case 3 -> orphaned++;
+                }
+            } catch (Exception e) {
+                logger.warn("Reconciliation failed for anchor {}: {}", anchor.getId(), e.getMessage());
+                anchor.setStatus(AnchorStatus.ORPHANED);
+                orphaned++;
+            }
+            neuronAnchorRepository.save(anchor);
+        }
+
+        logger.info("Reconciliation for cluster {}: unchanged={}, autoUpdated={}, drifted={}, orphaned={}",
+                clusterId, unchanged, autoUpdated, drifted, orphaned);
+        return new ReconciliationResult(unchanged, autoUpdated, drifted, orphaned);
+    }
+
+    // Returns: 0=unchanged, 1=autoUpdated, 2=drifted, 3=orphaned
+    private int reconcileAnchor(NeuronAnchor anchor, Path repoDir, double threshold) throws IOException {
+        Path filePath = repoDir.resolve(anchor.getFilePath()).normalize();
+
+        // Safety: ensure resolved path stays within repo
+        if (!filePath.startsWith(repoDir.normalize())) {
+            anchor.setStatus(AnchorStatus.ORPHANED);
+            return 3;
+        }
+
+        // Phase 4 first: check if file exists
+        if (!Files.exists(filePath)) {
+            anchor.setStatus(AnchorStatus.ORPHANED);
+            return 3;
+        }
+
+        String fileContent = Files.readString(filePath);
+
+        // Phase 1: Fast hash check at original lines
+        String[] lines = fileContent.split("\n", -1);
+        if (anchor.getStartLine() <= lines.length && anchor.getEndLine() <= lines.length) {
+            String currentText = extractLines(fileContent, anchor.getStartLine(), anchor.getEndLine());
+            String currentHash = normalizeAndHash(currentText);
+            if (currentHash.equals(anchor.getContentHash())) {
+                return 0; // unchanged
+            }
+        }
+
+        // Phase 2: Exact text search (content shifted)
+        String normalizedAnchored = normalize(anchor.getAnchoredText());
+        int anchorLineCount = anchor.getEndLine() - anchor.getStartLine() + 1;
+
+        String[] fileLines = fileContent.split("\n", -1);
+        for (int i = 0; i <= fileLines.length - anchorLineCount; i++) {
+            StringBuilder window = new StringBuilder();
+            for (int j = i; j < i + anchorLineCount; j++) {
+                if (j > i) window.append('\n');
+                window.append(fileLines[j]);
+            }
+            if (normalize(window.toString()).equals(normalizedAnchored)) {
+                // Exact match at new location — auto-update
+                int newStart = i + 1;
+                int newEnd = i + anchorLineCount;
+                String newText = extractLines(fileContent, newStart, newEnd);
+                anchor.setStartLine(newStart);
+                anchor.setEndLine(newEnd);
+                anchor.setContentHash(normalizeAndHash(newText));
+                anchor.setAnchoredText(newText);
+                anchor.setStatus(AnchorStatus.ACTIVE);
+                anchor.setDriftedStartLine(null);
+                anchor.setDriftedEndLine(null);
+                return 1; // autoUpdated
+            }
+        }
+
+        // Phase 3: Fuzzy LCS match
+        double bestSimilarity = 0;
+        int bestStart = -1;
+        for (int i = 0; i <= fileLines.length - anchorLineCount; i++) {
+            StringBuilder window = new StringBuilder();
+            for (int j = i; j < i + anchorLineCount; j++) {
+                if (j > i) window.append('\n');
+                window.append(fileLines[j]);
+            }
+            String windowText = window.toString();
+            double similarity = computeSimilarity(anchor.getAnchoredText(), windowText);
+            if (similarity > bestSimilarity) {
+                bestSimilarity = similarity;
+                bestStart = i;
+            }
+        }
+
+        if (bestSimilarity >= threshold) {
+            anchor.setStatus(AnchorStatus.DRIFTED);
+            anchor.setDriftedStartLine(bestStart + 1);
+            anchor.setDriftedEndLine(bestStart + anchorLineCount);
+            return 2; // drifted
+        }
+
+        // No match found
+        anchor.setStatus(AnchorStatus.ORPHANED);
+        return 3; // orphaned
+    }
+
+    double computeSimilarity(String a, String b) {
+        if (a == null || b == null || a.isEmpty() || b.isEmpty()) return 0;
+        int lcsLen = lcsLength(a, b);
+        return (double) lcsLen / Math.max(a.length(), b.length());
+    }
+
+    int lcsLength(String a, String b) {
+        int m = a.length(), n = b.length();
+        // Space-optimized LCS: only need two rows
+        int[] prev = new int[n + 1];
+        int[] curr = new int[n + 1];
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (a.charAt(i - 1) == b.charAt(j - 1)) {
+                    curr[j] = prev[j - 1] + 1;
+                } else {
+                    curr[j] = Math.max(prev[j], curr[j - 1]);
+                }
+            }
+            int[] temp = prev;
+            prev = curr;
+            curr = temp;
+            java.util.Arrays.fill(curr, 0);
+        }
+        return prev[n];
     }
 
     // --- Hash normalization ---
@@ -192,6 +364,9 @@ public class AnchorService {
     }
 
     private void validateLineRange(int startLine, int endLine) {
+        if (startLine < 1) {
+            throw new IllegalArgumentException("Start line must be >= 1");
+        }
         if (endLine < startLine) {
             throw new IllegalArgumentException("End line must be >= start line");
         }

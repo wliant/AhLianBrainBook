@@ -84,7 +84,7 @@ def test_research_goal_generator(client):
         ):
             response = client.post(
                 "/api/agents/research-goal-generator",
-                json={"brain_name": "Spring Security", "neurons": []},
+                json={"brain_name": "Spring Security", "brain_description": "Security framework for Java applications"},
             )
 
             assert response.status_code == 200

@@ -48,6 +48,7 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { useBrains } from "@/lib/hooks/useBrains";
 import { useClusters } from "@/lib/hooks/useClusters";
+import { useSandboxList } from "@/lib/hooks/useSandboxList";
 import { api } from "@/lib/api";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { useThoughts } from "@/lib/hooks/useThoughts";
@@ -71,6 +72,7 @@ export function Sidebar({
   const queryClient = useQueryClient();
   const { brains, createBrain, updateBrain, deleteBrain } = useBrains();
   const { thoughts, createThought, deleteThought } = useThoughts();
+  const { sandboxes } = useSandboxList();
   const { queue } = useSpacedRepetition();
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(256);
@@ -329,6 +331,35 @@ export function Sidebar({
                 </div>
               ))}
             </div>
+          )}
+
+          {sandboxes.length > 0 && (
+            <>
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-xs font-medium uppercase text-sidebar-muted">Sandboxes</span>
+              </div>
+              <div className="px-2 pb-2 space-y-0.5">
+                {sandboxes.map((sb) => (
+                  <Link key={sb.id} href={`/brain/${sb.brainId}/cluster/${sb.clusterId}`}>
+                    <div className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent">
+                      <span className={cn(
+                        "h-2 w-2 rounded-full shrink-0",
+                        sb.status === "active" ? "bg-green-500" :
+                        sb.status === "error" ? "bg-red-500" :
+                        sb.status === "terminating" ? "bg-gray-500" :
+                        "bg-yellow-500 animate-pulse"
+                      )} />
+                      <span className="truncate">{sb.clusterName || sb.repoUrl.split("/").pop()}</span>
+                    </div>
+                    {sb.brainName && (
+                      <span className="text-[10px] text-muted-foreground ml-6 block -mt-0.5">
+                        {sb.brainName}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </>
           )}
 
           <div className="flex items-center justify-between px-4 py-2">

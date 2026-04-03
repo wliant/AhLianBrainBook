@@ -1,32 +1,27 @@
-from typing import TypedDict
+import logging
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph
 
-from src.config import settings
 from src.llm import get_llm, get_provider_name
 from src.schemas.research import GenerateGoalRequest, GenerateGoalResponse
 
-
-class GoalState(TypedDict):
-    brain_name: str
-    neurons_context: str
-    research_goal: str | None
+logger = logging.getLogger(__name__)
 
 
-def build_prompt(state: GoalState) -> dict:
-    neurons_text = state["neurons_context"]
+def build_prompt(state: dict) -> dict:
     prompt = (
-        "You are an AI learning advisor. Given a brain (subject domain) name and a summary of "
-        "the user's existing knowledge notes, generate a concise research goal (1-2 sentences) "
-        "that describes what the user should aim to learn in this domain.\n\n"
+        "You are an AI learning advisor. Given a brain (subject domain) name and description, "
+        "generate a concise research goal (1-2 sentences) that describes what the user should "
+        "aim to learn in this domain.\n\n"
         "The goal should be specific enough to guide learning but broad enough to cover the domain.\n\n"
-        f"Brain name: {state['brain_name']}\n\n"
+        f"Brain name: {state['brain_name']}\n"
     )
-    if neurons_text.strip():
-        prompt += f"Existing knowledge notes:\n{neurons_text}\n\n"
+    description = state.get("brain_description", "")
+    if description.strip():
+        prompt += f"Brain description: {description}\n\n"
     else:
-        prompt += "The user has no existing notes yet in this brain.\n\n"
+        prompt += "\nNo description provided.\n\n"
     prompt += "Respond with ONLY the research goal text, nothing else."
     return {"system_prompt": prompt}
 
@@ -37,7 +32,9 @@ def invoke_llm(state: dict) -> dict:
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Generate the research goal."),
     ]
+    logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
+    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
     return {"research_goal": response.content.strip().strip('"')}
 
 
@@ -57,14 +54,9 @@ _graph = _build_graph()
 async def invoke_research_goal_generator(
     request: GenerateGoalRequest,
 ) -> GenerateGoalResponse:
-    neurons_context = "\n".join(
-        f"- {n.title}: {n.content_preview}" for n in request.neurons
-    ) if request.neurons else ""
-
     initial_state = {
         "brain_name": request.brain_name,
-        "neurons_context": neurons_context,
-        "research_goal": None,
+        "brain_description": request.brain_description,
     }
 
     try:
@@ -73,11 +65,8 @@ async def invoke_research_goal_generator(
             research_goal=result.get("research_goal", "")
         )
     except TimeoutError:
-        return GenerateGoalResponse(
-            research_goal=""
-        )
-    except Exception as e:
-        provider = get_provider_name()
-        return GenerateGoalResponse(
-            research_goal=""
-        )
+        logger.warning("Timeout generating research goal for brain=%r", request.brain_name)
+        return GenerateGoalResponse(research_goal="")
+    except Exception:
+        logger.exception("Failed to generate research goal for brain=%r", request.brain_name)
+        return GenerateGoalResponse(research_goal="")

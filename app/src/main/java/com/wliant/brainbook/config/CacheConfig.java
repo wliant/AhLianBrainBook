@@ -39,6 +39,17 @@ public class CacheConfig {
                         .expireAfterWrite(2, TimeUnit.MINUTES)
                         .build());
 
+        cacheManager.registerCustomCache("githubTree",
+                Caffeine.newBuilder()
+                        .maximumSize(200)
+                        .expireAfterWrite(1, TimeUnit.MINUTES)
+                        .build());
+        cacheManager.registerCustomCache("githubFile",
+                Caffeine.newBuilder()
+                        .maximumSize(500)
+                        .expireAfterWrite(5, TimeUnit.MINUTES)
+                        .build());
+
         return cacheManager;
     }
 }

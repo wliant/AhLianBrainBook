@@ -61,6 +61,125 @@ export interface ResearchTopic {
   lastUpdatedBy: string;
 }
 
+// Sandbox types
+
+export type SandboxStatus = "cloning" | "indexing" | "active" | "error" | "terminating";
+
+export interface Sandbox {
+  id: string;
+  clusterId: string;
+  brainId: string;
+  brainName: string | null;
+  clusterName: string | null;
+  repoUrl: string;
+  currentBranch: string;
+  currentCommit: string | null;
+  isShallow: boolean;
+  status: SandboxStatus;
+  diskUsageBytes: number | null;
+  errorMessage: string | null;
+  lastAccessedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GitCommit {
+  sha: string;
+  author: string;
+  authorEmail: string;
+  date: string;
+  message: string;
+}
+
+export interface BlameLine {
+  line: number;
+  commitSha: string | null;
+  author: string | null;
+  date: string | null;
+  content: string;
+}
+
+export interface PullResponse {
+  newCommit: string;
+  anchorsAffected: {
+    unchanged: number;
+    autoUpdated: number;
+    drifted: number;
+    orphaned: number;
+  };
+}
+
+// Project Cluster types
+
+export interface ProjectConfig {
+  id: string;
+  clusterId: string;
+  repoUrl: string;
+  defaultBranch: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AnchorStatus = "active" | "drifted" | "orphaned";
+
+export interface NeuronAnchor {
+  id: string;
+  neuronId: string;
+  clusterId: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  contentHash: string;
+  commitSha: string | null;
+  status: AnchorStatus;
+  driftedStartLine: number | null;
+  driftedEndLine: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileTreeEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number | null;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  language: string | null;
+  size: number;
+}
+
+// --- Code Intelligence ---
+
+export interface CodeSymbol {
+  name: string;
+  kind: string;
+  startLine: number;
+  endLine: number;
+  children: CodeSymbol[];
+}
+
+export interface CodeLocation {
+  file: string | null;
+  line: number;
+  col: number;
+}
+
+export interface CodeStructureResponse {
+  symbols: CodeSymbol[];
+}
+
+export interface CodeDefinitionResponse {
+  location: CodeLocation | null;
+}
+
+export interface CodeReferencesResponse {
+  references: CodeLocation[];
+}
+
 export interface Neuron {
   id: string;
   brainId: string;
@@ -230,6 +349,7 @@ export interface SpacedRepetitionItem {
   questionCount: number;
   hasQuestions: boolean;
   quizEligible: boolean;
+  quizEnabled: boolean;
 }
 
 export interface ReviewQuestion {

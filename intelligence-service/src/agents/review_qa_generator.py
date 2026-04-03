@@ -3,6 +3,8 @@ import logging
 from typing import TypedDict
 
 from langchain_core.messages import SystemMessage, HumanMessage
+
+from src.utils import strip_code_fences
 from langgraph.graph import StateGraph
 
 from src.llm import get_llm, get_provider_name
@@ -54,7 +56,9 @@ def invoke_llm(state: dict) -> dict:
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content=state["content_text"]),
     ]
+    logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
+    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
     return {
         "system_prompt": state["system_prompt"],
         "content_text": state["content_text"],
@@ -68,7 +72,7 @@ def invoke_llm(state: dict) -> dict:
 def validate_output(state: dict) -> dict:
     raw = state["raw_response"]
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(strip_code_fences(raw))
         questions = parsed.get("questions", [])
         if not isinstance(questions, list):
             return {**state, "items": [], "error": "LLM response 'questions' field is not a list"}

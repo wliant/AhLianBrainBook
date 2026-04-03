@@ -66,6 +66,8 @@ public class ResearchAsyncService {
     private record ClusterContext(UUID clusterId, String brainName, List<Map<String, Object>> neuronSummaries,
                                    String researchGoal) {}
 
+    private record GoalContext(UUID clusterId, String brainName, String brainDescription) {}
+
     private record TopicContext(UUID topicId, UUID clusterId, String brainName, String researchGoal,
                                  List<Map<String, Object>> neuronSummaries, String existingContentJson) {}
 
@@ -73,12 +75,13 @@ public class ResearchAsyncService {
     @CacheEvict(value = "clustersByBrain", allEntries = true)
     public void generateResearchGoalAsync(UUID clusterId) {
         // Phase 1: Read in transaction
-        ClusterContext ctx = transactionTemplate.execute(status -> {
+        GoalContext ctx = transactionTemplate.execute(status -> {
             Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
             if (cluster == null) return null;
             String brainName = cluster.getBrain().getName();
-            List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(cluster.getBrain().getId());
-            return new ClusterContext(clusterId, brainName, neuronSummaries, null);
+            String brainDescription = cluster.getBrain().getDescription() != null
+                    ? cluster.getBrain().getDescription() : "";
+            return new GoalContext(clusterId, brainName, brainDescription);
         });
 
         if (ctx == null) return;
@@ -86,7 +89,7 @@ public class ResearchAsyncService {
         // Phase 2: Call intelligence — NO transaction
         String goal;
         try {
-            goal = intelligenceService.generateResearchGoal(ctx.brainName(), ctx.neuronSummaries());
+            goal = intelligenceService.generateResearchGoal(ctx.brainName(), ctx.brainDescription());
         } catch (Exception e) {
             logger.error("Failed to generate research goal for cluster {}", clusterId, e);
             goal = null;

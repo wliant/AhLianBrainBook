@@ -15,6 +15,7 @@ public record SpacedRepetitionItemResponse(
         LocalDateTime createdAt,
         int questionCount,
         boolean hasQuestions,
-        boolean quizEligible
+        boolean quizEligible,
+        boolean quizEnabled
 ) {
 }

@@ -184,10 +184,10 @@ public class IntelligenceService {
         );
     }
 
-    public String generateResearchGoal(String brainName, List<Map<String, Object>> neuronSummaries) {
+    public String generateResearchGoal(String brainName, String brainDescription) {
         Map<String, Object> request = Map.of(
                 "brain_name", brainName,
-                "neurons", neuronSummaries
+                "brain_description", brainDescription != null ? brainDescription : ""
         );
         Map<String, Object> response = callAgent("/api/agents/research-goal-generator", request);
         return response != null ? (String) response.getOrDefault("research_goal", "") : "";
@@ -251,6 +251,33 @@ public class IntelligenceService {
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {
                 });
+    }
+
+    // --- Code Intelligence proxies ---
+
+    public Map<String, Object> getCodeStructure(String content, String language) {
+        return callCodeIntelligence("/api/code/structure",
+                Map.of("content", content, "language", language != null ? language : ""));
+    }
+
+    public Map<String, Object> getCodeDefinition(String content, String language, int line, int col) {
+        return callCodeIntelligence("/api/code/definition",
+                Map.of("content", content, "language", language != null ? language : "", "line", line, "col", col));
+    }
+
+    public Map<String, Object> getCodeReferences(String content, String language, int line, int col) {
+        return callCodeIntelligence("/api/code/references",
+                Map.of("content", content, "language", language != null ? language : "", "line", line, "col", col));
+    }
+
+    private Map<String, Object> callCodeIntelligence(String uri, Map<String, Object> request) {
+        try {
+            Map<String, Object> result = callAgent(uri, request);
+            return result != null ? result : Map.of();
+        } catch (RestClientException e) {
+            logger.error("Code intelligence call failed for {}: {}", uri, e.getMessage());
+            return Map.of();
+        }
     }
 
     Map<String, Object> callIntelligenceService(Map<String, Object> request) {
