@@ -87,6 +87,8 @@ export function Sidebar({
   const [editingClusterId, setEditingClusterId] = useState<string | null>(null);
   const [dialogIcon, setDialogIcon] = useState<string | null>(null);
   const [dialogColor, setDialogColor] = useState<string | null>(null);
+  const [clusterType, setClusterType] = useState<"knowledge" | "ai-research" | "project">("knowledge");
+  const [repoUrl, setRepoUrl] = useState("");
   const initialPathname = useRef(pathname);
 
   // Auto-close mobile sidebar on navigation (skip initial mount)
@@ -164,6 +166,8 @@ export function Sidebar({
     setDialogMode("create-cluster");
     setDialogValue("");
     setEditingBrainId(brainId);
+    setClusterType("knowledge");
+    setRepoUrl("");
     setDialogOpen(true);
   };
 
@@ -182,13 +186,25 @@ export function Sidebar({
   };
 
   const handleDialogSubmit = async () => {
-    if (!dialogValue.trim()) return;
+    if (dialogMode === "create-cluster" && clusterType === "ai-research") {
+      // ai-research doesn't need a name input
+    } else if (!dialogValue.trim()) {
+      return;
+    }
     if (dialogMode === "create-brain") {
       await createBrain(dialogValue.trim(), dialogIcon || undefined, dialogColor || undefined);
     } else if (dialogMode === "rename-brain" && editingBrainId) {
       await updateBrain(editingBrainId, dialogValue.trim(), dialogIcon || undefined, dialogColor || undefined);
     } else if (dialogMode === "create-cluster" && editingBrainId) {
-      await api.post("/api/clusters", { name: dialogValue.trim(), brainId: editingBrainId });
+      const name = clusterType === "ai-research" ? "AI Research" : dialogValue.trim();
+      if (!name) return;
+      if (clusterType === "project" && !repoUrl.trim()) return;
+      await api.post("/api/clusters", {
+        name,
+        brainId: editingBrainId,
+        type: clusterType,
+        repoUrl: clusterType === "project" ? repoUrl.trim() : undefined,
+      });
       queryClient.invalidateQueries({ queryKey: ["clusters", editingBrainId] });
     } else if (dialogMode === "rename-cluster" && editingClusterId && editingBrainId) {
       await api.patch(`/api/clusters/${editingClusterId}`, { name: dialogValue.trim() });
@@ -434,14 +450,27 @@ export function Sidebar({
               <ColorPicker value={dialogColor} onChange={setDialogColor} />
             </div>
           )}
-          <Input
-            placeholder="Name..."
-            value={dialogValue}
-            onChange={(e) => setDialogValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleDialogSubmit()}
-            autoFocus
-            data-testid="sidebar-dialog-input"
-          />
+          {dialogMode === "create-cluster" && (
+            <ClusterTypeSelector clusterType={clusterType} onTypeChange={setClusterType} brainId={editingBrainId} />
+          )}
+          {!(dialogMode === "create-cluster" && clusterType === "ai-research") && (
+            <Input
+              placeholder={dialogMode === "create-cluster" ? "Cluster name" : "Name..."}
+              value={dialogValue}
+              onChange={(e) => setDialogValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleDialogSubmit()}
+              autoFocus
+              data-testid="sidebar-dialog-input"
+            />
+          )}
+          {dialogMode === "create-cluster" && clusterType === "project" && (
+            <Input
+              placeholder="Repository URL (e.g. https://github.com/owner/repo)"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              data-testid="repo-url-input"
+            />
+          )}
           <DialogFooter>
             <Button onClick={handleDialogSubmit} data-testid="sidebar-dialog-submit">
               {dialogMode.startsWith("create") ? "Create" : "Save"}
@@ -449,6 +478,7 @@ export function Sidebar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </>
   );
 
@@ -742,6 +772,53 @@ function ClusterItem({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ClusterTypeSelector({
+  clusterType,
+  onTypeChange,
+  brainId,
+}: {
+  clusterType: "knowledge" | "ai-research" | "project";
+  onTypeChange: (type: "knowledge" | "ai-research" | "project") => void;
+  brainId: string | null;
+}) {
+  const { clusters } = useClusters(brainId);
+  const hasAiResearch = clusters.some((c) => c.type === "ai-research");
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">Type</p>
+      <div className="space-y-1.5">
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="cluster-type" value="knowledge"
+            checked={clusterType === "knowledge"}
+            onChange={() => onTypeChange("knowledge")}
+            className="accent-primary" />
+          <FolderOpen className="h-4 w-4 text-muted-foreground" />
+          Knowledge
+        </label>
+        <label className={`flex items-center gap-2 text-sm ${hasAiResearch ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+          <input type="radio" name="cluster-type" value="ai-research"
+            checked={clusterType === "ai-research"}
+            onChange={() => onTypeChange("ai-research")}
+            disabled={hasAiResearch}
+            className="accent-primary" />
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          AI Research
+          {hasAiResearch && <span className="text-xs text-muted-foreground">(already exists)</span>}
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="cluster-type" value="project"
+            checked={clusterType === "project"}
+            onChange={() => onTypeChange("project")}
+            className="accent-primary" />
+          <Code className="h-4 w-4 text-muted-foreground" />
+          Project
+        </label>
+      </div>
     </div>
   );
 }

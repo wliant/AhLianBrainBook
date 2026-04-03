@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown } from "lucide-react";
+import { useMemo, useState, useCallback } from "react";
+import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import type { FileTreeEntry } from "@/types";
 
 interface TreeNode {
@@ -10,6 +10,8 @@ interface TreeNode {
   type: "file" | "directory";
   size: number | null;
   children: TreeNode[];
+  /** Whether children have been loaded from the server */
+  childrenLoaded: boolean;
 }
 
 function ensureDir(dirMap: Map<string, TreeNode>, root: TreeNode[], dirPath: string): TreeNode {
@@ -18,7 +20,7 @@ function ensureDir(dirMap: Map<string, TreeNode>, root: TreeNode[], dirPath: str
 
   const lastSlash = dirPath.lastIndexOf("/");
   const name = lastSlash >= 0 ? dirPath.substring(lastSlash + 1) : dirPath;
-  const node: TreeNode = { name, path: dirPath, type: "directory", size: null, children: [] };
+  const node: TreeNode = { name, path: dirPath, type: "directory", size: null, children: [], childrenLoaded: false };
   dirMap.set(dirPath, node);
 
   if (lastSlash === -1) {
@@ -53,6 +55,7 @@ function buildTree(entries: FileTreeEntry[]): TreeNode[] {
       type: "file",
       size: entry.size,
       children: [],
+      childrenLoaded: true,
     };
 
     const lastSlash = entry.path.lastIndexOf("/");
@@ -79,6 +82,15 @@ function buildTree(entries: FileTreeEntry[]): TreeNode[] {
   return root;
 }
 
+function findNode(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    const found = findNode(node.children, path);
+    if (found) return found;
+  }
+  return null;
+}
+
 const CODE_EXTENSIONS = new Set([
   "java", "py", "js", "jsx", "ts", "tsx", "go", "rs", "cpp", "c", "h",
   "cs", "rb", "kt", "swift", "sql", "sh", "bash", "yml", "yaml", "json",
@@ -96,10 +108,33 @@ interface TreeNodeItemProps {
   depth: number;
   selectedPath: string | null;
   onSelectFile: (path: string) => void;
+  onLoadChildren?: (path: string) => Promise<FileTreeEntry[]>;
+  onChildrenLoaded: (parentPath: string, children: TreeNode[]) => void;
 }
 
-function TreeNodeItem({ node, depth, selectedPath, onSelectFile }: TreeNodeItemProps) {
+function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren, onChildrenLoaded }: TreeNodeItemProps) {
   const [expanded, setExpanded] = useState(depth === 0);
+  const [loading, setLoading] = useState(false);
+
+  const handleToggle = useCallback(async () => {
+    if (!expanded && !node.childrenLoaded && onLoadChildren) {
+      setLoading(true);
+      try {
+        const entries = await onLoadChildren(node.path);
+        // buildTree creates a full tree from paths — extract only the
+        // direct children of this node to avoid duplicating the parent.
+        const fullTree = buildTree(entries);
+        const parentInTree = findNode(fullTree, node.path);
+        const children = parentInTree ? parentInTree.children : fullTree;
+        onChildrenLoaded(node.path, children);
+      } catch (err) {
+        console.error("Failed to load directory:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setExpanded(!expanded);
+  }, [expanded, node.childrenLoaded, node.path, onLoadChildren, onChildrenLoaded]);
 
   if (node.type === "directory") {
     return (
@@ -107,9 +142,11 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile }: TreeNodeItemP
         <button
           className={`flex items-center gap-1 w-full text-left px-2 py-1 text-sm hover:bg-accent rounded-sm transition-colors`}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={() => setExpanded(!expanded)}
+          onClick={handleToggle}
         >
-          {expanded ? (
+          {loading ? (
+            <Loader2 className="h-3 w-3 shrink-0 text-muted-foreground animate-spin" />
+          ) : expanded ? (
             <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
           ) : (
             <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -130,6 +167,8 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile }: TreeNodeItemP
                 depth={depth + 1}
                 selectedPath={selectedPath}
                 onSelectFile={onSelectFile}
+                onLoadChildren={onLoadChildren}
+                onChildrenLoaded={onChildrenLoaded}
               />
             ))}
           </div>
@@ -160,10 +199,34 @@ interface FileTreePanelProps {
   loading: boolean;
   selectedPath: string | null;
   onSelectFile: (path: string) => void;
+  onLoadChildren?: (path: string) => Promise<FileTreeEntry[]>;
 }
 
-export function FileTreePanel({ entries, loading, selectedPath, onSelectFile }: FileTreePanelProps) {
-  const tree = useMemo(() => buildTree(entries), [entries]);
+export function FileTreePanel({ entries, loading, selectedPath, onSelectFile, onLoadChildren }: FileTreePanelProps) {
+  const initialTree = useMemo(() => buildTree(entries), [entries]);
+  const [tree, setTree] = useState<TreeNode[]>(initialTree);
+
+  // Sync tree when entries change (e.g. switching between sandbox/browse mode)
+  useMemo(() => {
+    setTree(buildTree(entries));
+  }, [entries]);
+
+  const handleChildrenLoaded = useCallback((parentPath: string, children: TreeNode[]) => {
+    setTree((prev) => {
+      function updateNode(nodes: TreeNode[]): TreeNode[] {
+        return nodes.map((n) => {
+          if (n.path === parentPath) {
+            return { ...n, children, childrenLoaded: true };
+          }
+          if (n.children.length > 0) {
+            return { ...n, children: updateNode(n.children) };
+          }
+          return n;
+        });
+      }
+      return updateNode(prev);
+    });
+  }, []);
 
   if (loading) {
     return (
@@ -190,6 +253,8 @@ export function FileTreePanel({ entries, loading, selectedPath, onSelectFile }: 
           depth={0}
           selectedPath={selectedPath}
           onSelectFile={onSelectFile}
+          onLoadChildren={onLoadChildren}
+          onChildrenLoaded={handleChildrenLoaded}
         />
       ))}
     </div>

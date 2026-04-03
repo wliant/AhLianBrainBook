@@ -3,11 +3,12 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import {
   EditorView,
+  Decoration,
   lineNumbers,
   highlightSpecialChars,
   drawSelection,
 } from "@codemirror/view";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
 import {
   syntaxHighlighting,
   defaultHighlightStyle,
@@ -83,6 +84,7 @@ export function CodeViewer({
   const gutterCompartment = useRef(new Compartment());
   const blameCompartment = useRef(new Compartment());
   const goToDefCompartment = useRef(new Compartment());
+  const selectionHighlightCompartment = useRef(new Compartment());
   const onGoToDefinitionRef = useRef(onGoToDefinition);
   onGoToDefinitionRef.current = onGoToDefinition;
 
@@ -115,6 +117,7 @@ export function CodeViewer({
             ? goToDefinitionExtension((line, col) => onGoToDefinitionRef.current?.(line, col))
             : []
         ),
+        selectionHighlightCompartment.current.of([]),
         oneDark,
         EditorView.theme({
           "&": { fontSize: "13px", height: "100%" },
@@ -123,6 +126,7 @@ export function CodeViewer({
           ".cm-scroller": { overflow: "auto" },
           ".cm-anchor-gutter": { width: "16px" },
           ".cm-blame-gutter": { width: "180px", fontSize: "11px" },
+          ".cm-anchor-selection": { backgroundColor: "rgba(59, 130, 246, 0.15)" },
         }),
       ],
     });
@@ -201,6 +205,32 @@ export function CodeViewer({
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
   }, [scrollToLine, scrollKey]);
+
+  // Highlight selected anchor lines
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    if (!anchorSelection) {
+      view.dispatch({
+        effects: selectionHighlightCompartment.current.reconfigure([]),
+      });
+      return;
+    }
+    const lineDeco = Decoration.line({ class: "cm-anchor-selection" });
+    const builder = new RangeSetBuilder<Decoration>();
+    const startLine = Math.max(1, anchorSelection.startLine);
+    const endLine = Math.min(anchorSelection.endLine, view.state.doc.lines);
+    for (let i = startLine; i <= endLine; i++) {
+      const line = view.state.doc.line(i);
+      builder.add(line.from, line.from, lineDeco);
+    }
+    const decoSet = builder.finish();
+    view.dispatch({
+      effects: selectionHighlightCompartment.current.reconfigure(
+        EditorView.decorations.of(decoSet)
+      ),
+    });
+  }, [anchorSelection]);
 
   // Handle line gutter click for anchor selection
   const handleContainerClick = useCallback(
