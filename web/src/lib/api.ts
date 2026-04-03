@@ -106,6 +106,38 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   upload: <T>(path: string, file: File) => uploadFile<T>(path, file),
 
+  // Sandbox endpoints
+  sandbox: {
+    get: (clusterId: string) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox`),
+    provision: (clusterId: string, body?: { branch?: string; shallow?: boolean }) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox`, { method: "POST", body }),
+    terminate: (clusterId: string) =>
+      request<void>(`/api/clusters/${clusterId}/sandbox`, { method: "DELETE" }),
+    retry: (clusterId: string) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox/retry`, { method: "POST" }),
+    pull: (clusterId: string) =>
+      request<import("@/types").PullResponse>(`/api/clusters/${clusterId}/sandbox/pull`, { method: "POST" }),
+    checkout: (clusterId: string, branch: string) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox/checkout`, { method: "POST", body: { branch } }),
+    branches: (clusterId: string) =>
+      request<string[]>(`/api/clusters/${clusterId}/sandbox/branches`),
+    tree: (clusterId: string, path?: string) => {
+      const params = path ? `?path=${encodeURIComponent(path)}` : "";
+      return request<import("@/types").FileTreeEntry[]>(`/api/clusters/${clusterId}/sandbox/tree${params}`);
+    },
+    file: (clusterId: string, path: string) =>
+      request<import("@/types").FileContent>(`/api/clusters/${clusterId}/sandbox/file?path=${encodeURIComponent(path)}`),
+    log: (clusterId: string, limit = 50, offset = 0) =>
+      request<import("@/types").GitCommit[]>(`/api/clusters/${clusterId}/sandbox/log?limit=${limit}&offset=${offset}`),
+    blame: (clusterId: string, path: string) =>
+      request<import("@/types").BlameLine[]>(`/api/clusters/${clusterId}/sandbox/blame?path=${encodeURIComponent(path)}`),
+    diff: (clusterId: string, from: string, to: string) =>
+      request<string>(`/api/clusters/${clusterId}/sandbox/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+    list: () =>
+      request<import("@/types").Sandbox[]>("/api/sandboxes"),
+  },
+
   // NeuronLink endpoints
   neuronLinks: {
     getForNeuron: <T>(neuronId: string) =>

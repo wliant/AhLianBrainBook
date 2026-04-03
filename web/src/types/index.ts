@@ -61,6 +61,54 @@ export interface ResearchTopic {
   lastUpdatedBy: string;
 }
 
+// Sandbox types
+
+export type SandboxStatus = "cloning" | "indexing" | "active" | "error" | "terminating";
+
+export interface Sandbox {
+  id: string;
+  clusterId: string;
+  brainId: string;
+  brainName: string | null;
+  clusterName: string | null;
+  repoUrl: string;
+  currentBranch: string;
+  currentCommit: string | null;
+  isShallow: boolean;
+  status: SandboxStatus;
+  diskUsageBytes: number | null;
+  errorMessage: string | null;
+  lastAccessedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GitCommit {
+  sha: string;
+  author: string;
+  authorEmail: string;
+  date: string;
+  message: string;
+}
+
+export interface BlameLine {
+  line: number;
+  commitSha: string | null;
+  author: string | null;
+  date: string | null;
+  content: string;
+}
+
+export interface PullResponse {
+  newCommit: string;
+  anchorsAffected: {
+    unchanged: number;
+    autoUpdated: number;
+    drifted: number;
+    orphaned: number;
+  };
+}
+
 // Project Cluster types
 
 export interface ProjectConfig {
