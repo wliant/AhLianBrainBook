@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { GitBranch, Box, List } from "lucide-react";
+import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
 import { useFileTree } from "@/lib/hooks/useFileTree";
@@ -27,7 +28,7 @@ interface ProjectClusterViewProps {
 
 export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps) {
   const { config } = useProjectConfig(cluster.id);
-  const { sandbox, provision, terminate, pull } = useSandbox(cluster.id);
+  const { sandbox, provision, terminate, pull, checkout } = useSandbox(cluster.id);
   const isSandboxActive = sandbox?.status === "active";
   const ref = config?.defaultBranch ?? undefined;
 
@@ -151,8 +152,18 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     <div className="flex flex-col h-full" data-testid="project-cluster-view">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground">
-        <GitBranch className="h-4 w-4" />
-        <span>{sandbox?.currentBranch ?? config?.defaultBranch ?? "main"}</span>
+        {isSandboxActive && sandbox ? (
+          <BranchSelector
+            clusterId={cluster.id}
+            currentBranch={sandbox.currentBranch}
+            onCheckout={checkout}
+          />
+        ) : (
+          <>
+            <GitBranch className="h-4 w-4" />
+            <span>{config?.defaultBranch ?? "main"}</span>
+          </>
+        )}
         {config?.repoUrl && (
           <span className="text-xs opacity-60 truncate ml-2">{config.repoUrl}</span>
         )}
