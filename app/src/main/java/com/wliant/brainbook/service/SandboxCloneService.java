@@ -26,6 +26,7 @@ public class SandboxCloneService {
 
     private final SandboxRepository sandboxRepository;
     private final GitOperationService gitOperationService;
+    private final SandboxConfig config;
     private final Semaphore cloneSemaphore;
 
     public SandboxCloneService(SandboxRepository sandboxRepository,
@@ -33,6 +34,7 @@ public class SandboxCloneService {
                                SandboxConfig config) {
         this.sandboxRepository = sandboxRepository;
         this.gitOperationService = gitOperationService;
+        this.config = config;
         this.cloneSemaphore = new Semaphore(config.getMaxConcurrentClones());
     }
 
@@ -49,16 +51,31 @@ public class SandboxCloneService {
         }
 
         try {
-            gitOperationService.cloneRepository(repoUrl, branch, targetDir, shallow);
+            gitOperationService.cloneRepository(repoUrl, branch, targetDir, shallow,
+                    config.getCloneTimeoutSec());
+
+            long diskUsage = calculateDiskUsage(targetDir);
+            if (diskUsage > config.getMaxRepoSizeBytes()) {
+                logger.warn("Sandbox {} exceeds max repo size ({} MB > {} MB), removing",
+                        sandboxId, diskUsage / (1024 * 1024), config.getMaxRepoSizeMb());
+                deleteDirectoryQuietly(targetDir.getParent());
+                sandboxRepository.findById(sandboxId).ifPresent(s -> {
+                    s.setStatus(SandboxStatus.ERROR);
+                    s.setErrorMessage("Repository exceeds size limit ("
+                            + (diskUsage / (1024 * 1024)) + " MB > " + config.getMaxRepoSizeMb() + " MB)");
+                    sandboxRepository.save(s);
+                });
+                return;
+            }
 
             sandboxRepository.findById(sandboxId).ifPresent(s -> {
                 s.setStatus(SandboxStatus.ACTIVE);
                 try {
                     s.setCurrentCommit(gitOperationService.getHeadCommit(targetDir));
-                    s.setDiskUsageBytes(calculateDiskUsage(targetDir));
                 } catch (IOException e) {
                     logger.warn("Failed to read head commit after clone", e);
                 }
+                s.setDiskUsageBytes(diskUsage);
                 sandboxRepository.save(s);
             });
 

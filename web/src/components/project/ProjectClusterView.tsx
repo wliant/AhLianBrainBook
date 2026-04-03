@@ -33,6 +33,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [scrollKey, setScrollKey] = useState(0);
   const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
+  const [terminating, setTerminating] = useState(false);
 
   // File tree: use sandbox endpoint when active, otherwise GitHub API
   const { data: sandboxEntries = [], isLoading: sandboxTreeLoading } = useQuery({
@@ -88,7 +89,12 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
   const handleTerminate = async () => {
     if (confirm("This will delete the cloned repository from the server. Your notes and anchors will be preserved.")) {
-      await terminate();
+      setTerminating(true);
+      try {
+        await terminate();
+      } finally {
+        setTerminating(false);
+      }
     }
   };
 
@@ -165,6 +171,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           onPull={handlePull}
           onTerminate={handleTerminate}
           pulling={pulling}
+          terminating={terminating}
         />
       )}
 

@@ -129,6 +129,10 @@ public class AnchorService {
     }
 
     public NeuronAnchorResponse confirmDrift(UUID id) {
+        return confirmDrift(id, null);
+    }
+
+    public NeuronAnchorResponse confirmDrift(UUID id, String fileContent) {
         NeuronAnchor anchor = neuronAnchorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Anchor not found: " + id));
 
@@ -145,7 +149,13 @@ public class AnchorService {
         anchor.setDriftedStartLine(null);
         anchor.setDriftedEndLine(null);
         anchor.setStatus(AnchorStatus.ACTIVE);
-        // Content hash will be recomputed when file content is available
+
+        // Recompute content hash if file content is available (sandbox mode)
+        if (fileContent != null) {
+            String anchoredText = extractLines(fileContent, anchor.getStartLine(), anchor.getEndLine());
+            anchor.setContentHash(normalizeAndHash(anchoredText));
+            anchor.setAnchoredText(anchoredText);
+        }
 
         NeuronAnchor saved = neuronAnchorRepository.save(anchor);
         return toResponse(saved);
@@ -348,6 +358,9 @@ public class AnchorService {
     }
 
     private void validateLineRange(int startLine, int endLine) {
+        if (startLine < 1) {
+            throw new IllegalArgumentException("Start line must be >= 1");
+        }
         if (endLine < startLine) {
             throw new IllegalArgumentException("End line must be >= start line");
         }

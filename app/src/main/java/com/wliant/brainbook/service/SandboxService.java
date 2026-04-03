@@ -73,6 +73,16 @@ public class SandboxService {
             throw new ConflictException("Maximum sandbox count reached (" + config.getMaxCount() + ")");
         }
 
+        // Disk quota check
+        Long totalDisk = sandboxRepository.findByStatus(SandboxStatus.ACTIVE).stream()
+                .map(Sandbox::getDiskUsageBytes)
+                .filter(Objects::nonNull)
+                .reduce(0L, Long::sum);
+        if (totalDisk >= config.getMaxTotalDiskBytes()) {
+            throw new ConflictException("Total sandbox disk quota exceeded ("
+                    + (totalDisk / (1024 * 1024)) + " MB / " + config.getMaxTotalDiskMb() + " MB)");
+        }
+
         ProjectConfig projectConfig = projectConfigRepository.findByClusterId(clusterId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project config not found for cluster: " + clusterId));
 
@@ -80,21 +90,23 @@ public class SandboxService {
         validateRepoUrl(repoUrl);
 
         String branch = req.branchOrDefault(projectConfig.getDefaultBranch());
-        UUID sandboxId = UUID.randomUUID();
-        String sandboxPath = Paths.get(config.getRootPath(), sandboxId.toString()).toString();
 
         Sandbox sandbox = new Sandbox();
         sandbox.setCluster(cluster);
         sandbox.setBrain(cluster.getBrain());
         sandbox.setRepoUrl(repoUrl);
         sandbox.setCurrentBranch(branch);
-        sandbox.setSandboxPath(sandboxPath);
+        sandbox.setSandboxPath(""); // temporary, set after save to use JPA-generated ID
         sandbox.setIsShallow(req.isShallow());
         sandbox.setStatus(SandboxStatus.CLONING);
 
         Sandbox saved = sandboxRepository.save(sandbox);
+        String sandboxPath = Paths.get(config.getRootPath(), saved.getId().toString()).toString();
+        saved.setSandboxPath(sandboxPath);
+        sandboxRepository.save(saved);
+
         sandboxCloneService.asyncClone(saved.getId(), repoUrl, branch,
-                Path.of(saved.getSandboxPath(), "repo"), req.isShallow());
+                Path.of(sandboxPath, "repo"), req.isShallow());
         return toResponse(saved);
     }
 
@@ -329,6 +341,11 @@ public class SandboxService {
 
     private void deleteDirectoryQuietly(Path dir) {
         if (dir == null || !Files.exists(dir)) return;
+        Path root = Path.of(config.getRootPath()).normalize();
+        if (!dir.normalize().startsWith(root)) {
+            logger.error("Refusing to delete directory outside sandbox root: {}", dir);
+            return;
+        }
         try {
             Files.walkFileTree(dir, new SimpleFileVisitor<>() {
                 @Override

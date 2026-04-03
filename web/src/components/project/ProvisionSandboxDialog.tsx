@@ -30,11 +30,13 @@ export function ProvisionSandboxDialog({
   const [branch, setBranch] = useState(defaultBranch || "main");
   const [shallow, setShallow] = useState(true);
   const [provisioning, setProvisioning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setBranch(defaultBranch || "main");
       setShallow(true);
+      setError(null);
     }
   }, [open, defaultBranch]);
 
@@ -43,11 +45,12 @@ export function ProvisionSandboxDialog({
     if (provisioning) return;
 
     setProvisioning(true);
+    setError(null);
     try {
       await onProvision({ branch, shallow });
       onOpenChange(false);
     } catch (err) {
-      console.error("Failed to provision sandbox:", err);
+      setError(err instanceof Error ? err.message : "Provisioning failed");
     } finally {
       setProvisioning(false);
     }
@@ -98,6 +101,10 @@ export function ProvisionSandboxDialog({
               </label>
             </div>
           </div>
+
+          {error && (
+            <p className="text-sm text-destructive mt-2">{error}</p>
+          )}
 
           <DialogFooter className="mt-4">
             <Button

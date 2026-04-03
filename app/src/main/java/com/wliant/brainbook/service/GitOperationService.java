@@ -37,16 +37,18 @@ public class GitOperationService {
 
     private static final Logger logger = LoggerFactory.getLogger(GitOperationService.class);
 
-    public void cloneRepository(String repoUrl, String branch, Path targetDir, boolean shallow)
-            throws GitAPIException {
-        logger.info("Cloning {} (branch={}, shallow={}) to {}", repoUrl, branch, shallow, targetDir);
+    public void cloneRepository(String repoUrl, String branch, Path targetDir, boolean shallow,
+                                int timeoutSeconds) throws GitAPIException {
+        logger.info("Cloning {} (branch={}, shallow={}, timeout={}s) to {}",
+                repoUrl, branch, shallow, timeoutSeconds, targetDir);
 
         CloneCommand cmd = Git.cloneRepository()
                 .setURI(repoUrl)
                 .setDirectory(targetDir.toFile())
                 .setBranch(branch)
                 .setNoCheckout(false)
-                .setCloneSubmodules(false);
+                .setCloneSubmodules(false)
+                .setTimeout(timeoutSeconds);
 
         if (shallow) {
             cmd.setDepth(1);

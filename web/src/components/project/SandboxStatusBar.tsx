@@ -9,6 +9,7 @@ interface SandboxStatusBarProps {
   onPull: () => void;
   onTerminate: () => void;
   pulling: boolean;
+  terminating: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -24,6 +25,7 @@ export function SandboxStatusBar({
   onPull,
   onTerminate,
   pulling,
+  terminating,
 }: SandboxStatusBarProps) {
   const isActive = sandbox.status === "active";
   const isLoading = sandbox.status === "cloning" || sandbox.status === "indexing";
@@ -33,9 +35,12 @@ export function SandboxStatusBar({
       {/* Status indicator */}
       <div className="flex items-center gap-1.5">
         {isLoading ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
         ) : (
-          <span className={`h-2 w-2 rounded-full ${STATUS_COLORS[sandbox.status] || "bg-gray-500"}`} />
+          <span
+            className={`h-2 w-2 rounded-full ${STATUS_COLORS[sandbox.status] || "bg-gray-500"}`}
+            aria-hidden="true"
+          />
         )}
         <span className="capitalize">{sandbox.status}</span>
       </div>
@@ -71,7 +76,7 @@ export function SandboxStatusBar({
             variant="ghost"
             className="h-6 text-xs px-2"
             onClick={onPull}
-            disabled={pulling}
+            disabled={pulling || terminating}
           >
             <RefreshCw className={`h-3 w-3 mr-1 ${pulling ? "animate-spin" : ""}`} />
             {pulling ? "Pulling..." : "Pull"}
@@ -81,9 +86,10 @@ export function SandboxStatusBar({
             variant="ghost"
             className="h-6 text-xs px-2 text-destructive"
             onClick={onTerminate}
+            disabled={terminating || pulling}
           >
             <Trash2 className="h-3 w-3 mr-1" />
-            Terminate
+            {terminating ? "Terminating..." : "Terminate"}
           </Button>
         </>
       )}

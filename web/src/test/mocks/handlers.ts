@@ -311,12 +311,23 @@ export const handlers = [
       anchorsAffected: { unchanged: 5, autoUpdated: 1, drifted: 0, orphaned: 0 },
     })
   ),
-  http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/checkout`, () =>
+  http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/checkout`, ({ params }) =>
     HttpResponse.json({
       id: 'sandbox-1',
-      status: 'active',
+      clusterId: params.clusterId,
+      brainId: 'brain-1',
+      brainName: 'Test Brain',
+      clusterName: 'Test Project',
+      repoUrl: 'https://github.com/owner/repo',
       currentBranch: 'develop',
       currentCommit: 'newcommit123',
+      isShallow: true,
+      status: 'active',
+      diskUsageBytes: 52428800,
+      errorMessage: null,
+      lastAccessedAt: '2024-01-01T00:00:00',
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
     })
   ),
   http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/branches`, () =>
