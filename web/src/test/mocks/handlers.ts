@@ -259,6 +259,89 @@ export const handlers = [
     })
   ),
 
+  // Sandbox lifecycle
+  http.post(`${API_BASE}/api/clusters/:clusterId/sandbox`, async ({ request, params }) => {
+    const body = ((await request.json().catch(() => null)) || {}) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'sandbox-1',
+        clusterId: params.clusterId,
+        brainId: 'brain-1',
+        brainName: 'Test Brain',
+        clusterName: 'Test Project',
+        repoUrl: 'https://github.com/owner/repo',
+        currentBranch: body.branch || 'main',
+        currentCommit: null,
+        isShallow: body.shallow ?? true,
+        status: 'cloning',
+        diskUsageBytes: null,
+        errorMessage: null,
+        lastAccessedAt: '2024-01-01T00:00:00',
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+      },
+      { status: 202 }
+    );
+  }),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox`, ({ params }) =>
+    HttpResponse.json({
+      id: 'sandbox-1',
+      clusterId: params.clusterId,
+      brainId: 'brain-1',
+      brainName: 'Test Brain',
+      clusterName: 'Test Project',
+      repoUrl: 'https://github.com/owner/repo',
+      currentBranch: 'main',
+      currentCommit: 'abc123def456',
+      isShallow: true,
+      status: 'active',
+      diskUsageBytes: 52428800,
+      errorMessage: null,
+      lastAccessedAt: '2024-01-01T00:00:00',
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    })
+  ),
+  http.delete(`${API_BASE}/api/clusters/:clusterId/sandbox`, () =>
+    new HttpResponse(null, { status: 202 })
+  ),
+  http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/pull`, () =>
+    HttpResponse.json({
+      newCommit: 'def789abc012',
+      anchorsAffected: { unchanged: 5, autoUpdated: 1, drifted: 0, orphaned: 0 },
+    })
+  ),
+  http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/checkout`, () =>
+    HttpResponse.json({
+      id: 'sandbox-1',
+      status: 'active',
+      currentBranch: 'develop',
+      currentCommit: 'newcommit123',
+    })
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/branches`, () =>
+    HttpResponse.json(['main', 'develop', 'feature/test'])
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/tree`, () =>
+    HttpResponse.json([
+      { name: 'src', path: 'src', type: 'directory', size: null },
+      { name: 'Main.java', path: 'src/Main.java', type: 'file', size: 1024 },
+    ])
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/file`, ({ request }) => {
+    const url = new URL(request.url);
+    const path = url.searchParams.get('path') || 'unknown';
+    return HttpResponse.json({
+      path,
+      content: 'public class Main {}',
+      language: 'java',
+      size: 20,
+    });
+  }),
+  http.get(`${API_BASE}/api/sandboxes`, () =>
+    HttpResponse.json([])
+  ),
+
   // Trash & Search
   http.get(`${API_BASE}/api/neurons/trash`, () => HttpResponse.json([])),
   http.get(`${API_BASE}/api/search`, () =>
