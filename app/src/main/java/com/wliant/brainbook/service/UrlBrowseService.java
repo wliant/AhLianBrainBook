@@ -99,6 +99,10 @@ public class UrlBrowseService {
                     throw new ResourceNotFoundException("GitHub repository or ref not found: "
                             + ownerRepo[0] + "/" + ownerRepo[1] + " @ " + resolvedRef);
                 })
+                .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                    throw new RuntimeException("GitHub API is temporarily unavailable (HTTP "
+                            + res.getStatusCode().value() + ")");
+                })
                 .body(JsonNode.class);
 
         List<FileTreeEntryResponse> entries = new ArrayList<>();
@@ -106,6 +110,8 @@ public class UrlBrowseService {
             for (JsonNode node : response.get("tree")) {
                 String path = node.get("path").asText();
                 String type = node.get("type").asText();
+                // Skip submodule entries (type "commit")
+                if ("commit".equals(type)) continue;
                 String entryType = "tree".equals(type) ? "directory" : "file";
                 Long size = node.has("size") ? node.get("size").asLong() : null;
                 String name = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
@@ -128,6 +134,10 @@ public class UrlBrowseService {
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
                     throw new ResourceNotFoundException("File not found: " + path);
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                    throw new RuntimeException("GitHub API is temporarily unavailable (HTTP "
+                            + res.getStatusCode().value() + ")");
                 })
                 .body(JsonNode.class);
 
@@ -161,6 +171,10 @@ public class UrlBrowseService {
                 .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
                     throw new ResourceNotFoundException("GitHub repository not found: "
                             + ownerRepo[0] + "/" + ownerRepo[1]);
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                    throw new RuntimeException("GitHub API is temporarily unavailable (HTTP "
+                            + res.getStatusCode().value() + ")");
                 })
                 .body(JsonNode.class);
 

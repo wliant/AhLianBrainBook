@@ -20,8 +20,7 @@ public class CacheConfig {
                 .maximumSize(500)
                 .expireAfterWrite(5, TimeUnit.MINUTES));
         cacheManager.setCacheNames(java.util.List.of(
-                "brains", "tags", "settings", "brainStats", "clustersByBrain",
-                "githubTree", "githubFile"));
+                "brains", "tags", "settings", "brainStats", "clustersByBrain"));
 
         // Register caches with custom TTLs
         cacheManager.registerCustomCache("settings",
