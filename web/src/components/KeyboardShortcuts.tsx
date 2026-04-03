@@ -23,6 +23,7 @@ const SHORTCUTS = [
   { keys: "Ctrl+Shift+P", description: "Command palette" },
   { keys: "Ctrl+P", description: "Quick open file (project mode)" },
   { keys: "Ctrl+Shift+O", description: "Toggle outline / table of contents" },
+  { keys: "Ctrl+G", description: "Go to line number (project mode)" },
   { keys: "Ctrl+Click", description: "Go to definition (project mode)" },
   { keys: "Escape", description: "Go back / close panel" },
   { keys: "?", description: "Show keyboard shortcuts" },

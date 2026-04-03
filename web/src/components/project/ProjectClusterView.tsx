@@ -18,6 +18,7 @@ import { SandboxStatusBar } from "./SandboxStatusBar";
 import { GitLogPanel } from "./GitLogPanel";
 import { DiffView } from "./DiffView";
 import { OrphanList } from "./OrphanList";
+import { GoToLineDialog } from "./GoToLineDialog";
 import { FileStructurePanel } from "./FileStructurePanel";
 import { QuickOpenDialog } from "./QuickOpenDialog";
 import { useCodeStructure } from "@/lib/hooks/useCodeStructure";
@@ -45,6 +46,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [diffView, setDiffView] = useState<{ from: string; to: string } | null>(null);
   const [blameVisible, setBlameVisible] = useState(false);
   const [orphanListOpen, setOrphanListOpen] = useState(false);
+  const [goToLineOpen, setGoToLineOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [terminating, setTerminating] = useState(false);
 
@@ -101,12 +103,26 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         e.preventDefault();
         setStructurePanelOpen((prev) => !prev);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "g") {
+        e.preventDefault();
+        setGoToLineOpen(true);
+      }
+      if (e.key === "Escape") {
+        setGitLogOpen(false);
+        setOrphanListOpen(false);
+        setBlameVisible(false);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
   const handleSymbolClick = useCallback((line: number) => {
+    setScrollToLine(line);
+    setScrollKey((k) => k + 1);
+  }, []);
+
+  const handleGoToLine = useCallback((line: number) => {
     setScrollToLine(line);
     setScrollKey((k) => k + 1);
   }, []);
@@ -356,6 +372,13 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           to={diffView.to}
         />
       )}
+
+      {/* Go To Line Dialog */}
+      <GoToLineDialog
+        open={goToLineOpen}
+        onOpenChange={setGoToLineOpen}
+        onGoToLine={handleGoToLine}
+      />
 
       {/* Quick Open Dialog */}
       <QuickOpenDialog
