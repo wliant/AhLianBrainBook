@@ -22,18 +22,28 @@ intelligence-service/
 │   ├── main.py          # FastAPI app, middleware
 │   ├── config.py        # Pydantic Settings (LLM provider, URLs, keys)
 │   ├── llm.py           # LLM provider factory (get_llm → ChatOllama or ChatAnthropic)
+│   ├── embedding.py     # Ollama embeddings factory (get_embeddings)
 │   ├── routers/         # API endpoint handlers
+│   │   ├── agents.py
+│   │   ├── embeddings.py
+│   │   ├── code_intelligence.py
+│   │   └── health.py
 │   ├── agents/          # LangGraph agent definitions
 │   │   ├── placeholder.py
 │   │   ├── section_author.py
 │   │   ├── research_goal_generator.py
 │   │   ├── research_topic_generator.py
 │   │   ├── research_topic_scorer.py
-│   │   └── research_bullet_expander.py
+│   │   ├── research_bullet_expander.py
+│   │   ├── review_qa_generator.py
+│   │   └── code_analyzer.py
 │   └── schemas/         # Request/response models
 │       ├── agents.py
 │       ├── section_author.py
 │       ├── research.py
+│       ├── review_qa.py
+│       ├── embeddings.py
+│       ├── code_intelligence.py
 │       └── health.py
 ├── tests/               # pytest test suite
 ├── Dockerfile           # Multi-stage production build
@@ -51,6 +61,11 @@ intelligence-service/
 | POST   | /api/agents/research-topic-generator   | `GenerateTopicRequest`       | `GenerateTopicResponse`      | Generate bullet tree for a topic    |
 | POST   | /api/agents/research-topic-scorer      | `ScoreTopicRequest`          | `ScoreTopicResponse`         | Re-score completeness + discover links |
 | POST   | /api/agents/research-bullet-expander   | `ExpandBulletRequest`        | `ExpandBulletResponse`       | Expand bullet into sub-points       |
+| POST   | /api/agents/review-qa-generator        | `ReviewQARequest`            | `ReviewQAResponse`           | Generate Q&A pairs for spaced repetition |
+| POST   | /api/embeddings                        | `EmbeddingRequest`           | `EmbeddingResponse`          | Compute vector embedding for text   |
+| POST   | /api/code/structure                    | `CodeStructureRequest`       | `CodeStructureResponse`      | Extract code symbols via tree-sitter |
+| POST   | /api/code/definition                   | `CodeDefinitionRequest`      | `CodeDefinitionResponse`     | Go-to-definition via tree-sitter    |
+| POST   | /api/code/references                   | `CodeReferencesRequest`      | `CodeReferencesResponse`     | Find all references via tree-sitter |
 
 ### POST /api/agents/invoke
 
@@ -288,23 +303,150 @@ class BulletItem:
     children: list[BulletItem]
 ```
 
+### Review Q&A Generator
+
+Generates question-answer pairs from neuron content for spaced repetition review.
+
+```
+START → build_prompt → invoke_llm → validate_output → END
+```
+
+- **Input** (`ReviewQARequest`): `{ neuron_title, content_text, question_count?, brain_name?, tags? }`
+- **Output** (`ReviewQAResponse`): `{ items: ReviewQAItem[], error? }`
+
+**Request:**
+
+```json
+{
+  "neuron_title": "Binary Search Trees",
+  "content_text": "A binary search tree is a data structure...",
+  "question_count": 5,
+  "brain_name": "CS Fundamentals",
+  "tags": ["algorithms", "data-structures"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "items": [
+    { "question": "What property must all nodes in a BST satisfy?", "answer": "For each node, all values in the left subtree are less than the node's value, and all values in the right subtree are greater." }
+  ],
+  "error": null
+}
+```
+
+State: `neuron_title, content_text, question_count, brain_name, tags` → `items[], error`
+
+- **build_prompt**: Constructs system prompt with brain context, tags, and question count
+- **invoke_llm**: Calls the configured LLM with `format="json"` for structured output
+- **validate_output**: Parses JSON, validates question-answer pairs, truncates to `question_count`
+
+**Backend proxy (Spring Boot):** `ReviewQuestionService` calls this endpoint asynchronously. It validates neuron has sufficient substantive content (min 100 chars + text-bearing sections) and caches results via content hash to avoid regeneration when content hasn't changed.
+
 ### Adding New Agents
 
 1. Create a new module in `src/agents/` with a `StateGraph` and an async invoke function
 2. Register the agent in `src/routers/agents.py` in the `AGENT_REGISTRY` dict
 3. Add tests in `tests/` with mocked LLM calls
 
+## Embeddings
+
+Computes vector embeddings for text using Ollama's embedding models. Used by the Java backend to create semantic representations of neuron content for similarity-based link suggestions.
+
+### POST /api/embeddings
+
+**Request (`EmbeddingRequest`):**
+
+```json
+{ "text": "Binary search trees provide O(log n) lookup..." }
+```
+
+**Response (`EmbeddingResponse`):**
+
+```json
+{
+  "embedding": [0.123, -0.456, ...],
+  "model_name": "nomic-embed-text",
+  "dimensions": 768
+}
+```
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Empty text |
+| 500 | Ollama unavailable |
+
+**Architecture:** Uses `langchain_ollama.OllamaEmbeddings` via a factory in `src/embedding.py`. The model and Ollama URL are configured separately from the agent LLM settings (`EMBEDDING_OLLAMA_MODEL`, `EMBEDDING_OLLAMA_BASE_URL`).
+
+## Code Intelligence
+
+Provides code navigation via tree-sitter. Used by the Java backend to power IDE-like features for Project clusters (see `06-project-cluster.md` §6). All endpoints are synchronous — no LLM calls.
+
+### POST /api/code/structure
+
+Extracts a hierarchical symbol outline from source code.
+
+**Request (`CodeStructureRequest`):**
+
+```json
+{ "content": "public class Foo { ... }", "language": "java" }
+```
+
+**Response (`CodeStructureResponse`):**
+
+```json
+{
+  "symbols": [
+    {
+      "name": "Foo",
+      "kind": "class",
+      "startLine": 1,
+      "endLine": 10,
+      "children": [
+        { "name": "getBar", "kind": "method", "startLine": 3, "endLine": 5, "children": [] }
+      ]
+    }
+  ]
+}
+```
+
+### POST /api/code/definition
+
+Finds the definition location of the symbol at the given line/column.
+
+**Request (`CodeDefinitionRequest`):** `{ content, language, line, col }`
+**Response (`CodeDefinitionResponse`):** `{ location: { file?, line, col } | null }`
+
+### POST /api/code/references
+
+Finds all references to the symbol at the given line/column.
+
+**Request (`CodeReferencesRequest`):** `{ content, language, line, col }`
+**Response (`CodeReferencesResponse`):** `{ references: Location[] }`
+
+### Error Handling
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Unsupported language |
+| 400 | Parse/extraction failure |
+
 ## Configuration
 
-| Variable          | Required                  | Default                    | Description                           |
-|-------------------|---------------------------|----------------------------|---------------------------------------|
-| LLM_PROVIDER      | No                        | ollama                     | LLM provider: `ollama` or `anthropic` |
-| OLLAMA_BASE_URL   | No                        | http://ollama:11434        | Ollama server URL                     |
-| OLLAMA_MODEL      | No                        | llama3.2                   | Default Ollama model for agents       |
-| ANTHROPIC_API_KEY  | When provider=anthropic  | (empty)                    | Anthropic API key                     |
-| ANTHROPIC_MODEL   | No                        | claude-sonnet-4-20250514   | Anthropic model name                  |
-| BRAINBOOK_API_URL | No                        | http://app:8080            | Backend API URL (for agent tool use)  |
-| AGENT_TIMEOUT     | No                        | 600                        | Agent execution timeout in seconds    |
+| Variable                  | Required                  | Default                    | Description                           |
+|---------------------------|---------------------------|----------------------------|---------------------------------------|
+| LLM_PROVIDER              | No                        | ollama                     | LLM provider: `ollama` or `anthropic` |
+| OLLAMA_BASE_URL           | No                        | http://ollama:11434        | Ollama server URL (for agents)        |
+| OLLAMA_MODEL              | No                        | llama3.2                   | Default Ollama model for agents       |
+| EMBEDDING_OLLAMA_BASE_URL | No                        | http://ollama:11434        | Ollama server URL (for embeddings)    |
+| EMBEDDING_OLLAMA_MODEL    | No                        | nomic-embed-text           | Ollama model for vector embeddings    |
+| ANTHROPIC_API_KEY         | When provider=anthropic   | (empty)                    | Anthropic API key                     |
+| ANTHROPIC_MODEL           | No                        | claude-sonnet-4-20250514   | Anthropic model name                  |
+| BRAINBOOK_API_URL         | No                        | http://app:8080            | Backend API URL (for agent tool use)  |
+| AGENT_TIMEOUT             | No                        | 600                        | Agent execution timeout in seconds    |
+| LOG_LEVEL                 | No                        | INFO                       | Logging level                         |
 
 ## Infrastructure
 
