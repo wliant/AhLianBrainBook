@@ -18,9 +18,10 @@ import {
 import { highlightSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { anchorGutter } from "./AnchorGutter";
+import { blameGutter } from "./BlameGutter";
 import { goToDefinitionExtension, type GoToDefinitionHandler } from "./GoToDefinition";
 import { CreateAnchorDialog } from "./CreateAnchorDialog";
-import type { FileContent, NeuronAnchor } from "@/types";
+import type { FileContent, NeuronAnchor, BlameLine } from "@/types";
 
 const languageLoaders: Record<string, () => Promise<LanguageSupport>> = {
   javascript: () =>
@@ -63,6 +64,7 @@ interface CodeViewerProps {
   clusterId: string;
   brainId: string;
   onGoToDefinition?: GoToDefinitionHandler;
+  blameData?: BlameLine[] | null;
 }
 
 export function CodeViewer({
@@ -73,11 +75,13 @@ export function CodeViewer({
   clusterId,
   brainId,
   onGoToDefinition,
+  blameData,
 }: CodeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const languageCompartment = useRef(new Compartment());
   const gutterCompartment = useRef(new Compartment());
+  const blameCompartment = useRef(new Compartment());
   const goToDefCompartment = useRef(new Compartment());
   const onGoToDefinitionRef = useRef(onGoToDefinition);
   onGoToDefinitionRef.current = onGoToDefinition;
@@ -105,6 +109,7 @@ export function CodeViewer({
         EditorState.readOnly.of(true),
         languageCompartment.current.of([]),
         gutterCompartment.current.of(anchorGutter(anchors)),
+        blameCompartment.current.of(blameData ? blameGutter(blameData) : []),
         goToDefCompartment.current.of(
           onGoToDefinitionRef.current
             ? goToDefinitionExtension((line, col) => onGoToDefinitionRef.current?.(line, col))
@@ -117,6 +122,7 @@ export function CodeViewer({
           ".cm-gutters": { border: "none" },
           ".cm-scroller": { overflow: "auto" },
           ".cm-anchor-gutter": { width: "16px" },
+          ".cm-blame-gutter": { width: "180px", fontSize: "11px" },
         }),
       ],
     });
@@ -156,6 +162,15 @@ export function CodeViewer({
       effects: gutterCompartment.current.reconfigure(anchorGutter(anchors)),
     });
   }, [anchors]);
+
+  // Update blame gutter when blame data changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: blameCompartment.current.reconfigure(blameData ? blameGutter(blameData) : []),
+    });
+  }, [blameData]);
 
   // Scroll to line (scrollKey ensures re-trigger for same line)
   useEffect(() => {

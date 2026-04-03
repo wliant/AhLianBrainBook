@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List, History } from "lucide-react";
+import { GitBranch, Box, List, History, AlignLeft } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
@@ -42,6 +42,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [structurePanelOpen, setStructurePanelOpen] = useState(false);
   const [gitLogOpen, setGitLogOpen] = useState(false);
   const [diffView, setDiffView] = useState<{ from: string; to: string } | null>(null);
+  const [blameVisible, setBlameVisible] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [terminating, setTerminating] = useState(false);
 
@@ -77,6 +78,13 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     isSandboxActive ? cluster.id : null,
     selectedPath
   );
+
+  // Blame data - fetched when blame toggle is on
+  const { data: blameData } = useQuery({
+    queryKey: ["sandbox-blame", cluster.id, selectedPath],
+    queryFn: () => api.sandbox.blame(cluster.id, selectedPath!),
+    enabled: blameVisible && isSandboxActive && !!selectedPath,
+  });
 
   // Keyboard shortcuts: Ctrl+P (quick open), Ctrl+Shift+O (structure panel)
   useEffect(() => {
@@ -192,6 +200,15 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             >
               <History className="h-3 w-3" />
             </Button>
+            <Button
+              size="sm"
+              variant={blameVisible ? "secondary" : "ghost"}
+              className="h-7 text-xs"
+              onClick={() => setBlameVisible((prev) => !prev)}
+              title="Toggle blame annotations"
+            >
+              <AlignLeft className="h-3 w-3" />
+            </Button>
           </>
         )}
         {!sandbox && (
@@ -253,6 +270,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
               clusterId={cluster.id}
               brainId={brainId}
               onGoToDefinition={isSandboxActive ? handleGoToDefinition : undefined}
+              blameData={blameVisible ? blameData ?? null : null}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
