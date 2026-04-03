@@ -56,14 +56,14 @@ class RevisionControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();
 
-        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null);
+        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null, null, null);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         clusterId = clusterResponse.getBody().id();
     }
 
     private NeuronResponse createNeuron(String title, String contentJson, String contentText) {
-        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, contentJson, contentText, null, null);
+        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, contentJson, contentText, null, null, null);
         ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
                 "/api/neurons", request, NeuronResponse.class);
         return response.getBody();

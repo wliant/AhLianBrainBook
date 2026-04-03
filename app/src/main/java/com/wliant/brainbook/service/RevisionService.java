@@ -139,7 +139,8 @@ public class RevisionService {
                 neuron.getUpdatedAt(),
                 neuron.getCreatedBy(),
                 neuron.getLastUpdatedBy(),
-                tags
+                tags,
+                null
         );
     }
 

@@ -61,7 +61,7 @@ class NeuronServiceTest {
 
     @Test
     void create_savesNeuron() {
-        NeuronRequest request = new NeuronRequest("Title", brainId, clusterId, null, null, null, null);
+        NeuronRequest request = new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null);
         NeuronResponse response = neuronService.create(request);
 
         assertThat(response.id()).isNotNull();
@@ -76,7 +76,7 @@ class NeuronServiceTest {
 
     @Test
     void getByClusterId_returnsNeurons() {
-        neuronService.create(new NeuronRequest("Neuron 1", brainId, clusterId, null, null, null, null));
+        neuronService.create(new NeuronRequest("Neuron 1", brainId, clusterId, null, null, null, null, null));
 
         List<NeuronResponse> neurons = neuronService.getByClusterId(clusterId);
 
@@ -86,7 +86,7 @@ class NeuronServiceTest {
 
     @Test
     void updateContent_incrementsVersion() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         NeuronResponse updated = neuronService.updateContent(created.id(),
                 new NeuronContentRequest("{\"type\":\"doc\"}", "text content", 1));
@@ -98,7 +98,7 @@ class NeuronServiceTest {
 
     @Test
     void updateContent_throwsOnVersionConflict() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         neuronService.updateContent(created.id(),
                 new NeuronContentRequest("{}", "text", 1));
@@ -110,7 +110,7 @@ class NeuronServiceTest {
 
     @Test
     void delete_softDeletes() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         neuronService.delete(created.id());
 
@@ -119,7 +119,7 @@ class NeuronServiceTest {
 
     @Test
     void restoreFromTrash_unsetsDeleted() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
         neuronService.delete(created.id());
 
         NeuronResponse restored = neuronService.restoreFromTrash(created.id());
@@ -129,7 +129,7 @@ class NeuronServiceTest {
 
     @Test
     void toggleFavorite_togglesFlag() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         NeuronResponse toggled = neuronService.toggleFavorite(created.id());
 
@@ -138,7 +138,7 @@ class NeuronServiceTest {
 
     @Test
     void togglePin_togglesFlag() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         NeuronResponse toggled = neuronService.togglePin(created.id());
 
@@ -147,25 +147,25 @@ class NeuronServiceTest {
 
     @Test
     void update_modifiesTitle() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Original", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Original", brainId, clusterId, null, null, null, null, null));
 
-        NeuronResponse updated = neuronService.update(created.id(), new NeuronRequest("Updated", null, null, null, null, null, null));
+        NeuronResponse updated = neuronService.update(created.id(), new NeuronRequest("Updated", null, null, null, null, null, null, null));
 
         assertThat(updated.title()).isEqualTo("Updated");
     }
 
     @Test
     void update_modifiesComplexity() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
-        NeuronResponse updated = neuronService.update(created.id(), new NeuronRequest(null, null, null, null, null, null, "moderate"));
+        NeuronResponse updated = neuronService.update(created.id(), new NeuronRequest(null, null, null, null, null, null, "moderate", null));
 
         assertThat(updated.complexity()).isEqualTo("moderate");
     }
 
     @Test
     void archive_setsArchived() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         NeuronResponse archived = neuronService.archive(created.id());
 
@@ -174,7 +174,7 @@ class NeuronServiceTest {
 
     @Test
     void restore_unsetsArchived() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
         neuronService.archive(created.id());
 
         NeuronResponse restored = neuronService.restore(created.id());
@@ -184,7 +184,7 @@ class NeuronServiceTest {
 
     @Test
     void move_changesCluster() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
         BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
         ClusterResponse cluster2 = testDataFactory.createCluster(brain2.id());
 
@@ -197,7 +197,7 @@ class NeuronServiceTest {
     @Test
     void duplicate_createsNewNeuron() {
         NeuronResponse created = neuronService.create(
-                new NeuronRequest("My Note", brainId, clusterId, "{\"doc\":true}", "text", null, null));
+                new NeuronRequest("My Note", brainId, clusterId, "{\"doc\":true}", "text", null, null, null));
 
         NeuronResponse copy = neuronService.duplicate(created.id());
 
@@ -209,9 +209,9 @@ class NeuronServiceTest {
 
     @Test
     void reorder_updatesSortOrders() {
-        NeuronResponse n1 = neuronService.create(new NeuronRequest("A", brainId, clusterId, null, null, null, null));
-        NeuronResponse n2 = neuronService.create(new NeuronRequest("B", brainId, clusterId, null, null, null, null));
-        NeuronResponse n3 = neuronService.create(new NeuronRequest("C", brainId, clusterId, null, null, null, null));
+        NeuronResponse n1 = neuronService.create(new NeuronRequest("A", brainId, clusterId, null, null, null, null, null));
+        NeuronResponse n2 = neuronService.create(new NeuronRequest("B", brainId, clusterId, null, null, null, null, null));
+        NeuronResponse n3 = neuronService.create(new NeuronRequest("C", brainId, clusterId, null, null, null, null, null));
 
         neuronService.reorder(new ReorderRequest(List.of(n3.id(), n1.id(), n2.id())));
 
@@ -223,7 +223,7 @@ class NeuronServiceTest {
 
     @Test
     void permanentDelete_removesFromDatabase() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Title", brainId, clusterId, null, null, null, null, null));
 
         neuronService.permanentDelete(created.id());
 
@@ -232,8 +232,8 @@ class NeuronServiceTest {
 
     @Test
     void getRecent_returnsLatestNeurons() {
-        neuronService.create(new NeuronRequest("Note 1", brainId, clusterId, null, null, null, null));
-        neuronService.create(new NeuronRequest("Note 2", brainId, clusterId, null, null, null, null));
+        neuronService.create(new NeuronRequest("Note 1", brainId, clusterId, null, null, null, null, null));
+        neuronService.create(new NeuronRequest("Note 2", brainId, clusterId, null, null, null, null, null));
 
         List<NeuronResponse> recent = neuronService.getRecent(2);
 
@@ -242,7 +242,7 @@ class NeuronServiceTest {
 
     @Test
     void getFavorites_returnsFavoriteNeurons() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Fav", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Fav", brainId, clusterId, null, null, null, null, null));
         neuronService.toggleFavorite(created.id());
 
         List<NeuronResponse> favorites = neuronService.getFavorites();
@@ -253,7 +253,7 @@ class NeuronServiceTest {
 
     @Test
     void getPinned_returnsPinnedNeurons() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Pinned", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Pinned", brainId, clusterId, null, null, null, null, null));
         neuronService.togglePin(created.id());
 
         List<NeuronResponse> pinned = neuronService.getPinned();
@@ -264,7 +264,7 @@ class NeuronServiceTest {
 
     @Test
     void getTrash_returnsDeletedNeurons() {
-        NeuronResponse created = neuronService.create(new NeuronRequest("Trash", brainId, clusterId, null, null, null, null));
+        NeuronResponse created = neuronService.create(new NeuronRequest("Trash", brainId, clusterId, null, null, null, null, null));
         neuronService.delete(created.id());
 
         List<NeuronResponse> trash = neuronService.getTrash();

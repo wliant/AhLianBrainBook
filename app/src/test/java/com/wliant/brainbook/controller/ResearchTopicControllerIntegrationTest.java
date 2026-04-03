@@ -64,11 +64,11 @@ class ResearchTopicControllerIntegrationTest {
                 .getBody().id();
 
         aiClusterId = restTemplate.postForEntity("/api/clusters",
-                new CreateClusterRequest("AI Research", brainId, "ai-research"),
+                new CreateClusterRequest("AI Research", brainId, "ai-research", null, null),
                 ClusterResponse.class).getBody().id();
 
         knowledgeClusterId = restTemplate.postForEntity("/api/clusters",
-                new CreateClusterRequest("Knowledge", brainId, null),
+                new CreateClusterRequest("Knowledge", brainId, null, null, null),
                 ClusterResponse.class).getBody().id();
     }
 

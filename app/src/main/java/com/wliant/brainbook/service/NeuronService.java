@@ -1,6 +1,7 @@
 package com.wliant.brainbook.service;
 
 import com.wliant.brainbook.dto.MoveNeuronRequest;
+import com.wliant.brainbook.dto.NeuronAnchorResponse;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
@@ -51,6 +52,7 @@ public class NeuronService {
     private final NeuronSnapshotSchedulerService snapshotScheduler;
     private final SettingsService settingsService;
     private final ReviewQuestionService reviewQuestionService;
+    private final AnchorService anchorService;
     private final ObjectMapper objectMapper;
 
     public NeuronService(NeuronRepository neuronRepository,
@@ -61,6 +63,7 @@ public class NeuronService {
                          NeuronSnapshotSchedulerService snapshotScheduler,
                          SettingsService settingsService,
                          ReviewQuestionService reviewQuestionService,
+                         AnchorService anchorService,
                          ObjectMapper objectMapper) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
@@ -70,6 +73,7 @@ public class NeuronService {
         this.snapshotScheduler = snapshotScheduler;
         this.settingsService = settingsService;
         this.reviewQuestionService = reviewQuestionService;
+        this.anchorService = anchorService;
         this.objectMapper = objectMapper;
     }
 
@@ -141,6 +145,9 @@ public class NeuronService {
         neuron.setLastUpdatedBy(user);
 
         Neuron saved = neuronRepository.save(neuron);
+
+        // TODO: Anchor creation will be wired in Phase 2/3 when file content resolution is available
+
         return toResponse(saved);
     }
 
@@ -430,13 +437,34 @@ public class NeuronService {
             tagsByNeuron = Collections.emptyMap();
         }
 
+        Map<UUID, NeuronAnchorResponse> anchorsByNeuron;
+        try {
+            anchorsByNeuron = anchorService.getByNeuronIds(neuronIds);
+        } catch (Exception e) {
+            logger.debug("Failed to batch fetch anchors for {} neurons", neuronIds.size(), e);
+            anchorsByNeuron = Collections.emptyMap();
+        }
+
         Map<UUID, List<TagResponse>> finalTags = tagsByNeuron;
+        Map<UUID, NeuronAnchorResponse> finalAnchors = anchorsByNeuron;
         return neurons.stream()
-                .map(n -> toResponseWithTags(n, finalTags.getOrDefault(n.getId(), Collections.emptyList())))
+                .map(n -> buildResponse(n,
+                        finalTags.getOrDefault(n.getId(), Collections.emptyList()),
+                        finalAnchors.get(n.getId())))
                 .collect(Collectors.toList());
     }
 
     private NeuronResponse toResponseWithTags(Neuron neuron, List<TagResponse> tags) {
+        NeuronAnchorResponse anchor = null;
+        try {
+            anchor = anchorService.getByNeuronId(neuron.getId());
+        } catch (Exception e) {
+            logger.debug("Failed to fetch anchor for neuron id={}", neuron.getId(), e);
+        }
+        return buildResponse(neuron, tags, anchor);
+    }
+
+    private NeuronResponse buildResponse(Neuron neuron, List<TagResponse> tags, NeuronAnchorResponse anchor) {
         return new NeuronResponse(
                 neuron.getId(),
                 neuron.getBrain() != null ? neuron.getBrain().getId() : neuron.getBrainId(),
@@ -457,7 +485,8 @@ public class NeuronService {
                 neuron.getUpdatedAt(),
                 neuron.getCreatedBy(),
                 neuron.getLastUpdatedBy(),
-                tags
+                tags,
+                anchor
         );
     }
 }

@@ -24,6 +24,7 @@ public record NeuronResponse(
         LocalDateTime updatedAt,
         String createdBy,
         String lastUpdatedBy,
-        List<TagResponse> tags
+        List<TagResponse> tags,
+        NeuronAnchorResponse anchor
 ) {
 }

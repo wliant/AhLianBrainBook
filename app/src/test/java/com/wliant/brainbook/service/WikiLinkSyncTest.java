@@ -112,9 +112,9 @@ class WikiLinkSyncTest {
     @Test
     void syncEditorLinks_createsLinksForNewReferences() {
         NeuronResponse source = neuronService.create(
-                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
         NeuronResponse target = neuronService.create(
-                new NeuronRequest("Target", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Target", brainId, clusterId, null, "content", null, null, null));
 
         String contentWithLink = "{\"type\":\"doc\",\"content\":[" +
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + target.id() + "\"}}" +
@@ -131,9 +131,9 @@ class WikiLinkSyncTest {
     @Test
     void syncEditorLinks_removesStaleLinks() {
         NeuronResponse source = neuronService.create(
-                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
         NeuronResponse target = neuronService.create(
-                new NeuronRequest("Target", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Target", brainId, clusterId, null, "content", null, null, null));
 
         // First sync: creates link
         String contentWithLink = "{\"type\":\"doc\",\"content\":[" +
@@ -151,7 +151,7 @@ class WikiLinkSyncTest {
     @Test
     void syncEditorLinks_doesNotCreateSelfLinks() {
         NeuronResponse source = neuronService.create(
-                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
 
         String contentWithSelfLink = "{\"type\":\"doc\",\"content\":[" +
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + source.id() + "\"}}" +
@@ -166,7 +166,7 @@ class WikiLinkSyncTest {
     @Test
     void syncEditorLinks_skipsNonExistentTargets() {
         NeuronResponse source = neuronService.create(
-                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
 
         String contentWithBadTarget = "{\"type\":\"doc\",\"content\":[" +
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + UUID.randomUUID() + "\"}}" +
@@ -181,7 +181,7 @@ class WikiLinkSyncTest {
     @Test
     void syncEditorLinks_handlesNullContent() {
         NeuronResponse source = neuronService.create(
-                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
 
         // Should not throw
         neuronService.syncEditorLinks(source.id(), null);
@@ -191,9 +191,9 @@ class WikiLinkSyncTest {
     @Test
     void updateContent_triggersLinkSync() {
         NeuronResponse source = neuronService.create(
-                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
         NeuronResponse target = neuronService.create(
-                new NeuronRequest("Target", brainId, clusterId, null, "content", null, null));
+                new NeuronRequest("Target", brainId, clusterId, null, "content", null, null, null));
 
         String contentWithLink = "{\"type\":\"doc\",\"content\":[" +
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + target.id() + "\"}}" +

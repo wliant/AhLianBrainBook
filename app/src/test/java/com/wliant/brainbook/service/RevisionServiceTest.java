@@ -60,7 +60,7 @@ class RevisionServiceTest {
     @Test
     void createRevision_savesSnapshot() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{\"doc\":true}", "some text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{\"doc\":true}", "some text", null, null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id());
 
@@ -74,7 +74,7 @@ class RevisionServiceTest {
     @Test
     void createRevision_savesNeuronTitle() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("My Important Note", brainId, clusterId, "{}", "text", null, null));
+                new NeuronRequest("My Important Note", brainId, clusterId, "{}", "text", null, null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id());
 
@@ -84,7 +84,7 @@ class RevisionServiceTest {
     @Test
     void createRevision_enforcesMaxLimit() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null, null));
 
         // Create 10 revisions (the max)
         for (int i = 0; i < 10; i++) {
@@ -106,7 +106,7 @@ class RevisionServiceTest {
     @Test
     void getRevisions_returnsRevisions() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null, null));
 
         revisionService.createRevision(neuron.id());
         revisionService.createRevision(neuron.id());
@@ -119,7 +119,7 @@ class RevisionServiceTest {
     @Test
     void deleteRevision_removesRevision() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id());
         assertThat(revisionService.getRevisions(neuron.id())).hasSize(1);
@@ -140,7 +140,7 @@ class RevisionServiceTest {
     @Test
     void restoreRevision_updatesNeuronContent() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{\"v\":1}", "original text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{\"v\":1}", "original text", null, null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id());
 
@@ -156,7 +156,7 @@ class RevisionServiceTest {
     @Test
     void restoreRevision_incrementsVersion() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null, null));
 
         RevisionResponse revision = revisionService.createRevision(neuron.id());
 
@@ -168,7 +168,7 @@ class RevisionServiceTest {
     @Test
     void getRevision_returnsSingleRevision() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{\"k\":1}", "text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{\"k\":1}", "text", null, null, null));
 
         RevisionResponse created = revisionService.createRevision(neuron.id());
         RevisionResponse fetched = revisionService.getRevision(created.id());
@@ -188,7 +188,7 @@ class RevisionServiceTest {
     @Test
     void getRevisions_returnsNewestFirst() {
         NeuronResponse neuron = neuronService.create(
-                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null));
+                new NeuronRequest("Title", brainId, clusterId, "{}", "text", null, null, null));
 
         revisionService.createRevision(neuron.id());
         revisionService.createRevision(neuron.id());

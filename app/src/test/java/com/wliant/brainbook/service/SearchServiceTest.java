@@ -60,7 +60,7 @@ class SearchServiceTest {
     @Test
     void search_returnsMatchingNeurons() {
         neuronService.create(new NeuronRequest("Spring Boot Guide", brainId, clusterId,
-                null, "Learn about Spring Boot framework", null, null));
+                null, "Learn about Spring Boot framework", null, null, null));
 
         SearchResponse response = searchService.search("Spring", null, null, null, null, 0, 20);
 
@@ -71,7 +71,7 @@ class SearchServiceTest {
     @Test
     void search_returnsEmptyForBlankQuery() {
         neuronService.create(new NeuronRequest("Some Note", brainId, clusterId,
-                null, "content", null, null));
+                null, "content", null, null, null));
 
         SearchResponse response = searchService.search("", null, null, null, null, 0, 20);
 
@@ -82,12 +82,12 @@ class SearchServiceTest {
     @Test
     void search_filtersByBrainId() {
         neuronService.create(new NeuronRequest("Unique Search Term ABC", brainId, clusterId,
-                null, "Unique Search Term ABC", null, null));
+                null, "Unique Search Term ABC", null, null, null));
 
         BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
         ClusterResponse cluster2 = testDataFactory.createCluster(brain2.id());
         neuronService.create(new NeuronRequest("Unique Search Term ABC", brain2.id(), cluster2.id(),
-                null, "Unique Search Term ABC", null, null));
+                null, "Unique Search Term ABC", null, null, null));
 
         SearchResponse response = searchService.search("Unique Search Term ABC", brainId, null, null, null, 0, 20);
 
@@ -98,11 +98,11 @@ class SearchServiceTest {
     @Test
     void search_filtersByClusterId() {
         neuronService.create(new NeuronRequest("Cluster Filter XYZ", brainId, clusterId,
-                null, "Cluster Filter XYZ", null, null));
+                null, "Cluster Filter XYZ", null, null, null));
 
         ClusterResponse cluster2 = testDataFactory.createCluster("Cluster 2", brainId);
         neuronService.create(new NeuronRequest("Cluster Filter XYZ", brainId, cluster2.id(),
-                null, "Cluster Filter XYZ", null, null));
+                null, "Cluster Filter XYZ", null, null, null));
 
         SearchResponse response = searchService.search("Cluster Filter XYZ", null, clusterId, null, null, 0, 20);
 
@@ -113,12 +113,12 @@ class SearchServiceTest {
     @Test
     void search_filtersByNeuronTags() {
         var neuron = neuronService.create(new NeuronRequest("Tagged Note QRS", brainId, clusterId,
-                null, "Tagged Note QRS", null, null));
+                null, "Tagged Note QRS", null, null, null));
         TagResponse tag = testDataFactory.createTag("FilterTag");
         tagService.addTagToNeuron(neuron.id(), tag.id());
 
         neuronService.create(new NeuronRequest("Tagged Note QRS", brainId, clusterId,
-                null, "Tagged Note QRS", null, null));
+                null, "Tagged Note QRS", null, null, null));
 
         SearchResponse response = searchService.search("Tagged Note QRS", null, null,
                 List.of(tag.id()), null, 0, 20);
@@ -130,7 +130,7 @@ class SearchServiceTest {
     @Test
     void search_noMatchReturnsEmpty() {
         neuronService.create(new NeuronRequest("Real Note", brainId, clusterId,
-                null, "content", null, null));
+                null, "content", null, null, null));
 
         SearchResponse response = searchService.search("zzzznonexistent12345", null, null, null, null, 0, 20);
 
@@ -140,7 +140,7 @@ class SearchServiceTest {
     @Test
     void search_returnsHighlightAndRank() {
         neuronService.create(new NeuronRequest("Java Concurrency", brainId, clusterId,
-                null, "Understanding threads and locks in Java concurrency", null, null));
+                null, "Understanding threads and locks in Java concurrency", null, null, null));
 
         SearchResponse response = searchService.search("concurrency", null, null, null, null, 0, 20);
 
@@ -154,9 +154,9 @@ class SearchServiceTest {
     void search_ranksResultsByRelevance() {
         // Neuron with search term in title should rank higher
         neuronService.create(new NeuronRequest("Algorithms Overview", brainId, clusterId,
-                null, "A brief overview of common patterns", null, null));
+                null, "A brief overview of common patterns", null, null, null));
         neuronService.create(new NeuronRequest("Data Structures", brainId, clusterId,
-                null, "An overview of algorithms and data structures in computer science", null, null));
+                null, "An overview of algorithms and data structures in computer science", null, null, null));
 
         SearchResponse response = searchService.search("algorithms", null, null, null, null, 0, 20);
 
@@ -169,13 +169,13 @@ class SearchServiceTest {
         // Create neurons in two different brains
         for (int i = 0; i < 5; i++) {
             neuronService.create(new NeuronRequest("Pagination Test " + i, brainId, clusterId,
-                    null, "Pagination Test content " + i, null, null));
+                    null, "Pagination Test content " + i, null, null, null));
         }
         BrainResponse brain2 = testDataFactory.createBrain("Brain 2");
         ClusterResponse cluster2 = testDataFactory.createCluster(brain2.id());
         for (int i = 0; i < 3; i++) {
             neuronService.create(new NeuronRequest("Pagination Test " + i, brain2.id(), cluster2.id(),
-                    null, "Pagination Test content " + i, null, null));
+                    null, "Pagination Test content " + i, null, null, null));
         }
 
         // Filter by brainId — total count should reflect filtered results
@@ -188,7 +188,7 @@ class SearchServiceTest {
     @Test
     void search_handlesSpecialCharactersWithoutError() {
         neuronService.create(new NeuronRequest("SQL Injection Test", brainId, clusterId,
-                null, "DROP TABLE neurons; --", null, null));
+                null, "DROP TABLE neurons; --", null, null, null));
 
         // Should not throw or cause SQL errors — plainto_tsquery strips special chars,
         // so the words "DROP TABLE neurons" still match the stored content
@@ -200,7 +200,7 @@ class SearchServiceTest {
     @Test
     void search_handlesAmpersandsAndAngleBrackets() {
         neuronService.create(new NeuronRequest("HTML Entities", brainId, clusterId,
-                null, "Use Map<String, Integer> for O(1) lookups", null, null));
+                null, "Use Map<String, Integer> for O(1) lookups", null, null, null));
 
         SearchResponse response = searchService.search("Map", null, null, null, null, 0, 20);
         // Should not throw

@@ -45,7 +45,7 @@ public class TestDataFactory {
     }
 
     public ClusterResponse createCluster(String name, UUID brainId) {
-        return clusterService.create(new CreateClusterRequest(name, brainId, null));
+        return clusterService.create(new CreateClusterRequest(name, brainId, null, null, null));
     }
 
     public ClusterResponse createAiResearchCluster(UUID brainId) {
@@ -53,7 +53,7 @@ public class TestDataFactory {
     }
 
     public ClusterResponse createAiResearchCluster(String name, UUID brainId) {
-        return clusterService.create(new CreateClusterRequest(name, brainId, "ai-research"));
+        return clusterService.create(new CreateClusterRequest(name, brainId, "ai-research", null, null));
     }
 
     public NeuronResponse createNeuron(UUID brainId, UUID clusterId) {
@@ -61,7 +61,7 @@ public class TestDataFactory {
     }
 
     public NeuronResponse createNeuron(String title, UUID brainId, UUID clusterId) {
-        return neuronService.create(new NeuronRequest(title, brainId, clusterId, null, null, null, null));
+        return neuronService.create(new NeuronRequest(title, brainId, clusterId, null, null, null, null, null));
     }
 
     public TagResponse createTag(String name) {

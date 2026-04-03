@@ -60,7 +60,7 @@ class SpacedRepetitionControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();
 
-        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null);
+        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null, null, null);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         clusterId = clusterResponse.getBody().id();
@@ -69,7 +69,7 @@ class SpacedRepetitionControllerIntegrationTest {
     }
 
     private NeuronResponse createNeuron(String title) {
-        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, "{}", "", null, null);
+        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, "{}", "", null, null, null);
         ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
                 "/api/neurons", request, NeuronResponse.class);
         return response.getBody();

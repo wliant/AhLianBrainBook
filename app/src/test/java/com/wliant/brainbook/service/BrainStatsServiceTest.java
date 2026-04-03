@@ -115,9 +115,9 @@ class BrainStatsServiceTest {
         NeuronResponse n2 = testDataFactory.createNeuron("Moderate", brainId, clusterId);
         NeuronResponse n3 = testDataFactory.createNeuron("Complex", brainId, clusterId);
 
-        neuronService.update(n1.id(), new NeuronRequest(null, null, null, null, null, null, "simple"));
-        neuronService.update(n2.id(), new NeuronRequest(null, null, null, null, null, null, "moderate"));
-        neuronService.update(n3.id(), new NeuronRequest(null, null, null, null, null, null, "complex"));
+        neuronService.update(n1.id(), new NeuronRequest(null, null, null, null, null, null, "simple", null));
+        neuronService.update(n2.id(), new NeuronRequest(null, null, null, null, null, null, "moderate", null));
+        neuronService.update(n3.id(), new NeuronRequest(null, null, null, null, null, null, "complex", null));
 
         BrainStatsResponse stats = brainStatsService.getStats(brainId);
 

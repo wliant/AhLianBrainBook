@@ -10,9 +10,11 @@ import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.ClusterStatus;
 import com.wliant.brainbook.model.ClusterType;
+import com.wliant.brainbook.model.ProjectConfig;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
 import com.wliant.brainbook.repository.NeuronRepository;
+import com.wliant.brainbook.repository.ProjectConfigRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -31,15 +33,17 @@ public class ClusterService {
     private final ClusterRepository clusterRepository;
     private final BrainRepository brainRepository;
     private final NeuronRepository neuronRepository;
+    private final ProjectConfigRepository projectConfigRepository;
     private final SettingsService settingsService;
     private final ResearchAsyncService researchAsyncService;
 
     public ClusterService(ClusterRepository clusterRepository, BrainRepository brainRepository,
-                          NeuronRepository neuronRepository, SettingsService settingsService,
-                          ResearchAsyncService researchAsyncService) {
+                          NeuronRepository neuronRepository, ProjectConfigRepository projectConfigRepository,
+                          SettingsService settingsService, ResearchAsyncService researchAsyncService) {
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
         this.neuronRepository = neuronRepository;
+        this.projectConfigRepository = projectConfigRepository;
         this.settingsService = settingsService;
         this.researchAsyncService = researchAsyncService;
     }
@@ -86,6 +90,18 @@ public class ClusterService {
 
         Cluster saved = clusterRepository.save(cluster);
         UUID savedId = saved.getId();
+
+        // Create ProjectConfig for project clusters
+        if (type == ClusterType.PROJECT) {
+            if (req.repoUrl() == null || req.repoUrl().isBlank()) {
+                throw new IllegalArgumentException("Repo URL is required for project clusters");
+            }
+            ProjectConfig config = new ProjectConfig();
+            config.setCluster(saved);
+            config.setRepoUrl(req.repoUrl());
+            config.setDefaultBranch(req.defaultBranch());
+            projectConfigRepository.save(config);
+        }
 
         // Kick off async research goal generation after transaction commits
         if (type == ClusterType.AI_RESEARCH) {

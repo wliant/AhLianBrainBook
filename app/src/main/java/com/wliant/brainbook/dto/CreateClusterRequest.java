@@ -18,6 +18,14 @@ public record CreateClusterRequest(
 
         @Nullable
         @Pattern(regexp = "knowledge|ai-research|project", message = "Type must be knowledge, ai-research, or project")
-        String type
+        String type,
+
+        @Nullable
+        @Size(max = 2000, message = "Repo URL must be at most 2000 characters")
+        String repoUrl,
+
+        @Nullable
+        @Size(max = 255, message = "Default branch must be at most 255 characters")
+        String defaultBranch
 ) {
 }

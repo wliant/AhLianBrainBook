@@ -58,14 +58,14 @@ class NeuronControllerIntegrationTest {
                 "/api/brains", brainRequest, BrainResponse.class);
         brainId = brainResponse.getBody().id();
 
-        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null);
+        CreateClusterRequest clusterRequest = new CreateClusterRequest("Test Cluster", brainId, null, null, null);
         ResponseEntity<ClusterResponse> clusterResponse = restTemplate.postForEntity(
                 "/api/clusters", clusterRequest, ClusterResponse.class);
         clusterId = clusterResponse.getBody().id();
     }
 
     private NeuronResponse createNeuron(String title) {
-        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, "{}", "", null, null);
+        NeuronRequest request = new NeuronRequest(title, brainId, clusterId, "{}", "", null, null, null);
         ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
                 "/api/neurons", request, NeuronResponse.class);
         return response.getBody();
@@ -74,7 +74,7 @@ class NeuronControllerIntegrationTest {
     @Test
     void createNeuron_succeeds() {
         NeuronRequest request = new NeuronRequest("My Note", brainId, clusterId,
-                "{\"type\":\"doc\"}", "plain text", null, null);
+                "{\"type\":\"doc\"}", "plain text", null, null, null);
 
         ResponseEntity<NeuronResponse> response = restTemplate.postForEntity(
                 "/api/neurons", request, NeuronResponse.class);
@@ -256,7 +256,7 @@ class NeuronControllerIntegrationTest {
     void updateNeuron_modifiesFields() {
         NeuronResponse created = createNeuron("Original");
 
-        NeuronRequest updateReq = new NeuronRequest("Updated", null, null, null, null, null, "moderate");
+        NeuronRequest updateReq = new NeuronRequest("Updated", null, null, null, null, null, "moderate", null);
         ResponseEntity<NeuronResponse> response = restTemplate.exchange(
                 "/api/neurons/{id}",
                 HttpMethod.PATCH,
@@ -297,7 +297,7 @@ class NeuronControllerIntegrationTest {
 
         BrainRequest brain2Req = new BrainRequest("Brain 2", "icon", "#00FF00", null);
         UUID brain2Id = restTemplate.postForEntity("/api/brains", brain2Req, BrainResponse.class).getBody().id();
-        CreateClusterRequest cluster2Req = new CreateClusterRequest("Cluster 2", brain2Id, null);
+        CreateClusterRequest cluster2Req = new CreateClusterRequest("Cluster 2", brain2Id, null, null, null);
         UUID cluster2Id = restTemplate.postForEntity("/api/clusters", cluster2Req, ClusterResponse.class).getBody().id();
 
         MoveNeuronRequest moveReq = new MoveNeuronRequest(cluster2Id, brain2Id);

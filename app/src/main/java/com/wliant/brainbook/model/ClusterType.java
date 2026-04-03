@@ -29,7 +29,7 @@ public enum ClusterType {
     }
 
     public boolean isUnique() {
-        return this == AI_RESEARCH || this == PROJECT;
+        return this == AI_RESEARCH;
     }
 
     @Converter(autoApply = false)
