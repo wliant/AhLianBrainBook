@@ -17,6 +17,6 @@ async def compute_embedding(request: EmbeddingRequest):
 
     return EmbeddingResponse(
         embedding=vector,
-        model_name=settings.ollama_embedding_model,
+        model_name=settings.embedding_ollama_model,
         dimensions=len(vector),
     )
