@@ -338,6 +338,33 @@ export const handlers = [
       size: 20,
     });
   }),
+  http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/retry`, ({ params }) =>
+    HttpResponse.json(
+      {
+        id: 'sandbox-1',
+        clusterId: params.clusterId,
+        status: 'cloning',
+        currentBranch: 'main',
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+        lastAccessedAt: '2024-01-01T00:00:00',
+      },
+      { status: 202 }
+    )
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/log`, () =>
+    HttpResponse.json([
+      { sha: 'abc123', author: 'Dev', authorEmail: 'dev@test.com', date: '2024-01-01T00:00:00', message: 'Initial commit' },
+    ])
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/blame`, () =>
+    HttpResponse.json([
+      { line: 1, commitSha: 'abc123', author: 'Dev', date: '2024-01-01T00:00:00', content: 'line 1' },
+    ])
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/diff`, () =>
+    HttpResponse.json('diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt')
+  ),
   http.get(`${API_BASE}/api/sandboxes`, () =>
     HttpResponse.json([])
   ),

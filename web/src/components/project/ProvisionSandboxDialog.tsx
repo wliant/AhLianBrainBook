@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,13 @@ export function ProvisionSandboxDialog({
   const [branch, setBranch] = useState(defaultBranch || "main");
   const [shallow, setShallow] = useState(true);
   const [provisioning, setProvisioning] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setBranch(defaultBranch || "main");
+      setShallow(true);
+    }
+  }, [open, defaultBranch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

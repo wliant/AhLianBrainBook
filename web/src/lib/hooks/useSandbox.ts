@@ -7,26 +7,47 @@ import type { Sandbox, PullResponse } from "@/types";
 export function useSandbox(clusterId: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: sandbox, isLoading: loading, error } = useQuery({
+  const { data: sandbox, isLoading: loading } = useQuery({
     queryKey: ["sandbox", clusterId],
-    queryFn: () => api.sandbox.get(clusterId!),
+    queryFn: async () => {
+      try {
+        return await api.sandbox.get(clusterId!);
+      } catch (err: unknown) {
+        // 404 means no sandbox provisioned — this is normal, not an error
+        if (err instanceof Error && err.message.includes("404")) return null;
+        throw err;
+      }
+    },
     enabled: !!clusterId,
     retry: false,
+    // Poll during transitional states to auto-refresh
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === "cloning" || status === "indexing" || status === "terminating") {
+        return 3000;
+      }
+      return false;
+    },
   });
+
+  const invalidateSandboxQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });
+    queryClient.invalidateQueries({ queryKey: ["sandboxes"] });
+    queryClient.invalidateQueries({ queryKey: ["sandbox-tree", clusterId] });
+    queryClient.invalidateQueries({ queryKey: ["sandbox-file", clusterId] });
+  };
 
   const provision = async (body?: { branch?: string; shallow?: boolean }) => {
     if (!clusterId) return;
     const result = await api.sandbox.provision(clusterId, body);
-    queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });
-    queryClient.invalidateQueries({ queryKey: ["sandboxes"] });
+    invalidateSandboxQueries();
     return result;
   };
 
   const terminate = async () => {
     if (!clusterId) return;
     await api.sandbox.terminate(clusterId);
-    queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });
-    queryClient.invalidateQueries({ queryKey: ["sandboxes"] });
+    invalidateSandboxQueries();
   };
 
   const pull = async (): Promise<PullResponse | undefined> => {
@@ -40,19 +61,17 @@ export function useSandbox(clusterId: string | null) {
   const checkout = async (branch: string) => {
     if (!clusterId) return;
     const result = await api.sandbox.checkout(clusterId, branch);
-    queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });
+    invalidateSandboxQueries();
     queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
-    queryClient.invalidateQueries({ queryKey: ["file-tree", clusterId] });
     return result;
   };
 
   const retry = async () => {
     if (!clusterId) return;
     const result = await api.sandbox.retry(clusterId);
-    queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });
-    queryClient.invalidateQueries({ queryKey: ["sandboxes"] });
+    invalidateSandboxQueries();
     return result;
   };
 
-  return { sandbox: sandbox ?? null, loading, error, provision, terminate, pull, checkout, retry };
+  return { sandbox: sandbox ?? null, loading, provision, terminate, pull, checkout, retry };
 }

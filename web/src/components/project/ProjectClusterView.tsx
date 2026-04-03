@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { GitBranch, Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
@@ -36,7 +36,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
   // File tree: use sandbox endpoint when active, otherwise GitHub API
   const { data: sandboxEntries = [], isLoading: sandboxTreeLoading } = useQuery({
-    queryKey: ["sandbox-tree", cluster.id, selectedPath ? "" : "root"],
+    queryKey: ["sandbox-tree", cluster.id],
     queryFn: () => api.sandbox.tree(cluster.id, ""),
     enabled: isSandboxActive,
   });
