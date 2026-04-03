@@ -11,6 +11,6 @@ public class TestContainersConfig {
     @Bean
     @ServiceConnection
     PostgreSQLContainer<?> postgresContainer() {
-        return new PostgreSQLContainer<>("postgres:16-alpine");
+        return new PostgreSQLContainer<>("pgvector/pgvector:pg16");
     }
 }
