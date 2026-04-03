@@ -1069,6 +1069,74 @@ Directory structure: `{clusterName}/{neuronTitle}.md`
 
 ---
 
+## Link Suggestions
+
+AI-generated link recommendations between neurons, powered by wiki-link extraction and embedding similarity.
+
+### `GET /api/link-suggestions/neuron/{neuronId}`
+Get pending link suggestions for a neuron.
+
+**Response:** `200 OK` — array of `LinkSuggestionResponse`
+
+### `POST /api/link-suggestions/{id}/accept`
+Accept a suggestion, creating an actual NeuronLink.
+
+**Response:** `200 OK`
+
+---
+
+## Review Questions (Spaced Repetition)
+
+AI-generated Q&A pairs for spaced repetition review items.
+
+### `GET /api/spaced-repetition/items/{itemId}/questions`
+Get review questions for a spaced repetition item.
+
+**Response:** `200 OK` — array of review questions
+
+### `POST /api/spaced-repetition/items/{itemId}/questions/regenerate`
+Regenerate questions for an item (discards existing, calls intelligence service).
+
+**Response:** `200 OK` — array of newly generated questions
+
+### `PATCH /api/spaced-repetition/items/{itemId}/quiz-enabled`
+Toggle quiz mode for a spaced repetition item.
+
+**Request:** `{ "quizEnabled": true }`
+**Response:** `200 OK`
+
+### `PATCH /api/spaced-repetition/items/{itemId}/question-count`
+Update the number of questions generated per item.
+
+**Request:** `{ "questionCount": 5 }`
+**Response:** `200 OK`
+
+---
+
+## AI Assist
+
+### `POST /api/neurons/{neuronId}/sections/{sectionId}/ai-assist`
+AI-assisted section content authoring. The backend enriches the request with neuron context and proxies to the intelligence service. See `07-ai-service.md` for full protocol.
+
+**Response:** `200 OK` — `SectionAuthorResponse`
+
+---
+
+## Notification Stream
+
+### `GET /api/notifications/stream`
+Server-Sent Events stream for real-time notifications.
+
+**Response:** `200 OK` — `text/event-stream`
+
+---
+
+## Project Cluster Endpoints
+
+Full documentation for project cluster endpoints (project config, sandbox lifecycle, URL browsing, file operations, git operations, code intelligence, neuron anchors) is in `06-project-cluster.md` §4.
+
+---
+
 ## Error Responses
 
 | Status | Meaning            | When                                     |

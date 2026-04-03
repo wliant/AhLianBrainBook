@@ -118,7 +118,7 @@ When implemented, credentials will be stored in a separate `sandbox_credentials`
 
 ### 3.3 Flyway Migration
 
-The sandboxes table is created as part of V26 (same migration as project_configs and neuron_anchors in the project cluster spec) or as a separate V27 if implemented after the core project cluster feature:
+The sandboxes table is created in V29 (`V29__add_sandboxes_table.sql`):
 
 ```sql
 -- Sandboxes (part of project cluster infrastructure)

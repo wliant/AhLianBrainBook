@@ -294,6 +294,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | `useAudioRecorder()` | `isRecording`, `start`, `stop`, `audioBlob` | Audio recording via MediaRecorder API |
 | `useAttachmentUpload()` | `uploading`, `upload` | File upload to backend with progress |
 | `useDebounce(value, delay)` | `debouncedValue` | Debounce values (used for auto-save) |
+| `useProjectConfig(clusterId)` | `config`, `updateConfig` | Project cluster configuration |
+| `useSandbox(clusterId)` | `sandbox`, `provision`, `terminate`, `pull`, `checkout` | Sandbox lifecycle management |
+| `useFileTree(clusterId, path)` | `entries`, `loading` | File browsing for project clusters |
+| `useFileContent(clusterId, path)` | `content`, `language` | File content for code viewer |
+| `useNeuronAnchors(clusterId)` | `anchors`, `createAnchor`, `updateAnchor`, `deleteAnchor`, `confirmDrift` | Code-anchored neurons |
+| `useLinkSuggestions(neuronId)` | `suggestions`, `accept`, `dismiss` | AI-generated link recommendations |
+
+**Project cluster components** — see `06-project-cluster.md` §9 for full component breakdown (ProjectClusterView, CodeViewer, FileTreePanel, AnchorGutter, etc.).
 
 ## Keyboard Shortcuts
 

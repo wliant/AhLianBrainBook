@@ -37,6 +37,7 @@ Production deployment configuration.
 - **Engine:** PostgreSQL 16
 - **Database name:** brainbook
 - **Credentials:** brainbook / brainbook (local dev)
+- **Extensions:** pgvector (for vector similarity search in link suggestions)
 - **Migrations:** Flyway (auto-run on app startup)
 - **Migration files:** `app/src/main/resources/db/migration/V*.sql`
 
@@ -68,6 +69,11 @@ Production deployment configuration.
 | V22     | Add cluster types: `type` column (knowledge/ai-research/project) with CHECK constraint, partial unique indexes limiting one ai-research and one project cluster per brain |
 | V23     | Add AI research: `research_goal` column on clusters, new `research_topics` table with bullet tree content (JSONB), completeness tracking, and indexes |
 | V24     | Add status fields: `status` column on clusters (generating/ready) and research_topics (generating/ready/updating/error) |
+| V25     | Add `review_questions` table for spaced repetition Q&A; add `question_count` and `quiz_enabled` columns to spaced_repetition_items |
+| V26     | Add project cluster tables: `project_configs`, `neuron_anchors` with status tracking; drop `uq_cluster_brain_project` unique index |
+| V27     | Add `quiz_enabled` column to spaced_repetition_items |
+| V28     | Add pgvector extension; `neuron_embeddings` table with vector(768) and HNSW index; `link_suggestions` table |
+| V29     | Add `sandboxes` table with status lifecycle, disk usage tracking, and shallow clone support |
 
 ### Content Format (v2 — Sections)
 
@@ -145,6 +151,7 @@ The backend runs scheduled background tasks:
 | `NeuronSnapshotSchedulerService` | Periodically creates automatic revision snapshots of neuron content |
 | `ReminderSchedulerService` | Scans for reminders whose `triggerAt` has passed and triggers notification generation |
 | `ReminderProcessingService` | Processes triggered reminders: creates notification records, reschedules recurring reminders (advances `triggerAt` by recurrence interval), deactivates one-time reminders |
+| `SandboxCleanupScheduler` | Daily cleanup of stale sandboxes (configurable via `SANDBOX_STALE_DAYS`, default 30 days of inactivity) |
 
 ## Environment Variables
 
