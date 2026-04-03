@@ -132,6 +132,7 @@ export default function ReviewPage() {
   };
 
   const handleSelectItem = (item: SpacedRepetitionItem) => {
+    if (item.id === selectedItemId) return;
     setSelectedItemId(item.id);
     setReviewingNonDue(false);
     setCompleted(false);
