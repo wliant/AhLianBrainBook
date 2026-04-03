@@ -2,46 +2,36 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
+import { participateInSseLeaderElection, type SseEvent } from "@/lib/sseLeaderElection";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const PAGE_SIZE = 20;
 
 export function useNotifications() {
   const queryClient = useQueryClient();
-  const eventSourceRef = useRef<EventSource | null>(null);
 
-  // SSE connection for real-time updates.
-  // Delayed start to allow page load (networkidle) to complete first,
-  // since an active EventSource connection keeps the network busy.
+  // SSE connection with cross-tab leader election.
+  // Only one tab maintains the actual EventSource connection;
+  // other tabs receive events via BroadcastChannel.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const es = new EventSource(`${API_BASE}/api/notifications/stream`);
-      eventSourceRef.current = es;
-
-      es.addEventListener("unread-count", (event) => {
+    const handleEvent = (event: SseEvent) => {
+      if (event.name === "unread-count") {
         const data = JSON.parse(event.data);
         queryClient.setQueryData(["notifications", "unreadCount"], { count: data.count });
-      });
-
-      es.addEventListener("new-notification", (event) => {
+      } else if (event.name === "new-notification") {
         const data = JSON.parse(event.data);
         queryClient.setQueryData(["notifications", "unreadCount"], { count: data.count });
         queryClient.invalidateQueries({ queryKey: ["notifications", "list"] });
-      });
-
-      es.onerror = () => {
-        // EventSource auto-reconnects on error. No special handling needed.
-      };
-    }, 2000);
-
-    return () => {
-      clearTimeout(timer);
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
       }
     };
+
+    const cleanup = participateInSseLeaderElection(
+      `${API_BASE}/api/notifications/stream`,
+      handleEvent
+    );
+
+    return cleanup;
   }, [queryClient]);
 
   // Initial unread count (also updated by SSE)
