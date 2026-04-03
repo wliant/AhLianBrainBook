@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List, History, AlignLeft } from "lucide-react";
+import { GitBranch, Box, List, History, AlignLeft, AlertTriangle } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
 import { useFileTree } from "@/lib/hooks/useFileTree";
 import { useFileContent } from "@/lib/hooks/useFileContent";
-import { useFileAnchors } from "@/lib/hooks/useNeuronAnchors";
+import { useFileAnchors, useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useSandbox } from "@/lib/hooks/useSandbox";
 import { api } from "@/lib/api";
 import { FileTreePanel } from "./FileTreePanel";
@@ -17,6 +17,7 @@ import { ProvisionSandboxDialog } from "./ProvisionSandboxDialog";
 import { SandboxStatusBar } from "./SandboxStatusBar";
 import { GitLogPanel } from "./GitLogPanel";
 import { DiffView } from "./DiffView";
+import { OrphanList } from "./OrphanList";
 import { FileStructurePanel } from "./FileStructurePanel";
 import { QuickOpenDialog } from "./QuickOpenDialog";
 import { useCodeStructure } from "@/lib/hooks/useCodeStructure";
@@ -43,6 +44,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [gitLogOpen, setGitLogOpen] = useState(false);
   const [diffView, setDiffView] = useState<{ from: string; to: string } | null>(null);
   const [blameVisible, setBlameVisible] = useState(false);
+  const [orphanListOpen, setOrphanListOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [terminating, setTerminating] = useState(false);
 
@@ -74,6 +76,8 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const fileLoading = isSandboxActive ? sandboxFileLoading : browseFileLoading;
 
   const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(cluster.id, selectedPath);
+  const { anchors: allAnchors } = useNeuronAnchors(cluster.id);
+  const orphanCount = allAnchors.filter((a) => a.status === "drifted" || a.status === "orphaned").length;
   const { symbols, loading: symbolsLoading } = useCodeStructure(
     isSandboxActive ? cluster.id : null,
     selectedPath
@@ -209,6 +213,18 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             >
               <AlignLeft className="h-3 w-3" />
             </Button>
+            {orphanCount > 0 && (
+              <Button
+                size="sm"
+                variant={orphanListOpen ? "secondary" : "ghost"}
+                className="h-7 text-xs gap-1"
+                onClick={() => setOrphanListOpen((prev) => !prev)}
+                title="Orphaned anchors"
+              >
+                <AlertTriangle className="h-3 w-3" />
+                <span>{orphanCount}</span>
+              </Button>
+            )}
           </>
         )}
         {!sandbox && (
@@ -279,16 +295,24 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           )}
         </div>
 
-        {/* Neuron Panel */}
+        {/* Neuron Panel / Orphan List */}
         <div className="w-[300px] border-l overflow-hidden flex-shrink-0">
-          <NeuronPanel
-            clusterId={cluster.id}
-            brainId={brainId}
-            selectedPath={selectedPath}
-            fileAnchors={fileAnchors}
-            anchorsLoading={anchorsLoading}
-            onAnchorClick={handleAnchorClick}
-          />
+          {orphanListOpen ? (
+            <OrphanList
+              clusterId={cluster.id}
+              entries={entries}
+              onClose={() => setOrphanListOpen(false)}
+            />
+          ) : (
+            <NeuronPanel
+              clusterId={cluster.id}
+              brainId={brainId}
+              selectedPath={selectedPath}
+              fileAnchors={fileAnchors}
+              anchorsLoading={anchorsLoading}
+              onAnchorClick={handleAnchorClick}
+            />
+          )}
         </div>
       </div>
 
