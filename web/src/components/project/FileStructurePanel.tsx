@@ -60,7 +60,7 @@ function SymbolNode({ symbol, depth, onSymbolClick }: SymbolNodeProps) {
       {expanded &&
         hasChildren &&
         symbol.children.map((child, i) => (
-          <SymbolNode key={`${child.name}-${child.startLine}-${i}`} symbol={child} depth={depth + 1} onSymbolClick={onSymbolClick} />
+          <SymbolNode key={`${child.name}-${child.startLine}-${child.endLine}`} symbol={child} depth={depth + 1} onSymbolClick={onSymbolClick} />
         ))}
     </div>
   );
@@ -88,7 +88,7 @@ export function FileStructurePanel({ symbols, loading, onSymbolClick }: FileStru
   return (
     <div className="overflow-y-auto py-1" data-testid="file-structure-panel">
       {symbols.map((symbol, i) => (
-        <SymbolNode key={`${symbol.name}-${symbol.startLine}-${i}`} symbol={symbol} depth={0} onSymbolClick={onSymbolClick} />
+        <SymbolNode key={`${symbol.name}-${symbol.startLine}-${symbol.endLine}`} symbol={symbol} depth={0} onSymbolClick={onSymbolClick} />
       ))}
     </div>
   );

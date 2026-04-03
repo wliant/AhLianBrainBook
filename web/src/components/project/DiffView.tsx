@@ -20,9 +20,10 @@ interface DiffViewProps {
 
 function classForLine(line: string): string {
   if (line.startsWith("+++") || line.startsWith("---")) return "text-muted-foreground";
+  if (line.startsWith("@@")) return "text-blue-400";
+  if (line.startsWith("diff ")) return "text-muted-foreground font-bold";
   if (line.startsWith("+")) return "bg-green-900/30 text-green-300";
   if (line.startsWith("-")) return "bg-red-900/30 text-red-300";
-  if (line.startsWith("@@")) return "text-blue-400";
   return "";
 }
 

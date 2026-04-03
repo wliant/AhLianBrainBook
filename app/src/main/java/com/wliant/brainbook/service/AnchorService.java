@@ -215,7 +215,13 @@ public class AnchorService {
 
     // Returns: 0=unchanged, 1=autoUpdated, 2=drifted, 3=orphaned
     private int reconcileAnchor(NeuronAnchor anchor, Path repoDir, double threshold) throws IOException {
-        Path filePath = repoDir.resolve(anchor.getFilePath());
+        Path filePath = repoDir.resolve(anchor.getFilePath()).normalize();
+
+        // Safety: ensure resolved path stays within repo
+        if (!filePath.startsWith(repoDir.normalize())) {
+            anchor.setStatus(AnchorStatus.ORPHANED);
+            return 3;
+        }
 
         // Phase 4 first: check if file exists
         if (!Files.exists(filePath)) {

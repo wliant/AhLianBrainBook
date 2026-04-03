@@ -119,6 +119,7 @@ public class SandboxController {
     public ResponseEntity<List<FileTreeEntryResponse>> tree(
             @PathVariable UUID clusterId,
             @RequestParam(required = false, defaultValue = "") String path) throws IOException {
+        if (!path.isEmpty()) validatePath(path);
         sandboxService.updateLastAccessed(clusterId);
         return ResponseEntity.ok(sandboxService.getFileTree(clusterId, path));
     }
@@ -127,6 +128,7 @@ public class SandboxController {
     public ResponseEntity<FileContentResponse> file(
             @PathVariable UUID clusterId,
             @RequestParam String path) throws IOException {
+        validatePath(path);
         sandboxService.updateLastAccessed(clusterId);
         return ResponseEntity.ok(sandboxService.getFileContent(clusterId, path));
     }

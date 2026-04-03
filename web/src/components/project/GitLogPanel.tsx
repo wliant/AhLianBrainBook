@@ -1,25 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { GitCommit as GitCommitIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { relativeDate } from "@/lib/utils";
 import type { GitCommit } from "@/types";
-
-function relativeDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return date.toLocaleDateString();
-}
 
 interface GitLogPanelProps {
   clusterId: string;
@@ -32,6 +19,13 @@ export function GitLogPanel({ clusterId, onViewDiff }: GitLogPanelProps) {
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+
+  // Reset state when clusterId changes
+  useEffect(() => {
+    setCommits([]);
+    setOffset(0);
+    setHasMore(true);
+  }, [clusterId]);
 
   const { isLoading } = useQuery({
     queryKey: ["sandbox-log", clusterId, offset],

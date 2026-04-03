@@ -52,14 +52,6 @@ DECLARATION_TYPES: dict[str, dict[str, tuple[str, str]]] = {
         "type_alias_declaration": ("interface", "name"),
         "variable_declaration": ("variable", "declarator"),
     },
-    "tsx": {
-        "class_declaration": ("class", "name"),
-        "interface_declaration": ("interface", "name"),
-        "function_declaration": ("function", "name"),
-        "method_definition": ("method", "name"),
-        "type_alias_declaration": ("interface", "name"),
-        "variable_declaration": ("variable", "declarator"),
-    },
     "go": {
         "function_declaration": ("function", "name"),
         "method_declaration": ("method", "name"),
@@ -84,6 +76,7 @@ DECLARATION_TYPES: dict[str, dict[str, tuple[str, str]]] = {
         "enum_specifier": ("class", "name"),
     },
 }
+DECLARATION_TYPES["tsx"] = DECLARATION_TYPES["typescript"]
 
 
 def parse_code(content: str, language: str) -> tree_sitter.Tree | None:
@@ -155,7 +148,7 @@ def _get_identifier_at(tree: tree_sitter.Tree, line: int, col: int) -> str | Non
         return None
     # Walk up to find the nearest identifier
     while node and node.type != "identifier" and node.type != "type_identifier":
-        if node.parent and node.parent.start_point.row == row:
+        if node.parent:
             node = node.parent
         else:
             break
@@ -192,10 +185,24 @@ def find_definition(
         return None
     # Return the first declaration found
     target = decl_nodes[0]
-    name_child = target.child_by_field_name("name") or target
+    # Try to locate the name node within the declaration
+    decl = _is_declaration(target.type, language)
+    if decl:
+        _, name_field = decl
+        name_node = target.child_by_field_name(name_field)
+        if name_node:
+            # Handle nested declarators (e.g. variable_declarator -> name)
+            inner = name_node.child_by_field_name("name")
+            if inner:
+                name_node = inner
+            return Location(
+                line=name_node.start_point.row + 1,
+                col=name_node.start_point.column,
+            )
+    # Fallback: use the declaration node start
     return Location(
-        line=name_child.start_point.row + 1,
-        col=name_child.start_point.column,
+        line=target.start_point.row + 1,
+        col=target.start_point.column,
     )
 
 

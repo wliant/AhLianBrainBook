@@ -111,6 +111,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         setGitLogOpen(false);
         setOrphanListOpen(false);
         setBlameVisible(false);
+        setStructurePanelOpen(false);
       }
     };
     window.addEventListener("keydown", handler);
@@ -378,6 +379,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         open={goToLineOpen}
         onOpenChange={setGoToLineOpen}
         onGoToLine={handleGoToLine}
+        maxLine={fileContent?.content.split("\n").length}
       />
 
       {/* Quick Open Dialog */}

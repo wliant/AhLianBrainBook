@@ -256,15 +256,28 @@ public class IntelligenceService {
     // --- Code Intelligence proxies ---
 
     public Map<String, Object> getCodeStructure(String content, String language) {
-        return callAgent("/api/code/structure", Map.of("content", content, "language", language));
+        return callCodeIntelligence("/api/code/structure",
+                Map.of("content", content, "language", language != null ? language : ""));
     }
 
     public Map<String, Object> getCodeDefinition(String content, String language, int line, int col) {
-        return callAgent("/api/code/definition", Map.of("content", content, "language", language, "line", line, "col", col));
+        return callCodeIntelligence("/api/code/definition",
+                Map.of("content", content, "language", language != null ? language : "", "line", line, "col", col));
     }
 
     public Map<String, Object> getCodeReferences(String content, String language, int line, int col) {
-        return callAgent("/api/code/references", Map.of("content", content, "language", language, "line", line, "col", col));
+        return callCodeIntelligence("/api/code/references",
+                Map.of("content", content, "language", language != null ? language : "", "line", line, "col", col));
+    }
+
+    private Map<String, Object> callCodeIntelligence(String uri, Map<String, Object> request) {
+        try {
+            Map<String, Object> result = callAgent(uri, request);
+            return result != null ? result : Map.of();
+        } catch (RestClientException e) {
+            logger.error("Code intelligence call failed for {}: {}", uri, e.getMessage());
+            return Map.of();
+        }
     }
 
     Map<String, Object> callIntelligenceService(Map<String, Object> request) {

@@ -35,6 +35,10 @@ export function useSandbox(clusterId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["sandboxes"] });
     queryClient.invalidateQueries({ queryKey: ["sandbox-tree", clusterId] });
     queryClient.invalidateQueries({ queryKey: ["sandbox-file", clusterId] });
+    queryClient.invalidateQueries({ queryKey: ["sandbox-blame", clusterId] });
+    queryClient.invalidateQueries({ queryKey: ["sandbox-log", clusterId] });
+    queryClient.invalidateQueries({ queryKey: ["code-structure", clusterId] });
+    queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
   };
 
   const provision = async (body?: { branch?: string; shallow?: boolean }) => {
@@ -53,8 +57,7 @@ export function useSandbox(clusterId: string | null) {
   const pull = async (): Promise<PullResponse | undefined> => {
     if (!clusterId) return;
     const result = await api.sandbox.pull(clusterId);
-    queryClient.invalidateQueries({ queryKey: ["sandbox", clusterId] });
-    queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
+    invalidateSandboxQueries();
     return result;
   };
 
@@ -62,7 +65,6 @@ export function useSandbox(clusterId: string | null) {
     if (!clusterId) return;
     const result = await api.sandbox.checkout(clusterId, branch);
     invalidateSandboxQueries();
-    queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
     return result;
   };
 

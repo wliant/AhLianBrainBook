@@ -133,20 +133,24 @@ export function CodeViewer({
     });
 
     viewRef.current = view;
+    let destroyed = false;
 
     // Load language
     if (fileContent.language) {
       const loader = languageLoaders[fileContent.language];
       if (loader) {
         loader().then((langSupport) => {
-          view.dispatch({
-            effects: languageCompartment.current.reconfigure(langSupport),
-          });
+          if (!destroyed) {
+            view.dispatch({
+              effects: languageCompartment.current.reconfigure(langSupport),
+            });
+          }
         }).catch(() => {});
       }
     }
 
     return () => {
+      destroyed = true;
       view.destroy();
       viewRef.current = null;
     };
@@ -171,6 +175,19 @@ export function CodeViewer({
       effects: blameCompartment.current.reconfigure(blameData ? blameGutter(blameData) : []),
     });
   }, [blameData]);
+
+  // Update go-to-definition extension when handler availability changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: goToDefCompartment.current.reconfigure(
+        onGoToDefinition
+          ? goToDefinitionExtension((line, col) => onGoToDefinitionRef.current?.(line, col))
+          : []
+      ),
+    });
+  }, [onGoToDefinition]);
 
   // Scroll to line (scrollKey ensures re-trigger for same line)
   useEffect(() => {

@@ -197,8 +197,8 @@ export function OrphanList({ clusterId, entries, onClose }: OrphanListProps) {
                   value={reAnchor.filePath}
                   onChange={(e) => setReAnchor({ ...reAnchor, filePath: e.target.value })}
                 >
-                  {files.map((f) => (
-                    <option key={f.path} value={f.path}>{f.path}</option>
+                  {Array.from(new Set([reAnchor.filePath, ...files.map((f) => f.path)])).sort().map((path) => (
+                    <option key={path} value={path}>{path}</option>
                   ))}
                 </select>
               </div>

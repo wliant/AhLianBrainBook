@@ -16,6 +16,7 @@ interface BranchSelectorProps {
 export function BranchSelector({ clusterId, currentBranch, onCheckout }: BranchSelectorProps) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["sandbox-branches", clusterId],
@@ -29,9 +30,12 @@ export function BranchSelector({ clusterId, currentBranch, onCheckout }: BranchS
       return;
     }
     setSwitching(true);
+    setError(null);
     try {
       await onCheckout(branch);
       setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to switch branch");
     } finally {
       setSwitching(false);
     }
@@ -71,6 +75,9 @@ export function BranchSelector({ clusterId, currentBranch, onCheckout }: BranchS
               <span className="truncate">{branch}</span>
             </button>
           ))
+        )}
+        {error && (
+          <div className="px-2 py-1.5 text-xs text-red-400 border-t">{error}</div>
         )}
       </PopoverContent>
     </Popover>
