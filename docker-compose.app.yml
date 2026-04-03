@@ -15,6 +15,12 @@ services:
       MINIO_SECRET_KEY: brainbook123
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:13000}
       INTELLIGENCE_BASE_URL: http://intelligence-service:8001
+      SANDBOX_ROOT_PATH: /data/brainbook/sandboxes
+      SANDBOX_MAX_REPO_SIZE_MB: ${SANDBOX_MAX_REPO_SIZE_MB:-1000}
+      SANDBOX_CLONE_TIMEOUT_SEC: ${SANDBOX_CLONE_TIMEOUT_SEC:-300}
+      SANDBOX_MAX_COUNT: ${SANDBOX_MAX_COUNT:-10}
+    volumes:
+      - sandbox-data:/data/brainbook/sandboxes
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,3 +73,6 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
+
+volumes:
+  sandbox-data:

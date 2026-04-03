@@ -106,6 +106,44 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   upload: <T>(path: string, file: File) => uploadFile<T>(path, file),
 
+  // Sandbox endpoints
+  sandbox: {
+    get: (clusterId: string) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox`),
+    provision: (clusterId: string, body?: { branch?: string; shallow?: boolean }) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox`, { method: "POST", body }),
+    terminate: (clusterId: string) =>
+      request<void>(`/api/clusters/${clusterId}/sandbox`, { method: "DELETE" }),
+    retry: (clusterId: string) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox/retry`, { method: "POST" }),
+    pull: (clusterId: string) =>
+      request<import("@/types").PullResponse>(`/api/clusters/${clusterId}/sandbox/pull`, { method: "POST" }),
+    checkout: (clusterId: string, branch: string) =>
+      request<import("@/types").Sandbox>(`/api/clusters/${clusterId}/sandbox/checkout`, { method: "POST", body: { branch } }),
+    branches: (clusterId: string) =>
+      request<string[]>(`/api/clusters/${clusterId}/sandbox/branches`),
+    tree: (clusterId: string, path?: string) => {
+      const params = path ? `?path=${encodeURIComponent(path)}` : "";
+      return request<import("@/types").FileTreeEntry[]>(`/api/clusters/${clusterId}/sandbox/tree${params}`);
+    },
+    file: (clusterId: string, path: string) =>
+      request<import("@/types").FileContent>(`/api/clusters/${clusterId}/sandbox/file?path=${encodeURIComponent(path)}`),
+    log: (clusterId: string, limit = 50, offset = 0) =>
+      request<import("@/types").GitCommit[]>(`/api/clusters/${clusterId}/sandbox/log?limit=${limit}&offset=${offset}`),
+    blame: (clusterId: string, path: string) =>
+      request<import("@/types").BlameLine[]>(`/api/clusters/${clusterId}/sandbox/blame?path=${encodeURIComponent(path)}`),
+    diff: (clusterId: string, from: string, to: string) =>
+      request<string>(`/api/clusters/${clusterId}/sandbox/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+    list: () =>
+      request<import("@/types").Sandbox[]>("/api/sandboxes"),
+    structure: (clusterId: string, path: string) =>
+      request<import("@/types").CodeStructureResponse>(`/api/clusters/${clusterId}/sandbox/structure?path=${encodeURIComponent(path)}`),
+    definition: (clusterId: string, path: string, line: number, col: number) =>
+      request<import("@/types").CodeDefinitionResponse>(`/api/clusters/${clusterId}/sandbox/definition?path=${encodeURIComponent(path)}&line=${line}&col=${col}`),
+    references: (clusterId: string, path: string, line: number, col: number) =>
+      request<import("@/types").CodeReferencesResponse>(`/api/clusters/${clusterId}/sandbox/references?path=${encodeURIComponent(path)}&line=${line}&col=${col}`),
+  },
+
   // NeuronLink endpoints
   neuronLinks: {
     getForNeuron: <T>(neuronId: string) =>
@@ -247,6 +285,51 @@ export const api = {
         `/api/neurons/${neuronId}/sections/${sectionId}/ai-assist`,
         { method: "POST", body, timeoutMs: 620_000 },
       ),
+  },
+
+  // Project Config endpoints
+  projectConfig: {
+    get: (clusterId: string) =>
+      request<import("@/types").ProjectConfig>(`/api/clusters/${clusterId}/project-config`),
+    update: (clusterId: string, body: { defaultBranch?: string }) =>
+      request<import("@/types").ProjectConfig>(`/api/clusters/${clusterId}/project-config`, { method: "PATCH", body }),
+  },
+
+  // Browse endpoints (GitHub API proxy)
+  browse: {
+    tree: (clusterId: string, ref?: string) => {
+      const params = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+      return request<import("@/types").FileTreeEntry[]>(`/api/clusters/${clusterId}/browse/tree${params}`);
+    },
+    file: (clusterId: string, path: string, ref?: string) => {
+      const params = new URLSearchParams({ path });
+      if (ref) params.set("ref", ref);
+      return request<import("@/types").FileContent>(`/api/clusters/${clusterId}/browse/file?${params}`);
+    },
+    branches: (clusterId: string) =>
+      request<{ name: string }[]>(`/api/clusters/${clusterId}/browse/branches`),
+  },
+
+  // Neuron Anchor endpoints
+  neuronAnchors: {
+    listByCluster: (clusterId: string, page = 0, size = 50) =>
+      request<{ content: import("@/types").NeuronAnchor[]; totalElements: number }>(
+        `/api/neuron-anchors/cluster/${clusterId}?page=${page}&size=${size}`
+      ),
+    listByFile: (clusterId: string, path: string, page = 0, size = 50) =>
+      request<{ content: import("@/types").NeuronAnchor[]; totalElements: number }>(
+        `/api/neuron-anchors/cluster/${clusterId}/file?path=${encodeURIComponent(path)}&page=${page}&size=${size}`
+      ),
+    listOrphaned: (clusterId: string) =>
+      request<import("@/types").NeuronAnchor[]>(`/api/neuron-anchors/cluster/${clusterId}/orphaned`),
+    create: (body: { neuronId: string; clusterId: string; filePath: string; startLine: number; endLine: number }) =>
+      request<import("@/types").NeuronAnchor>("/api/neuron-anchors", { method: "POST", body }),
+    update: (id: string, body: { filePath: string; startLine: number; endLine: number }) =>
+      request<import("@/types").NeuronAnchor>(`/api/neuron-anchors/${id}`, { method: "PATCH", body }),
+    delete: (id: string) =>
+      request<void>(`/api/neuron-anchors/${id}`, { method: "DELETE" }),
+    confirmDrift: (id: string) =>
+      request<import("@/types").NeuronAnchor>(`/api/neuron-anchors/${id}/confirm-drift`, { method: "POST" }),
   },
 
   researchTopics: {
