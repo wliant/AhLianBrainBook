@@ -2,13 +2,14 @@
 
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { FileText, Plus, Sparkles, Code } from "lucide-react";
+import { FileText, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { TagCombobox } from "@/components/tags/TagCombobox";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ResearchClusterView } from "@/components/research/ResearchClusterView";
+import { ProjectClusterView } from "@/components/project/ProjectClusterView";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, Tag } from "@/types";
 
@@ -69,11 +70,7 @@ export default function ClusterPage({
       {cluster?.type === "ai-research" ? (
         <ResearchClusterView cluster={cluster} brainId={brainId} />
       ) : cluster?.type === "project" ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Code className="h-12 w-12 mx-auto mb-3" />
-          <h1 className="text-2xl font-bold mb-2 text-foreground">Project Explorer</h1>
-          <p>Codebase exploration — coming soon.</p>
-        </div>
+        <ProjectClusterView cluster={cluster} brainId={brainId} />
       ) : (
         <>
           <div className="flex items-center justify-between mb-6">

@@ -152,6 +152,83 @@ export const handlers = [
   http.delete(`${API_BASE}/api/thoughts/:id`, () => new HttpResponse(null, { status: 204 })),
   http.get(`${API_BASE}/api/thoughts/:id/neurons`, () => HttpResponse.json([])),
 
+  // Project Config
+  http.get(`${API_BASE}/api/clusters/:clusterId/project-config`, ({ params }) =>
+    HttpResponse.json({
+      id: 'config-1',
+      clusterId: params.clusterId,
+      repoUrl: 'https://github.com/owner/repo',
+      defaultBranch: 'main',
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    })
+  ),
+
+  // Browse endpoints
+  http.get(`${API_BASE}/api/clusters/:clusterId/browse/tree`, () =>
+    HttpResponse.json([
+      { name: 'src', path: 'src', type: 'directory', size: null },
+      { name: 'Main.java', path: 'src/Main.java', type: 'file', size: 1024 },
+      { name: 'README.md', path: 'README.md', type: 'file', size: 256 },
+    ])
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/browse/file`, ({ request }) => {
+    const url = new URL(request.url);
+    const path = url.searchParams.get('path') || 'unknown';
+    return HttpResponse.json({
+      path,
+      content: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello");\n  }\n}',
+      language: 'java',
+      size: 100,
+    });
+  }),
+  http.get(`${API_BASE}/api/clusters/:clusterId/browse/branches`, () =>
+    HttpResponse.json([{ name: 'main' }, { name: 'develop' }])
+  ),
+
+  // Neuron Anchors
+  http.get(`${API_BASE}/api/neuron-anchors/cluster/:clusterId`, () =>
+    HttpResponse.json({ content: [], totalElements: 0 })
+  ),
+  http.get(`${API_BASE}/api/neuron-anchors/cluster/:clusterId/file`, () =>
+    HttpResponse.json({ content: [], totalElements: 0 })
+  ),
+  http.get(`${API_BASE}/api/neuron-anchors/cluster/:clusterId/orphaned`, () =>
+    HttpResponse.json([])
+  ),
+  http.post(`${API_BASE}/api/neuron-anchors`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'anchor-1',
+        neuronId: body.neuronId,
+        clusterId: body.clusterId,
+        filePath: body.filePath,
+        startLine: body.startLine,
+        endLine: body.endLine,
+        contentHash: 'abc123',
+        commitSha: null,
+        status: 'active',
+        driftedStartLine: null,
+        driftedEndLine: null,
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+      },
+      { status: 201 }
+    );
+  }),
+  http.delete(`${API_BASE}/api/neuron-anchors/:id`, () =>
+    new HttpResponse(null, { status: 204 })
+  ),
+  http.post(`${API_BASE}/api/neuron-anchors/:id/confirm-drift`, ({ params }) =>
+    HttpResponse.json({
+      id: params.id,
+      status: 'active',
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    })
+  ),
+
   // Trash & Search
   http.get(`${API_BASE}/api/neurons/trash`, () => HttpResponse.json([])),
   http.get(`${API_BASE}/api/search`, () =>

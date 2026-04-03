@@ -20,7 +20,8 @@ public class CacheConfig {
                 .maximumSize(500)
                 .expireAfterWrite(5, TimeUnit.MINUTES));
         cacheManager.setCacheNames(java.util.List.of(
-                "brains", "tags", "settings", "brainStats", "clustersByBrain"));
+                "brains", "tags", "settings", "brainStats", "clustersByBrain",
+                "githubTree", "githubFile"));
 
         // Register caches with custom TTLs
         cacheManager.registerCustomCache("settings",
@@ -37,6 +38,17 @@ public class CacheConfig {
                 Caffeine.newBuilder()
                         .maximumSize(200)
                         .expireAfterWrite(2, TimeUnit.MINUTES)
+                        .build());
+
+        cacheManager.registerCustomCache("githubTree",
+                Caffeine.newBuilder()
+                        .maximumSize(200)
+                        .expireAfterWrite(1, TimeUnit.MINUTES)
+                        .build());
+        cacheManager.registerCustomCache("githubFile",
+                Caffeine.newBuilder()
+                        .maximumSize(500)
+                        .expireAfterWrite(5, TimeUnit.MINUTES)
                         .build());
 
         return cacheManager;

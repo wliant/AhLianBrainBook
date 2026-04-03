@@ -61,6 +61,49 @@ export interface ResearchTopic {
   lastUpdatedBy: string;
 }
 
+// Project Cluster types
+
+export interface ProjectConfig {
+  id: string;
+  clusterId: string;
+  repoUrl: string;
+  defaultBranch: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AnchorStatus = "active" | "drifted" | "orphaned";
+
+export interface NeuronAnchor {
+  id: string;
+  neuronId: string;
+  clusterId: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  contentHash: string;
+  commitSha: string | null;
+  status: AnchorStatus;
+  driftedStartLine: number | null;
+  driftedEndLine: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileTreeEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number | null;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  language: string | null;
+  size: number;
+}
+
 export interface Neuron {
   id: string;
   brainId: string;

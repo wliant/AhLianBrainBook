@@ -1,5 +1,7 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.dto.CreateNeuronAnchorRequest;
+import com.wliant.brainbook.dto.FileContentResponse;
 import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronAnchorResponse;
 import com.wliant.brainbook.dto.NeuronContentRequest;
@@ -53,6 +55,7 @@ public class NeuronService {
     private final SettingsService settingsService;
     private final ReviewQuestionService reviewQuestionService;
     private final AnchorService anchorService;
+    private final UrlBrowseService urlBrowseService;
     private final ObjectMapper objectMapper;
 
     public NeuronService(NeuronRepository neuronRepository,
@@ -64,6 +67,7 @@ public class NeuronService {
                          SettingsService settingsService,
                          ReviewQuestionService reviewQuestionService,
                          AnchorService anchorService,
+                         UrlBrowseService urlBrowseService,
                          ObjectMapper objectMapper) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
@@ -74,6 +78,7 @@ public class NeuronService {
         this.settingsService = settingsService;
         this.reviewQuestionService = reviewQuestionService;
         this.anchorService = anchorService;
+        this.urlBrowseService = urlBrowseService;
         this.objectMapper = objectMapper;
     }
 
@@ -146,7 +151,14 @@ public class NeuronService {
 
         Neuron saved = neuronRepository.save(neuron);
 
-        // TODO: Anchor creation will be wired in Phase 2/3 when file content resolution is available
+        if (req.anchor() != null) {
+            FileContentResponse file = urlBrowseService.getFile(
+                    cluster.getId(), null, req.anchor().filePath());
+            CreateNeuronAnchorRequest anchorReq = new CreateNeuronAnchorRequest(
+                    saved.getId(), cluster.getId(),
+                    req.anchor().filePath(), req.anchor().startLine(), req.anchor().endLine());
+            anchorService.create(anchorReq, file.content());
+        }
 
         return toResponse(saved);
     }

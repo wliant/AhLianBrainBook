@@ -138,6 +138,12 @@ public class AnchorService {
         return toResponse(saved);
     }
 
+    public NeuronAnchorResponse getById(UUID id) {
+        NeuronAnchor anchor = neuronAnchorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Anchor not found: " + id));
+        return toResponse(anchor);
+    }
+
     public NeuronAnchorResponse getByNeuronId(UUID neuronId) {
         return neuronAnchorRepository.findByNeuronId(neuronId)
                 .map(this::toResponse)
