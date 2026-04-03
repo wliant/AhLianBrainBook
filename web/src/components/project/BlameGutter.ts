@@ -62,7 +62,9 @@ export function blameGutter(blameData: BlameLine[]): Extension {
   const lineMarkers = new Map<number, BlameMarker>();
 
   for (const blame of blameData) {
-    lineMarkers.set(blame.line, new BlameMarker(blame.commitSha, blame.author, blame.date));
+    if (blame.commitSha && blame.author && blame.date) {
+      lineMarkers.set(blame.line, new BlameMarker(blame.commitSha, blame.author, blame.date));
+    }
   }
 
   return gutter({
