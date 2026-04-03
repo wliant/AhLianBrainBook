@@ -243,6 +243,18 @@ public class IntelligenceService {
         return callAgent("/api/agents/review-qa-generator", request);
     }
 
+    @SuppressWarnings("unchecked")
+    public float[] computeEmbedding(String text) {
+        Map<String, Object> request = Map.of("text", text);
+        Map<String, Object> response = callAgent("/api/embeddings", request);
+        List<Number> embedding = (List<Number>) response.get("embedding");
+        float[] result = new float[embedding.size()];
+        for (int i = 0; i < embedding.size(); i++) {
+            result[i] = embedding.get(i).floatValue();
+        }
+        return result;
+    }
+
     Map<String, Object> callAgent(String uri, Map<String, Object> request) {
         return intelligenceRestClient.post()
                 .uri(uri)

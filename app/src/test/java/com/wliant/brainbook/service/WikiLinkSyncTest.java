@@ -5,11 +5,10 @@ import com.wliant.brainbook.config.TestContainersConfig;
 import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.dto.BrainResponse;
 import com.wliant.brainbook.dto.ClusterResponse;
-import com.wliant.brainbook.dto.NeuronContentRequest;
+import com.wliant.brainbook.dto.LinkSuggestionResponse;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
-import com.wliant.brainbook.model.NeuronLink;
-import com.wliant.brainbook.repository.NeuronLinkRepository;
+import com.wliant.brainbook.repository.LinkSuggestionRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,10 @@ class WikiLinkSyncTest {
     private NeuronService neuronService;
 
     @Autowired
-    private NeuronLinkRepository neuronLinkRepository;
+    private LinkSuggestionService linkSuggestionService;
+
+    @Autowired
+    private LinkSuggestionRepository linkSuggestionRepository;
 
     @Autowired
     private DatabaseCleaner databaseCleaner;
@@ -64,7 +66,7 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + targetId + "\",\"neuronTitle\":\"Test\",\"href\":\"/test\"}}" +
                 "]}";
 
-        Set<UUID> ids = neuronService.extractWikiLinkIds(content);
+        Set<UUID> ids = WikiLinkExtractor.extractWikiLinkIds(content);
 
         assertThat(ids).containsExactly(targetId);
     }
@@ -77,7 +79,7 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + targetId + "\"}}" +
                 "]}}]}";
 
-        Set<UUID> ids = neuronService.extractWikiLinkIds(content);
+        Set<UUID> ids = WikiLinkExtractor.extractWikiLinkIds(content);
 
         assertThat(ids).containsExactly(targetId);
     }
@@ -86,14 +88,14 @@ class WikiLinkSyncTest {
     void extractWikiLinkIds_returnsEmptyForNoLinks() {
         String content = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}";
 
-        Set<UUID> ids = neuronService.extractWikiLinkIds(content);
+        Set<UUID> ids = WikiLinkExtractor.extractWikiLinkIds(content);
 
         assertThat(ids).isEmpty();
     }
 
     @Test
     void extractWikiLinkIds_handlesInvalidJson() {
-        Set<UUID> ids = neuronService.extractWikiLinkIds("not json at all");
+        Set<UUID> ids = WikiLinkExtractor.extractWikiLinkIds("not json at all");
 
         assertThat(ids).isEmpty();
     }
@@ -104,13 +106,13 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"not-a-uuid\"}}" +
                 "]}";
 
-        Set<UUID> ids = neuronService.extractWikiLinkIds(content);
+        Set<UUID> ids = WikiLinkExtractor.extractWikiLinkIds(content);
 
         assertThat(ids).isEmpty();
     }
 
     @Test
-    void syncEditorLinks_createsLinksForNewReferences() {
+    void recomputeReferenceSuggestions_createsSuggestionsForWikiLinks() {
         NeuronResponse source = neuronService.create(
                 new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
         NeuronResponse target = neuronService.create(
@@ -120,36 +122,34 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + target.id() + "\"}}" +
                 "]}";
 
-        neuronService.syncEditorLinks(source.id(), contentWithLink);
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), contentWithLink);
 
-        List<NeuronLink> links = neuronLinkRepository.findBySourceNeuronIdAndSource(source.id(), "editor");
-        assertThat(links).hasSize(1);
-        assertThat(links.get(0).getTargetNeuronId()).isEqualTo(target.id());
-        assertThat(links.get(0).getLinkType()).isEqualTo("references");
+        List<LinkSuggestionResponse> suggestions = linkSuggestionService.getSuggestionsForNeuron(source.id());
+        assertThat(suggestions).hasSize(1);
+        assertThat(suggestions.get(0).displayType()).isEqualTo("references");
+        assertThat(suggestions.get(0).targetNeuronId()).isEqualTo(target.id());
     }
 
     @Test
-    void syncEditorLinks_removesStaleLinks() {
+    void recomputeReferenceSuggestions_removesStaleOnRecompute() {
         NeuronResponse source = neuronService.create(
                 new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
         NeuronResponse target = neuronService.create(
                 new NeuronRequest("Target", brainId, clusterId, null, "content", null, null, null));
 
-        // First sync: creates link
         String contentWithLink = "{\"type\":\"doc\",\"content\":[" +
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + target.id() + "\"}}" +
                 "]}";
-        neuronService.syncEditorLinks(source.id(), contentWithLink);
-        assertThat(neuronLinkRepository.findBySourceNeuronIdAndSource(source.id(), "editor")).hasSize(1);
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), contentWithLink);
+        assertThat(linkSuggestionService.getSuggestionsForNeuron(source.id())).hasSize(1);
 
-        // Second sync: removes link (content no longer has the reference)
         String contentWithoutLink = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}";
-        neuronService.syncEditorLinks(source.id(), contentWithoutLink);
-        assertThat(neuronLinkRepository.findBySourceNeuronIdAndSource(source.id(), "editor")).isEmpty();
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), contentWithoutLink);
+        assertThat(linkSuggestionService.getSuggestionsForNeuron(source.id())).isEmpty();
     }
 
     @Test
-    void syncEditorLinks_doesNotCreateSelfLinks() {
+    void recomputeReferenceSuggestions_doesNotCreateSelfSuggestions() {
         NeuronResponse source = neuronService.create(
                 new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
 
@@ -157,14 +157,13 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + source.id() + "\"}}" +
                 "]}";
 
-        neuronService.syncEditorLinks(source.id(), contentWithSelfLink);
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), contentWithSelfLink);
 
-        List<NeuronLink> links = neuronLinkRepository.findBySourceNeuronIdAndSource(source.id(), "editor");
-        assertThat(links).isEmpty();
+        assertThat(linkSuggestionService.getSuggestionsForNeuron(source.id())).isEmpty();
     }
 
     @Test
-    void syncEditorLinks_skipsNonExistentTargets() {
+    void recomputeReferenceSuggestions_skipsNonExistentTargets() {
         NeuronResponse source = neuronService.create(
                 new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
 
@@ -172,24 +171,23 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + UUID.randomUUID() + "\"}}" +
                 "]}";
 
-        neuronService.syncEditorLinks(source.id(), contentWithBadTarget);
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), contentWithBadTarget);
 
-        List<NeuronLink> links = neuronLinkRepository.findBySourceNeuronIdAndSource(source.id(), "editor");
-        assertThat(links).isEmpty();
+        assertThat(linkSuggestionService.getSuggestionsForNeuron(source.id())).isEmpty();
     }
 
     @Test
-    void syncEditorLinks_handlesNullContent() {
+    void recomputeReferenceSuggestions_handlesNullContent() {
         NeuronResponse source = neuronService.create(
                 new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
 
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), null);
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), "");
         // Should not throw
-        neuronService.syncEditorLinks(source.id(), null);
-        neuronService.syncEditorLinks(source.id(), "");
     }
 
     @Test
-    void updateContent_triggersLinkSync() {
+    void referencedBy_appearsOnTargetNeuron() {
         NeuronResponse source = neuronService.create(
                 new NeuronRequest("Source", brainId, clusterId, null, "content", null, null, null));
         NeuronResponse target = neuronService.create(
@@ -199,10 +197,12 @@ class WikiLinkSyncTest {
                 "{\"type\":\"wikiLink\",\"attrs\":{\"neuronId\":\"" + target.id() + "\"}}" +
                 "]}";
 
-        neuronService.updateContent(source.id(),
-                new NeuronContentRequest(contentWithLink, "text", source.version()));
+        linkSuggestionService.recomputeReferenceSuggestions(source.id(), contentWithLink);
 
-        List<NeuronLink> links = neuronLinkRepository.findBySourceNeuronIdAndSource(source.id(), "editor");
-        assertThat(links).hasSize(1);
+        // Target neuron should see a "referenced_by" suggestion
+        List<LinkSuggestionResponse> targetSuggestions = linkSuggestionService.getSuggestionsForNeuron(target.id());
+        assertThat(targetSuggestions).hasSize(1);
+        assertThat(targetSuggestions.get(0).displayType()).isEqualTo("referenced_by");
+        assertThat(targetSuggestions.get(0).sourceNeuronId()).isEqualTo(source.id());
     }
 }
