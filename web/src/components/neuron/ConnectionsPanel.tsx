@@ -6,6 +6,7 @@ import { ArrowRight, ArrowLeft, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNeuronLinks } from "@/lib/hooks/useNeuronLinks";
 import { AddLinkDialog } from "./AddLinkDialog";
+import { LinkSuggestionsPanel } from "./LinkSuggestionsPanel";
 import type { NeuronLink } from "@/types";
 
 export function ConnectionsPanel({
@@ -98,6 +99,8 @@ export function ConnectionsPanel({
             ))}
           </div>
         )}
+
+        <LinkSuggestionsPanel neuronId={neuronId} brainId={brainId} />
       </div>
 
       <AddLinkDialog

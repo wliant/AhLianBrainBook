@@ -161,6 +161,14 @@ export const api = {
       request<T>(`/api/neuron-links/${id}`, { method: "DELETE" }),
   },
 
+  // LinkSuggestion endpoints
+  linkSuggestions: {
+    getForNeuron: (neuronId: string) =>
+      request<import("@/types").LinkSuggestion[]>(`/api/link-suggestions/neuron/${neuronId}`),
+    accept: (id: string) =>
+      request<import("@/types").NeuronLink>(`/api/link-suggestions/${id}/accept`, { method: "POST" }),
+  },
+
   // Thought endpoints
   thoughts: {
     list: () => request<import("@/types").Thought[]>("/api/thoughts"),

@@ -299,6 +299,20 @@ export interface NeuronLink {
   createdAt: string;
 }
 
+export interface LinkSuggestion {
+  id: string;
+  sourceNeuronId: string;
+  sourceNeuronTitle: string | null;
+  sourceNeuronClusterId: string | null;
+  targetNeuronId: string;
+  targetNeuronTitle: string | null;
+  targetNeuronClusterId: string | null;
+  suggestionType: string;
+  displayType: "references" | "referenced_by" | "related";
+  score: number | null;
+  createdAt: string;
+}
+
 export interface Reminder {
   id: string;
   neuronId: string;

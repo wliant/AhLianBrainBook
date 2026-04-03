@@ -32,6 +32,7 @@ export function useNeuronLinks(neuronId: string | null) {
   const deleteLink = async (id: string) => {
     await api.neuronLinks.delete(id);
     queryClient.invalidateQueries({ queryKey: ["neuronLinks", neuronId] });
+    queryClient.invalidateQueries({ queryKey: ["linkSuggestions", neuronId] });
   };
 
   const refetch = () => {
