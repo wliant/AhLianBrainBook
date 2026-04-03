@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
-from src.routers import agents, code_intelligence, health
+from src.routers import agents, code_intelligence, embeddings, health
 
 
 def _configure_logging() -> None:
@@ -33,3 +33,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(agents.router, prefix="/api")
 app.include_router(code_intelligence.router, prefix="/api")
+app.include_router(embeddings.router, prefix="/api")
