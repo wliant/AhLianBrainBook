@@ -17,7 +17,9 @@ services:
       INTELLIGENCE_BASE_URL: http://intelligence-service:8001
       SANDBOX_ROOT_PATH: /data/brainbook/sandboxes
       SANDBOX_MAX_REPO_SIZE_MB: ${SANDBOX_MAX_REPO_SIZE_MB:-1000}
+      SANDBOX_MAX_TOTAL_DISK_MB: ${SANDBOX_MAX_TOTAL_DISK_MB:-5120}
       SANDBOX_CLONE_TIMEOUT_SEC: ${SANDBOX_CLONE_TIMEOUT_SEC:-300}
+      SANDBOX_MAX_CONCURRENT_CLONES: ${SANDBOX_MAX_CONCURRENT_CLONES:-2}
       SANDBOX_MAX_COUNT: ${SANDBOX_MAX_COUNT:-10}
     volumes:
       - sandbox-data:/data/brainbook/sandboxes

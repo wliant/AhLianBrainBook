@@ -30,6 +30,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   const [clusterDialogOpen, setClusterDialogOpen] = useState(false);
   const [clusterName, setClusterName] = useState("");
   const [clusterType, setClusterType] = useState<ClusterType>("knowledge");
+  const [repoUrl, setRepoUrl] = useState("");
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,9 +60,11 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   const handleNewCluster = async () => {
     const name = clusterType === "ai-research" ? "AI Research" : clusterName.trim();
     if (!name) return;
-    await createCluster(name, clusterType);
+    if (clusterType === "project" && !repoUrl.trim()) return;
+    await createCluster(name, clusterType, clusterType === "project" ? repoUrl.trim() : undefined);
     setClusterName("");
     setClusterType("knowledge");
+    setRepoUrl("");
     setClusterDialogOpen(false);
   };
 
@@ -141,7 +144,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
       )}
       <Dialog open={clusterDialogOpen} onOpenChange={(open) => {
         setClusterDialogOpen(open);
-        if (!open) { setClusterName(""); setClusterType("knowledge"); }
+        if (!open) { setClusterName(""); setClusterType("knowledge"); setRepoUrl(""); }
       }}>
         <DialogContent>
           <DialogHeader>
@@ -178,13 +181,32 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
                 AI Research
                 {hasAiResearch && <span className="text-xs text-muted-foreground">(already exists)</span>}
               </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="cluster-type" value="project"
+                  checked={clusterType === "project"}
+                  onChange={() => setClusterType("project")}
+                  className="accent-primary" />
+                <Code className="h-4 w-4 text-muted-foreground" />
+                Project
+              </label>
             </div>
           </div>
+          {clusterType === "project" && (
+            <Input
+              placeholder="Repository URL (e.g. https://github.com/owner/repo)"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              data-testid="repo-url-input"
+            />
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setClusterDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleNewCluster} disabled={clusterType !== "ai-research" && !clusterName.trim()}>
+            <Button onClick={handleNewCluster} disabled={
+              clusterType !== "ai-research" && !clusterName.trim() ||
+              clusterType === "project" && !repoUrl.trim()
+            }>
               Create
             </Button>
           </DialogFooter>

@@ -13,9 +13,9 @@ export function useClusters(brainId: string | null) {
     enabled: !!brainId,
   });
 
-  const createCluster = async (name: string, type?: ClusterType) => {
+  const createCluster = async (name: string, type?: ClusterType, repoUrl?: string) => {
     if (!brainId) return;
-    const cluster = await api.post<Cluster>("/api/clusters", { name, brainId, type: type ?? "knowledge" });
+    const cluster = await api.post<Cluster>("/api/clusters", { name, brainId, type: type ?? "knowledge", repoUrl });
     queryClient.invalidateQueries({ queryKey: ["clusters", brainId] });
     return cluster;
   };

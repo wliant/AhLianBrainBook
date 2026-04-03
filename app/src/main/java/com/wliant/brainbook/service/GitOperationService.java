@@ -38,7 +38,7 @@ public class GitOperationService {
     private static final Logger logger = LoggerFactory.getLogger(GitOperationService.class);
 
     public void cloneRepository(String repoUrl, String branch, Path targetDir, boolean shallow,
-                                int timeoutSeconds) throws GitAPIException {
+                                int timeoutSeconds) throws GitAPIException, IOException {
         logger.info("Cloning {} (branch={}, shallow={}, timeout={}s) to {}",
                 repoUrl, branch, shallow, timeoutSeconds, targetDir);
 

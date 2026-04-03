@@ -8,6 +8,7 @@ import com.wliant.brainbook.model.ProjectConfig;
 import com.wliant.brainbook.repository.ProjectConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatusCode;
@@ -62,6 +63,7 @@ public class UrlBrowseService {
     private final ProjectConfigRepository projectConfigRepository;
     private final RestClient restClient;
 
+    @Autowired
     public UrlBrowseService(
             ProjectConfigRepository projectConfigRepository,
             @Value("${GITHUB_API_TOKEN:}") String githubToken) {
