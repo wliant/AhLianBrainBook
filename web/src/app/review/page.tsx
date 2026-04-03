@@ -38,6 +38,7 @@ export default function ReviewPage() {
   const [completed, setCompleted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const richTextTextsRef = useRef<Map<string, string>>(new Map());
+  const loadedNeuronIdRef = useRef<string | null>(null);
 
   // Quiz mode state
   const [reviewMode, setReviewMode] = useState<ReviewMode>("choose");
@@ -60,7 +61,9 @@ export default function ReviewPage() {
   useEffect(() => {
     if (!activeNeuronId) return;
     if (showingNonDueInfo) return; // Don't load neuron for non-due info display
+    if (loadedNeuronIdRef.current === activeNeuronId) return; // Already loaded
 
+    loadedNeuronIdRef.current = activeNeuronId;
     setLoadingNeuron(true);
     setShowAnswer(false);
     setNeuron(null);
@@ -80,6 +83,7 @@ export default function ReviewPage() {
       setSectionsDoc(normalizeContent(parsedJson));
       setLoadingNeuron(false);
     }).catch((err) => {
+      loadedNeuronIdRef.current = null; // Allow retry on failure
       console.error("Failed to load neuron for review:", activeNeuronId, err);
       setLoadingNeuron(false);
     });
@@ -124,6 +128,7 @@ export default function ReviewPage() {
       setReviewingNonDue(false);
       setNeuron(null);
       setSectionsDoc(null);
+      loadedNeuronIdRef.current = null;
     } else if (currentQueueIndex < queue.length - 1) {
       setCurrentQueueIndex(currentQueueIndex + 1);
     } else {
@@ -132,12 +137,10 @@ export default function ReviewPage() {
   };
 
   const handleSelectItem = (item: SpacedRepetitionItem) => {
-    if (item.id === selectedItemId) return;
+    if (item.id === activeItem?.id) return;
     setSelectedItemId(item.id);
     setReviewingNonDue(false);
     setCompleted(false);
-    setNeuron(null);
-    setSectionsDoc(null);
     setShowAnswer(false);
     setReviewMode("choose");
     setQuestions([]);
