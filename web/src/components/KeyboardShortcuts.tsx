@@ -21,7 +21,9 @@ const SHORTCUTS = [
   { keys: "Ctrl+]", description: "Next neuron" },
   { keys: "Alt+1-9", description: "Switch brain" },
   { keys: "Ctrl+Shift+P", description: "Command palette" },
-  { keys: "Ctrl+Shift+O", description: "Toggle table of contents" },
+  { keys: "Ctrl+P", description: "Quick open file (project mode)" },
+  { keys: "Ctrl+Shift+O", description: "Toggle outline / table of contents" },
+  { keys: "Ctrl+Click", description: "Go to definition (project mode)" },
   { keys: "Escape", description: "Go back / close panel" },
   { keys: "?", description: "Show keyboard shortcuts" },
 ];

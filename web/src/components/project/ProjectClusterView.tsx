@@ -94,6 +94,25 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     setScrollKey((k) => k + 1);
   }, []);
 
+  const handleGoToDefinition = useCallback(
+    async (line: number, col: number) => {
+      if (!isSandboxActive || !selectedPath) return;
+      try {
+        const result = await api.sandbox.definition(cluster.id, selectedPath, line, col);
+        if (result.location) {
+          if (result.location.file && result.location.file !== selectedPath) {
+            setSelectedPath(result.location.file);
+          }
+          setScrollToLine(result.location.line);
+          setScrollKey((k) => k + 1);
+        }
+      } catch {
+        // silently ignore if definition lookup fails
+      }
+    },
+    [isSandboxActive, selectedPath, cluster.id]
+  );
+
   const handleSelectFile = useCallback((path: string) => {
     setSelectedPath(path);
     setScrollToLine(null);
@@ -207,6 +226,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
               scrollKey={scrollKey}
               clusterId={cluster.id}
               brainId={brainId}
+              onGoToDefinition={isSandboxActive ? handleGoToDefinition : undefined}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">

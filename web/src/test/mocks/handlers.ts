@@ -379,6 +379,15 @@ export const handlers = [
   http.get(`${API_BASE}/api/sandboxes`, () =>
     HttpResponse.json([])
   ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/structure`, () =>
+    HttpResponse.json({ symbols: [{ name: 'TestClass', kind: 'class', startLine: 1, endLine: 10, children: [{ name: 'testMethod', kind: 'method', startLine: 2, endLine: 5, children: [] }] }] })
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/definition`, () =>
+    HttpResponse.json({ location: { file: null, line: 1, col: 0 } })
+  ),
+  http.get(`${API_BASE}/api/clusters/:clusterId/sandbox/references`, () =>
+    HttpResponse.json({ references: [{ file: null, line: 1, col: 0 }, { file: null, line: 5, col: 4 }] })
+  ),
 
   // Trash & Search
   http.get(`${API_BASE}/api/neurons/trash`, () => HttpResponse.json([])),

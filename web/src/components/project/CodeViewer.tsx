@@ -18,6 +18,7 @@ import {
 import { highlightSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { anchorGutter } from "./AnchorGutter";
+import { goToDefinitionExtension, type GoToDefinitionHandler } from "./GoToDefinition";
 import { CreateAnchorDialog } from "./CreateAnchorDialog";
 import type { FileContent, NeuronAnchor } from "@/types";
 
@@ -61,6 +62,7 @@ interface CodeViewerProps {
   scrollKey: number;
   clusterId: string;
   brainId: string;
+  onGoToDefinition?: GoToDefinitionHandler;
 }
 
 export function CodeViewer({
@@ -70,11 +72,15 @@ export function CodeViewer({
   scrollKey,
   clusterId,
   brainId,
+  onGoToDefinition,
 }: CodeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const languageCompartment = useRef(new Compartment());
   const gutterCompartment = useRef(new Compartment());
+  const goToDefCompartment = useRef(new Compartment());
+  const onGoToDefinitionRef = useRef(onGoToDefinition);
+  onGoToDefinitionRef.current = onGoToDefinition;
 
   const [anchorSelection, setAnchorSelection] = useState<{
     startLine: number;
@@ -99,6 +105,11 @@ export function CodeViewer({
         EditorState.readOnly.of(true),
         languageCompartment.current.of([]),
         gutterCompartment.current.of(anchorGutter(anchors)),
+        goToDefCompartment.current.of(
+          onGoToDefinitionRef.current
+            ? goToDefinitionExtension((line, col) => onGoToDefinitionRef.current?.(line, col))
+            : []
+        ),
         oneDark,
         EditorView.theme({
           "&": { fontSize: "13px", height: "100%" },
