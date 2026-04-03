@@ -200,6 +200,10 @@ public class UrlBrowseService {
     }
 
     String detectLanguage(String path) {
+        return detectLanguageStatic(path);
+    }
+
+    static String detectLanguageStatic(String path) {
         int dotIndex = path.lastIndexOf('.');
         if (dotIndex < 0 || dotIndex == path.length() - 1) {
             return null;
