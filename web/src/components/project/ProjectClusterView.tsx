@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List } from "lucide-react";
+import { GitBranch, Box, List, History } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
@@ -15,6 +15,7 @@ import { CodeViewer } from "./CodeViewer";
 import { NeuronPanel } from "./NeuronPanel";
 import { ProvisionSandboxDialog } from "./ProvisionSandboxDialog";
 import { SandboxStatusBar } from "./SandboxStatusBar";
+import { GitLogPanel } from "./GitLogPanel";
 import { FileStructurePanel } from "./FileStructurePanel";
 import { QuickOpenDialog } from "./QuickOpenDialog";
 import { useCodeStructure } from "@/lib/hooks/useCodeStructure";
@@ -38,6 +39,8 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [structurePanelOpen, setStructurePanelOpen] = useState(false);
+  const [gitLogOpen, setGitLogOpen] = useState(false);
+  const [diffView, setDiffView] = useState<{ from: string; to: string } | null>(null);
   const [pulling, setPulling] = useState(false);
   const [terminating, setTerminating] = useState(false);
 
@@ -169,15 +172,26 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         )}
         <div className="flex-1" />
         {isSandboxActive && (
-          <Button
-            size="sm"
-            variant={structurePanelOpen ? "secondary" : "ghost"}
-            className="h-7 text-xs"
-            onClick={() => setStructurePanelOpen((prev) => !prev)}
-            title="Toggle outline (Ctrl+Shift+O)"
-          >
-            <List className="h-3 w-3" />
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant={structurePanelOpen ? "secondary" : "ghost"}
+              className="h-7 text-xs"
+              onClick={() => setStructurePanelOpen((prev) => !prev)}
+              title="Toggle outline (Ctrl+Shift+O)"
+            >
+              <List className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant={gitLogOpen ? "secondary" : "ghost"}
+              className="h-7 text-xs"
+              onClick={() => setGitLogOpen((prev) => !prev)}
+              title="Toggle commit log"
+            >
+              <History className="h-3 w-3" />
+            </Button>
+          </>
         )}
         {!sandbox && (
           <Button
@@ -258,6 +272,14 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           />
         </div>
       </div>
+
+      {/* Git Log Panel */}
+      {gitLogOpen && isSandboxActive && (
+        <GitLogPanel
+          clusterId={cluster.id}
+          onViewDiff={(sha) => setDiffView({ from: sha + "~1", to: sha })}
+        />
+      )}
 
       {/* Sandbox Status Bar */}
       {sandbox && (
