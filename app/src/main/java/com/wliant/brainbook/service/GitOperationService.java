@@ -5,6 +5,7 @@ import com.wliant.brainbook.dto.GitCommitResponse;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ListBranchCommand;
+import org.eclipse.jgit.api.LsRemoteCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.blame.BlameResult;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -20,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -273,6 +275,46 @@ public class GitOperationService {
             throw new SecurityException("Path traversal attempt: " + filePath);
         }
         return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    public String detectDefaultBranch(String repoUrl) throws GitAPIException {
+        LsRemoteCommand lsRemote = Git.lsRemoteRepository()
+                .setRemote(repoUrl)
+                .setHeads(true);
+
+        // Resolve HEAD symref to find the default branch
+        Collection<Ref> refs = lsRemote.call();
+        Ref headRef = Git.lsRemoteRepository()
+                .setRemote(repoUrl)
+                .callAsMap()
+                .get("HEAD");
+
+        if (headRef == null) {
+            logger.warn("No HEAD ref found for {}, falling back to 'main'", repoUrl);
+            return "main";
+        }
+
+        // HEAD is usually a symref pointing to refs/heads/<branch>
+        String target = headRef.getTarget() != null ? headRef.getTarget().getName() : null;
+        if (target != null && target.startsWith("refs/heads/")) {
+            return target.substring("refs/heads/".length());
+        }
+
+        // Fallback: match HEAD's objectId against branch refs
+        ObjectId headId = headRef.getObjectId();
+        if (headId != null) {
+            for (Ref ref : refs) {
+                if (headId.equals(ref.getObjectId())) {
+                    String name = ref.getName();
+                    if (name.startsWith("refs/heads/")) {
+                        return name.substring("refs/heads/".length());
+                    }
+                }
+            }
+        }
+
+        logger.warn("Could not resolve default branch for {}, falling back to 'main'", repoUrl);
+        return "main";
     }
 
     private String getHeadCommit(Repository repo) throws IOException {

@@ -30,22 +30,27 @@ import java.util.stream.Collectors;
 @Transactional
 public class ClusterService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ClusterService.class);
+
     private final ClusterRepository clusterRepository;
     private final BrainRepository brainRepository;
     private final NeuronRepository neuronRepository;
     private final ProjectConfigRepository projectConfigRepository;
     private final SettingsService settingsService;
     private final ResearchAsyncService researchAsyncService;
+    private final GitOperationService gitOperationService;
 
     public ClusterService(ClusterRepository clusterRepository, BrainRepository brainRepository,
                           NeuronRepository neuronRepository, ProjectConfigRepository projectConfigRepository,
-                          SettingsService settingsService, ResearchAsyncService researchAsyncService) {
+                          SettingsService settingsService, ResearchAsyncService researchAsyncService,
+                          GitOperationService gitOperationService) {
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
         this.neuronRepository = neuronRepository;
         this.projectConfigRepository = projectConfigRepository;
         this.settingsService = settingsService;
         this.researchAsyncService = researchAsyncService;
+        this.gitOperationService = gitOperationService;
     }
 
     @Cacheable(value = "clustersByBrain", key = "#brainId")
@@ -96,10 +101,21 @@ public class ClusterService {
             if (req.repoUrl() == null || req.repoUrl().isBlank()) {
                 throw new IllegalArgumentException("Repo URL is required for project clusters");
             }
+            String defaultBranch = req.defaultBranch();
+            if (defaultBranch == null || defaultBranch.isBlank()) {
+                try {
+                    defaultBranch = gitOperationService.detectDefaultBranch(req.repoUrl());
+                    log.info("Detected default branch '{}' for {}", defaultBranch, req.repoUrl());
+                } catch (Exception e) {
+                    log.warn("Failed to detect default branch for {}, falling back to 'main': {}",
+                            req.repoUrl(), e.getMessage());
+                    defaultBranch = "main";
+                }
+            }
             ProjectConfig config = new ProjectConfig();
             config.setCluster(saved);
             config.setRepoUrl(req.repoUrl());
-            config.setDefaultBranch(req.defaultBranch());
+            config.setDefaultBranch(defaultBranch);
             projectConfigRepository.save(config);
         }
 

@@ -27,14 +27,14 @@ export function ProvisionSandboxDialog({
   defaultBranch,
   onProvision,
 }: ProvisionSandboxDialogProps) {
-  const [branch, setBranch] = useState(defaultBranch || "main");
+  const [branch, setBranch] = useState(defaultBranch || "");
   const [shallow, setShallow] = useState(true);
   const [provisioning, setProvisioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setBranch(defaultBranch || "main");
+      setBranch(defaultBranch || "");
       setShallow(true);
       setError(null);
     }

@@ -202,7 +202,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         ) : (
           <>
             <GitBranch className="h-4 w-4" />
-            <span>{config?.defaultBranch ?? "main"}</span>
+            <span>{config?.defaultBranch ?? ""}</span>
           </>
         )}
         {config?.repoUrl && (

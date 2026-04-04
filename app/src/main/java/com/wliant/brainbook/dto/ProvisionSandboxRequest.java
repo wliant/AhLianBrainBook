@@ -10,7 +10,7 @@ public record ProvisionSandboxRequest(
 ) {
     public String branchOrDefault(String defaultBranch) {
         if (branch != null && !branch.isBlank()) return branch;
-        return defaultBranch != null ? defaultBranch : "main";
+        return defaultBranch;
     }
 
     public boolean isShallow() {
