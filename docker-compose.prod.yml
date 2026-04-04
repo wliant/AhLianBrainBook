@@ -17,6 +17,15 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      INTELLIGENCE_BASE_URL: ${INTELLIGENCE_BASE_URL:-http://intelligence-service:8001}
+      SANDBOX_ROOT_PATH: /data/brainbook/sandboxes
+      SANDBOX_MAX_REPO_SIZE_MB: ${SANDBOX_MAX_REPO_SIZE_MB:-1000}
+      SANDBOX_MAX_TOTAL_DISK_MB: ${SANDBOX_MAX_TOTAL_DISK_MB:-5120}
+      SANDBOX_CLONE_TIMEOUT_SEC: ${SANDBOX_CLONE_TIMEOUT_SEC:-300}
+      SANDBOX_MAX_CONCURRENT_CLONES: ${SANDBOX_MAX_CONCURRENT_CLONES:-2}
+      SANDBOX_MAX_COUNT: ${SANDBOX_MAX_COUNT:-10}
+    volumes:
+      - sandbox-data:/data/brainbook/sandboxes
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -33,10 +42,16 @@ services:
     ports:
       - "${INTELLIGENCE_PORT:-8001}:8001"
     environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:?OLLAMA_BASE_URL is required}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1:32b}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-20250514}
+      EMBEDDING_OLLAMA_BASE_URL: ${EMBEDDING_OLLAMA_BASE_URL:-${OLLAMA_BASE_URL}}
+      EMBEDDING_OLLAMA_MODEL: ${EMBEDDING_OLLAMA_MODEL:-nomic-embed-text}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s
       timeout: 5s
       start_period: 15s
@@ -64,3 +79,6 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
+
+volumes:
+  sandbox-data:
