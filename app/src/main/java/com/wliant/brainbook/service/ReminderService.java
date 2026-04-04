@@ -114,6 +114,8 @@ public class ReminderService {
                 ? reminder.getNeuronId()
                 : (reminder.getNeuron() != null ? reminder.getNeuron().getId() : null);
         String neuronTitle = reminder.getNeuron() != null ? reminder.getNeuron().getTitle() : null;
+        UUID brainId = reminder.getNeuron() != null ? reminder.getNeuron().getBrainId() : null;
+        UUID clusterId = reminder.getNeuron() != null ? reminder.getNeuron().getClusterId() : null;
         return new ReminderResponse(
                 reminder.getId(),
                 neuronId,
@@ -127,7 +129,9 @@ public class ReminderService {
                 reminder.getTitle(),
                 reminder.getDescription(),
                 reminder.getDescriptionText(),
-                neuronTitle
+                neuronTitle,
+                brainId,
+                clusterId
         );
     }
 }

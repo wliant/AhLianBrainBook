@@ -19,6 +19,8 @@ public record ReminderResponse(
         String title,
         String description,
         String descriptionText,
-        String neuronTitle
+        String neuronTitle,
+        UUID brainId,
+        UUID clusterId
 ) {
 }

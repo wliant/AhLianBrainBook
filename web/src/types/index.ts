@@ -314,6 +314,8 @@ export interface Reminder {
   description?: string | null;
   descriptionText?: string | null;
   neuronTitle?: string | null;
+  brainId?: string | null;
+  clusterId?: string | null;
 }
 
 export interface AppNotification {

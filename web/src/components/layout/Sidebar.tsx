@@ -247,9 +247,11 @@ export function Sidebar({
                 <Lightbulb className="h-4 w-4" />
               </Button>
             </Link>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Bell className="h-4 w-4" />
-            </Button>
+            <Link href="/reminders">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Bell className="h-4 w-4" />
+              </Button>
+            </Link>
             <Link href="/review">
               <Button variant="ghost" size="icon" className="h-8 w-8 relative">
                 <GraduationCap className="h-4 w-4" />
@@ -304,11 +306,7 @@ export function Sidebar({
                 Trash
               </Button>
             </Link>
-          </nav>
-
-          <SidebarReminders />
-
-          <nav className="px-3 py-1 space-y-1">
+            <SidebarReminders />
             <Link href="/review">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
                 <GraduationCap className="h-4 w-4" />
