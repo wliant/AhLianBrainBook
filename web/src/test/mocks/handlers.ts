@@ -402,4 +402,52 @@ export const handlers = [
   http.get(`${API_BASE}/api/spaced-repetition/items/:itemId/questions`, () =>
     HttpResponse.json([])
   ),
+
+  // Reminders (global)
+  http.get(`${API_BASE}/api/reminders`, () => HttpResponse.json([])),
+
+  // Reminders (per-neuron)
+  http.get(`${API_BASE}/api/neurons/:neuronId/reminders`, () => HttpResponse.json([])),
+  http.post(`${API_BASE}/api/neurons/:neuronId/reminders`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        id: 'reminder-1',
+        neuronId: params.neuronId,
+        reminderType: body.reminderType || 'ONCE',
+        triggerAt: body.triggerAt || new Date(Date.now() + 86400000).toISOString(),
+        recurrencePattern: body.recurrencePattern || null,
+        recurrenceInterval: body.recurrenceInterval || null,
+        isActive: true,
+        title: body.title || null,
+        description: body.description || null,
+        descriptionText: body.descriptionText || null,
+        neuronTitle: null,
+        createdAt: '2024-01-01T00:00:00',
+        updatedAt: '2024-01-01T00:00:00',
+      },
+      { status: 201 }
+    );
+  }),
+  http.put(`${API_BASE}/api/neurons/:neuronId/reminders/:reminderId`, async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: params.reminderId,
+      neuronId: params.neuronId,
+      reminderType: body.reminderType || 'ONCE',
+      triggerAt: body.triggerAt || new Date(Date.now() + 86400000).toISOString(),
+      recurrencePattern: body.recurrencePattern || null,
+      recurrenceInterval: body.recurrenceInterval || null,
+      isActive: true,
+      title: body.title || null,
+      description: body.description || null,
+      descriptionText: body.descriptionText || null,
+      neuronTitle: null,
+      createdAt: '2024-01-01T00:00:00',
+      updatedAt: '2024-01-01T00:00:00',
+    });
+  }),
+  http.delete(`${API_BASE}/api/neurons/:neuronId/reminders/:reminderId`, () =>
+    new HttpResponse(null, { status: 204 })
+  ),
 ];

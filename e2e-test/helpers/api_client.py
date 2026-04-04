@@ -352,6 +352,11 @@ class BrainBookAPI:
         r.raise_for_status()
         return r.json()
 
+    def list_all_reminders(self) -> list[dict]:
+        r = self.client.get("/api/reminders")
+        r.raise_for_status()
+        return r.json()
+
     def list_reminders(self, neuron_id: str) -> list[dict]:
         r = self.client.get(f"/api/neurons/{neuron_id}/reminders")
         r.raise_for_status()
