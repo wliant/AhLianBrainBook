@@ -24,6 +24,7 @@ services:
       SANDBOX_CLONE_TIMEOUT_SEC: ${SANDBOX_CLONE_TIMEOUT_SEC:-300}
       SANDBOX_MAX_CONCURRENT_CLONES: ${SANDBOX_MAX_CONCURRENT_CLONES:-2}
       SANDBOX_MAX_COUNT: ${SANDBOX_MAX_COUNT:-10}
+      TZ: UTC
     volumes:
       - sandbox-data:/data/brainbook/sandboxes
     healthcheck:

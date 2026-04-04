@@ -12,6 +12,7 @@ RUN mkdir -p /data/brainbook/sandboxes && chown -R app:app /data/brainbook
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 USER app
+ENV TZ=UTC
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://localhost:8080/actuator/health || exit 1
