@@ -35,7 +35,7 @@ Organizes neurons within a brain. Supports typed behavior via `type` field — e
 | id               | UUID            | PK, auto-generated                 | Unique identifier               |
 | brainId          | UUID            | NOT NULL, FK -> brains ON CASCADE  | Parent brain                    |
 | name             | String(255)     | NOT NULL                           | Display name                    |
-| type             | String(20)      | NOT NULL, default 'knowledge'      | Cluster type: `knowledge`, `ai-research`, `project` |
+| type             | String(20)      | NOT NULL, default 'knowledge'      | Cluster type: `knowledge`, `ai-research`, `project`, `todo` |
 | status           | String(20)      | NOT NULL, default 'ready'          | Generation status: `generating`, `ready` |
 | researchGoal     | TEXT            | nullable                           | LLM-generated research goal (ai-research clusters only) |
 | sortOrder        | int             | NOT NULL, default 0                | Manual ordering position        |
@@ -46,10 +46,12 @@ Organizes neurons within a brain. Supports typed behavior via `type` field — e
 | updatedAt        | LocalDateTime   | NOT NULL, auto-updated             | Last modification timestamp     |
 
 **Constraints:**
-- CHECK: `type IN ('knowledge', 'ai-research', 'project')`
+- CHECK: `type IN ('knowledge', 'ai-research', 'project', 'todo')`
 - CHECK: `status IN ('generating', 'ready')`
 - Partial unique index `uq_cluster_brain_ai_research`: one non-archived `ai-research` cluster per brain
-- No uniqueness restriction on `project` clusters — multiple per brain allowed
+- `todo` clusters are unique per brain (enforced in application layer via `ClusterType.isUnique()`)
+- `todo` clusters are auto-named "Tasks" — no user name input required
+- No uniqueness restriction on `project` or `knowledge` clusters — multiple per brain allowed
 
 ### ResearchTopic
 
@@ -149,6 +151,31 @@ Core content entity. Stores section-based content with dual-format storage (JSON
 - `idx_neurons_pinned` partial index on `is_pinned` WHERE `is_pinned = true AND is_deleted = false`
 - `idx_neurons_cluster_active` on `cluster_id` WHERE `is_deleted = false`
 - Archived indexes on brains, clusters, neurons `is_archived` columns
+
+### TodoMetadata
+
+Task-specific metadata for neurons in todo clusters. One-to-one with Neuron, stored in a separate table to avoid polluting the core neuron model.
+
+| Field        | Type            | Constraints                              | Description                              |
+|--------------|-----------------|------------------------------------------|------------------------------------------|
+| neuronId     | UUID            | PK, FK -> neurons ON DELETE CASCADE      | Parent neuron (shared primary key)       |
+| dueDate      | DATE            | nullable                                 | Task deadline (date only, not datetime)  |
+| completed    | boolean         | NOT NULL, default false                  | Whether task is done                     |
+| completedAt  | LocalDateTime   | nullable                                 | When the task was marked complete        |
+| effort       | String(10)      | nullable                                 | Estimated effort: `15min`, `30min`, `1hr`, `2hr`, `4hr`, `8hr` |
+| priority     | String(20)      | NOT NULL, default 'normal'               | Priority level: `critical`, `important`, `normal` |
+| createdAt    | LocalDateTime   | NOT NULL, auto-set                       | Creation timestamp                       |
+| updatedAt    | LocalDateTime   | NOT NULL, auto-updated                   | Last modification timestamp              |
+
+**Indexes:**
+- `idx_todo_metadata_completed` on `completed`
+- `idx_todo_metadata_due_date` on `due_date`
+
+**Behavior:**
+- When `completed` transitions to `true`, `completedAt` is auto-set to current time
+- When `completed` transitions to `false`, `completedAt` is cleared
+- When `dueDate` is set and task is not completed, a system reminder (RECURRING DAILY at 7pm local) is auto-created
+- When task is completed or `dueDate` is cleared, the system reminder is deactivated
 
 ### Tag
 
@@ -258,12 +285,18 @@ Per-neuron reminders that trigger notifications. Multiple reminders per neuron a
 | recurrencePattern  | RecurrencePattern | nullable                                 | `DAILY`, `WEEKLY`, or `MONTHLY`          |
 | recurrenceInterval | Integer           | default 1, range 1–365                   | Number of periods between recurrences    |
 | isActive           | boolean           | NOT NULL, default true                   | Whether reminder is active               |
+| isSystem           | boolean           | NOT NULL, default false                  | System-generated (todo auto-reminders); hidden from user-facing reminder lists |
+| title              | String(255)       | nullable                                 | Reminder title                           |
+| description        | JSONB             | nullable                                 | Rich text description                    |
+| descriptionText    | TEXT              | nullable                                 | Plain text description for display       |
 | createdAt          | LocalDateTime     | NOT NULL, auto-set                       | Creation timestamp                       |
 | updatedAt          | LocalDateTime     | NOT NULL, auto-updated                   | Last modification timestamp              |
 
 **Indexes:**
 - `idx_reminders_trigger` on `trigger_at` WHERE `is_active = TRUE`
 - `idx_reminders_neuron_id` on `neuron_id`
+
+**System reminders:** Reminders with `isSystem = true` are auto-managed by the todo feature. They are excluded from `GET /api/reminders` (the user-facing reminders page). The `TodoReminderService` creates, updates, and deactivates these based on todo metadata changes.
 
 ### Notification
 
@@ -377,13 +410,14 @@ Singleton application-wide settings. Contains one row seeded at migration time.
 | id                     | UUID            | PK, auto-generated         | Unique identifier                        |
 | displayName            | String(100)     | NOT NULL, default 'user'   | User's display name                      |
 | maxRemindersPerNeuron  | int             | NOT NULL, default 10       | Max reminders per neuron (range 1–100)   |
+| timezone               | String(50)      | NOT NULL, default 'Asia/Singapore' | IANA timezone for local-time reminder scheduling |
 | createdAt              | LocalDateTime   | NOT NULL, auto-set         | Creation timestamp                       |
 | updatedAt              | LocalDateTime   | NOT NULL, auto-updated     | Last modification timestamp              |
 
 ## Entity Relationships
 
 ```
-Brain (1) ──── (*) Cluster (typed: knowledge | ai-research | project)
+Brain (1) ──── (*) Cluster (typed: knowledge | ai-research | project | todo)
   │                  │
   │                  ├── (*) ResearchTopic    (one-to-many, ai-research clusters only)
   │                  ├── (1) ProjectConfig    (one-to-one, project clusters only; see 06-project-cluster.md)
@@ -403,6 +437,7 @@ Brain (1) ──── (*) Cluster (typed: knowledge | ai-research | project)
               ├── (0..1) SpacedRepetitionItem (one-to-one)
               │           └── (*) ReviewQuestion  (one-to-many, AI-generated Q&A)
               ├── (*) NeuronShare            (one-to-many)
+              ├── (0..1) TodoMetadata        (one-to-one, todo cluster neurons only)
               └── (0..1) Template            (many-to-one, nullable)
 
 Brain (*) ──── (*) Tag  (many-to-many via brain_tags)

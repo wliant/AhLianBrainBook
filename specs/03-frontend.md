@@ -62,8 +62,9 @@ Each neuron renders as a clickable link to the editor page, showing title and `l
 Renders different views based on cluster type:
 
 - **`knowledge`** (default): Lists neurons with title, content preview (first 100 chars), `lastEditedAt`, tags, and complexity badge. "New Neuron" button creates a neuron with title "Untitled" and navigates to the editor.
+- **`todo`**: Renders `TodoClusterView` — task-oriented list with quick-add bar, show/hide completed toggle, sorted by: incomplete first → due date ascending (nulls last) → priority (critical > important > normal). Each task row shows completion checkbox, title (link to neuron), priority/effort/due-date badges, and delete button (on hover). See `08-todo-cluster.md`.
 - **`ai-research`**: Renders `ResearchClusterView` (see below).
-- **`project`**: Placeholder "coming soon" view.
+- **`project`**: Renders `ProjectClusterView` — three-panel code viewer with file tree, code display, and neuron panel. See `06-project-cluster.md`.
 
 ### Research Cluster View (`/brain/[brainId]/cluster/[clusterId]` when type=ai-research)
 
@@ -107,6 +108,8 @@ Core editing experience with section-based content:
 - **Export options** — export neuron as markdown file; print as PDF (browser print dialog)
 - **Metadata display** — shows created by, creation date, last updated by, update date
 - **Optimistic locking** — client tracks `versionRef`, sends `clientVersion` on save, handles `409 Conflict`
+- **Todo neuron mode** — when cluster type is `todo`, the toolbar is stripped: hides reminder, spaced repetition, history, TOC, share, and export buttons. Keeps view/edit toggle, favorite, pin. Shows `TodoMetadataEditor` bar above the title with completion checkbox, date picker, priority and effort dropdowns. See `08-todo-cluster.md`.
+- **Create Task button** — on non-todo neurons, a `ListTodo` icon button in the toolbar toggles a `TasksPanel` sidebar. The panel shows tasks linked to the current neuron with inline metadata editing (completion, due date, priority, effort) and a quick-add input to create new linked tasks.
 
 **Section types (9):**
 
@@ -169,6 +172,7 @@ Core editing experience with section-based content:
 
 - **Display name** — text input field for user's display name
 - **Max reminders per neuron** — number spinner (range 1–100, default 10)
+- **Timezone** — dropdown selector populated from `Intl.supportedValuesOf('timeZone')`, used for scheduling todo task reminders at 7pm local time
 - Saves via `PATCH /api/settings`
 
 ### Thoughts List Page (`/thoughts`)
@@ -211,7 +215,7 @@ Core editing experience with section-based content:
 
 ### Sidebar (`components/layout/Sidebar.tsx`)
 
-- **Brains section** — expandable list with clusters; cluster icons indicate type (FolderOpen=knowledge, Sparkles=ai-research, Code=project); context menus for rename/delete on brains and clusters
+- **Brains section** — expandable list with clusters; cluster icons indicate type (CheckSquare=todo, Sparkles=ai-research, Code=project, FolderOpen=knowledge); sort order: todo first, ai-research second, rest by sortOrder; completed tasks hidden when expanding todo clusters; context menus for rename/delete on brains and clusters
 - **Thoughts section** — list of thought collections
 - **Navigation links** — Dashboard, Search, Favorites, Trash, Review (with queue count badge), Settings
 - **Collapse toggle** — sidebar can be collapsed/expanded (Ctrl+\)
@@ -264,6 +268,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 - `api.reminders` — `list()`, `create()`, `update()`, `delete()`
 - `api.revisions` — `list()`, `get()`, `create()`, `restore()`, `delete()`
 - `api.settings` — `get()`, `update()`
+- `api.todo` — `getMetadata()`, `updateMetadata()`, `getClusterMetadata()`, `createTaskFromNeuron()`
 - `api.notifications` — `getAll()`, `getUnreadCount()`, `markAsRead()`, `markAllAsRead()`
 - `api.spacedRepetition` — `addItem()`, `removeItem()`, `getItem()`, `getAllItems()`, `getQueue()`, `submitReview()`
 - `api.researchTopics` — `list()`, `get()`, `create()`, `delete()`, `reorder()`, `update()`, `updateAll()`, `expand()`
@@ -286,7 +291,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | `useTags()` | `tags`, `loading`, `addTagToNeuron`, `removeTagFromNeuron`, `addTagToBrain`, `removeTagFromBrain` | Tag management for neurons and brains |
 | `useThoughts()` | `thoughts`, `loading`, `createThought`, `updateThought`, `deleteThought` | CRUD thoughts |
 | `useNotifications()` | `notifications`, `unreadCount`, `markAsRead`, `markAllAsRead` | Notification polling and management |
-| `useSettings()` | `settings`, `loading`, `updateDisplayName`, `updateMaxReminders` | App settings (display name, max reminders) |
+| `useSettings()` | `settings`, `loading`, `updateDisplayName`, `updateMaxReminders`, `updateTimezone` | App settings (display name, max reminders, timezone) |
+| `useTodoMetadata(neuronId)` | `metadata`, `loading`, `updateMetadata` | Todo metadata for a single neuron |
+| `useTodoClusterMetadata(clusterId)` | `metadataMap`, `loading` | Batch todo metadata for all neurons in a cluster |
 | `useSpacedRepetition()` | `queue`, `queueLoading`, `allItems`, `itemsLoading`, `addToReview`, `removeFromReview`, `submitReview`, `isInReview` | SM-2 spaced repetition management |
 | `useNeuronShares(neuronId)` | `shares`, `loading`, `createShare`, `revokeShare` | Token-based neuron sharing |
 | `useResearchTopics(clusterId)` | `topics`, `loading`, `createTopic`, `deleteTopic`, `updateTopic`, `updateAll`, `expandBullet`, `reorder` | CRUD + AI operations for research topics in a cluster |
@@ -344,7 +351,7 @@ interface Brain {
   createdAt: string; updatedAt: string;
 }
 
-type ClusterType = "knowledge" | "ai-research" | "project";
+type ClusterType = "knowledge" | "ai-research" | "project" | "todo";
 type ClusterStatusType = "generating" | "ready";
 type ResearchTopicStatusType = "generating" | "ready" | "updating" | "error";
 type CompletenessLevel = "none" | "partial" | "good" | "complete";
@@ -431,7 +438,11 @@ interface Reminder {
   triggerAt: string;
   recurrencePattern: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceInterval: number;
-  isActive: boolean; createdAt: string; updatedAt: string;
+  isActive: boolean; isSystem: boolean;
+  createdAt: string; updatedAt: string;
+  title?: string | null;
+  description?: string | null;
+  descriptionText?: string | null;
 }
 
 interface Notification {
@@ -444,7 +455,23 @@ interface Notification {
 interface AppSettings {
   displayName: string;
   maxRemindersPerNeuron: number;
+  timezone: string;
   createdAt: string; updatedAt: string;
+}
+
+type TodoEffort = "15min" | "30min" | "1hr" | "2hr" | "4hr" | "8hr";
+type TodoPriority = "critical" | "important" | "normal";
+
+interface TodoMetadata {
+  neuronId: string; dueDate: string | null;
+  completed: boolean; completedAt: string | null;
+  effort: TodoEffort | null; priority: TodoPriority;
+  createdAt: string; updatedAt: string;
+}
+
+interface CreateTaskFromNeuronResponse {
+  neuron: Neuron; todoMetadata: TodoMetadata;
+  clusterId: string; brainId: string;
 }
 
 interface SpacedRepetitionItem {

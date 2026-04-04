@@ -160,7 +160,7 @@ List non-archived clusters for a brain, ordered by `sortOrder`.
     "id": "uuid",
     "brainId": "uuid",
     "name": "string",
-    "type": "knowledge | ai-research | project",
+    "type": "knowledge | ai-research | project | todo",
     "status": "generating | ready",
     "researchGoal": "string | null",
     "sortOrder": 0,
@@ -178,9 +178,9 @@ Create a new cluster.
 
 **Request:**
 ```json
-{ "name": "string", "brainId": "uuid", "type": "knowledge | ai-research | project?" }
+{ "name": "string", "brainId": "uuid", "type": "knowledge | ai-research | project | todo?" }
 ```
-`type` defaults to `knowledge` if omitted. For `ai-research` type, cluster creation triggers async research goal generation (cluster starts in `generating` status). Only one non-archived `ai-research` and one `project` cluster per brain are allowed.
+`type` defaults to `knowledge` if omitted. For `ai-research` type, cluster creation triggers async research goal generation (cluster starts in `generating` status). Only one non-archived `ai-research` cluster per brain is allowed. `todo` clusters are unique per brain and auto-named "Tasks" — the `name` field is ignored. `project` clusters require a `repoUrl` field.
 
 **Response:** `200 OK` — ClusterResponse
 **Error:** `409 Conflict` if a non-archived cluster of the same special type already exists in the brain
@@ -489,7 +489,7 @@ Permanently delete neuron from database.
 
 ## Reminders
 
-Reminders are managed as a sub-resource of neurons. Each neuron may have multiple reminders, up to the configurable limit in `AppSettings.maxRemindersPerNeuron` (default 10).
+Reminders are managed as a sub-resource of neurons. Each neuron may have multiple reminders, up to the configurable limit in `AppSettings.maxRemindersPerNeuron` (default 10). The global `GET /api/reminders` endpoint excludes system-generated reminders (`isSystem = true`) used by the todo auto-reminder feature.
 
 ### `POST /api/neurons/{id}/reminders`
 Create a reminder for a neuron.
@@ -589,6 +589,74 @@ Create a link between two neurons.
 Delete a link.
 
 **Response:** `204 No Content`
+
+---
+
+## Todo Tasks
+
+Todo metadata for neurons in todo clusters. Metadata is auto-created on first access.
+
+### `GET /api/neurons/{neuronId}/todo`
+Get or create todo metadata for a neuron.
+
+**Response:** `200 OK`
+```json
+{
+  "neuronId": "uuid",
+  "dueDate": "2024-06-01 | null",
+  "completed": false,
+  "completedAt": "2024-06-01T09:00:00 | null",
+  "effort": "15min | 30min | 1hr | 2hr | 4hr | 8hr | null",
+  "priority": "critical | important | normal",
+  "createdAt": "2024-01-01T00:00:00",
+  "updatedAt": "2024-01-01T00:00:00"
+}
+```
+
+### `PATCH /api/neurons/{neuronId}/todo`
+Update todo metadata. All fields are optional (partial update). Setting `completed: true` auto-sets `completedAt`. Setting a `dueDate` on an incomplete task creates/updates a system reminder (RECURRING DAILY at 7pm local time). Clearing `dueDate` or completing the task deactivates the system reminder.
+
+**Request:**
+```json
+{
+  "dueDate": "2024-06-01 | null",
+  "completed": true,
+  "effort": "2hr | null",
+  "priority": "critical"
+}
+```
+**Response:** `200 OK` — TodoMetadataResponse
+
+### `GET /api/clusters/{clusterId}/todo`
+Batch-fetch todo metadata for all neurons in a cluster. Used by the todo cluster list view.
+
+**Response:** `200 OK`
+```json
+{
+  "neuron-uuid-1": { /* TodoMetadataResponse */ },
+  "neuron-uuid-2": { /* TodoMetadataResponse */ }
+}
+```
+
+### `POST /api/brains/{brainId}/tasks`
+Create a task from a knowledge neuron. Auto-creates the todo cluster if it doesn't exist. Creates a neuron in the todo cluster, initializes todo metadata, and creates a NeuronLink (source → task, linkType="task", source="system").
+
+**Request:**
+```json
+{
+  "sourceNeuronId": "uuid",
+  "title": "string"
+}
+```
+**Response:** `201 Created`
+```json
+{
+  "neuron": { /* NeuronResponse */ },
+  "todoMetadata": { /* TodoMetadataResponse */ },
+  "clusterId": "uuid",
+  "brainId": "uuid"
+}
+```
 
 ---
 
@@ -889,6 +957,7 @@ Get application settings.
 {
   "displayName": "string",
   "maxRemindersPerNeuron": 10,
+  "timezone": "Asia/Singapore",
   "createdAt": "2024-01-01T00:00:00",
   "updatedAt": "2024-01-01T00:00:00"
 }
@@ -901,10 +970,11 @@ Update application settings. All fields are optional (partial update).
 ```json
 {
   "displayName": "string?",
-  "maxRemindersPerNeuron": 10
+  "maxRemindersPerNeuron": 10,
+  "timezone": "string?"
 }
 ```
-**Validation:** `displayName` max 100 chars, `maxRemindersPerNeuron` range 1–100.
+**Validation:** `displayName` max 100 chars, `maxRemindersPerNeuron` range 1–100, `timezone` max 50 chars (IANA timezone ID).
 **Response:** `200 OK` — AppSettingsResponse
 
 ---

@@ -1025,3 +1025,24 @@ User                      Frontend                  Backend
 24. Sandbox sidebar section (see sandbox-management spec)
 25. `SandboxCleanupScheduler`
 26. Keyboard shortcuts
+
+---
+
+## Recent Fixes (Post-Implementation)
+
+The following improvements were made after the initial project cluster implementation:
+
+### File Tree Panel
+- **Folder collapse fix:** Directories start collapsed by default (`useState(false)` instead of `useState(depth === 0)`), fixing a mismatch where the chevron showed "expanded" but no children were visible on initial load.
+- **Search button:** Added `FILES` header with a search icon button (`onOpenSearch` prop) that opens the `QuickOpenDialog`. Tooltip shows "Search files (Ctrl+P)".
+
+### Neuron Panel
+- **Tabs:** Added "This File" / "All Neurons" tab switcher. "This File" shows existing file-anchored neurons. "All Neurons" shows all cluster neurons with a search input for filtering by title or content.
+- **File navigation:** Clicking a file path in the "All Neurons" tab navigates to that file in the code viewer.
+
+### Browse Tree Loading
+- **Config-aware loading:** Browse tree query now waits for `useProjectConfig` to resolve before firing, ensuring the correct `defaultBranch` ref is used. Previously, the tree query could fire with `ref = undefined` before config loaded, causing failures when the repo's default branch wasn't "main".
+- **Loading state:** `treeLoading` includes `configLoading` to show the loading spinner while config loads.
+
+### Sandbox Error State
+- **Terminate button:** The `SandboxStatusBar` now shows the Terminate button when sandbox is in `error` state (not just `active`), allowing users to clean up a failed sandbox and re-provision.

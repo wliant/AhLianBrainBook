@@ -74,6 +74,10 @@ Production deployment configuration.
 | V27     | Add `quiz_enabled` column to spaced_repetition_items |
 | V28     | Add pgvector extension; `neuron_embeddings` table with vector(768) and HNSW index; `link_suggestions` table |
 | V29     | Add `sandboxes` table with status lifecycle, disk usage tracking, and shallow clone support |
+| V30     | Add `neuron_shares` table for token-based read-only sharing with optional expiration |
+| V31     | Add `title`, `description` (JSONB), `description_text` columns to reminders |
+| V32     | Convert all TIMESTAMP columns to TIMESTAMPTZ (timezone-aware) |
+| V33     | Add `todo` cluster type; `timezone` on app_settings; `is_system` on reminders; `todo_metadata` table |
 
 ### Content Format (v2 — Sections)
 

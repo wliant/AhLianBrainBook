@@ -91,7 +91,7 @@ Neurons use a section-based content architecture. Each neuron contains an ordere
 
 ### 5.1 Hierarchy
 - **Brain** — top-level container (e.g., a subject area or project). Has name, description, icon, and color.
-- **Cluster** — a typed learning activity within a brain. Type determines UI and behavior (`knowledge`, `ai-research`, `project`). Flat structure (no nesting).
+- **Cluster** — a typed learning activity within a brain. Type determines UI and behavior (`knowledge`, `ai-research`, `project`, `todo`). Flat structure (no nesting).
 - **Neuron** — individual note. Belongs to a brain and optionally a cluster.
 
 ### 5.2 Sorting
