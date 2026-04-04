@@ -19,6 +19,10 @@ public record ReminderRequest(
 
         @Min(value = 1, message = "Recurrence interval must be at least 1")
         @Max(value = 365, message = "Recurrence interval cannot exceed 365")
-        Integer recurrenceInterval
+        Integer recurrenceInterval,
+
+        String title,
+        String description,
+        String descriptionText
 ) {
 }

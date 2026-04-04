@@ -15,6 +15,10 @@ public record ReminderResponse(
         Integer recurrenceInterval,
         boolean isActive,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String title,
+        String description,
+        String descriptionText,
+        String neuronTitle
 ) {
 }

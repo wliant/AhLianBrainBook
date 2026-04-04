@@ -310,6 +310,10 @@ export interface Reminder {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  title?: string | null;
+  description?: string | null;
+  descriptionText?: string | null;
+  neuronTitle?: string | null;
 }
 
 export interface AppNotification {

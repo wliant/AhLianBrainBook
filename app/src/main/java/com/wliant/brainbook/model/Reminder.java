@@ -13,6 +13,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -50,6 +52,16 @@ public class Reminder {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
+    @Column(name = "title")
+    private String title;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "description", columnDefinition = "jsonb")
+    private String description;
+
+    @Column(name = "description_text", columnDefinition = "text")
+    private String descriptionText;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -84,6 +96,12 @@ public class Reminder {
     public void setRecurrenceInterval(Integer recurrenceInterval) { this.recurrenceInterval = recurrenceInterval; }
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getDescriptionText() { return descriptionText; }
+    public void setDescriptionText(String descriptionText) { this.descriptionText = descriptionText; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

@@ -203,6 +203,8 @@ export const api = {
 
   // Reminder endpoints
   reminders: {
+    listAll: () =>
+      request<import("@/types").Reminder[]>(`/api/reminders`),
     list: (neuronId: string) =>
       request<import("@/types").Reminder[]>(`/api/neurons/${neuronId}/reminders`),
     create: (neuronId: string, body: {
@@ -210,12 +212,18 @@ export const api = {
       triggerAt: string;
       recurrencePattern?: string | null;
       recurrenceInterval?: number | null;
+      title?: string | null;
+      description?: string | null;
+      descriptionText?: string | null;
     }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminders`, { method: "POST", body }),
     update: (neuronId: string, reminderId: string, body: {
       reminderType: string;
       triggerAt: string;
       recurrencePattern?: string | null;
       recurrenceInterval?: number | null;
+      title?: string | null;
+      description?: string | null;
+      descriptionText?: string | null;
     }) => request<import("@/types").Reminder>(`/api/neurons/${neuronId}/reminders/${reminderId}`, { method: "PUT", body }),
     delete: (neuronId: string, reminderId: string) =>
       request<void>(`/api/neurons/${neuronId}/reminders/${reminderId}`, { method: "DELETE" }),

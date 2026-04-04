@@ -63,6 +63,14 @@ public class ReminderService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ReminderResponse> listAll() {
+        return reminderRepository.findAllActiveWithNeuronOrderByTriggerAtAsc()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     @Transactional
     public ReminderResponse update(UUID reminderId, ReminderRequest req) {
         Reminder reminder = reminderRepository.findById(reminderId)
@@ -93,12 +101,16 @@ public class ReminderService {
         reminder.setTriggerAt(req.triggerAt());
         reminder.setRecurrencePattern(req.recurrencePattern());
         reminder.setRecurrenceInterval(req.recurrenceInterval() != null ? req.recurrenceInterval() : 1);
+        reminder.setTitle(req.title());
+        reminder.setDescription(req.description());
+        reminder.setDescriptionText(req.descriptionText());
     }
 
     private ReminderResponse toResponse(Reminder reminder) {
         UUID neuronId = reminder.getNeuronId() != null
                 ? reminder.getNeuronId()
                 : (reminder.getNeuron() != null ? reminder.getNeuron().getId() : null);
+        String neuronTitle = reminder.getNeuron() != null ? reminder.getNeuron().getTitle() : null;
         return new ReminderResponse(
                 reminder.getId(),
                 neuronId,
@@ -108,7 +120,11 @@ public class ReminderService {
                 reminder.getRecurrenceInterval(),
                 reminder.isActive(),
                 reminder.getCreatedAt(),
-                reminder.getUpdatedAt()
+                reminder.getUpdatedAt(),
+                reminder.getTitle(),
+                reminder.getDescription(),
+                reminder.getDescriptionText(),
+                neuronTitle
         );
     }
 }

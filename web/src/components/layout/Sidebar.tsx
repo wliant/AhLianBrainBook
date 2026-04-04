@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import {
   Brain,
+  Bell,
   ChevronRight,
   ChevronsDownUp,
   FolderOpen,
@@ -54,6 +55,7 @@ import { useNeurons } from "@/lib/hooks/useNeurons";
 import { useThoughts } from "@/lib/hooks/useThoughts";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { SidebarReminders } from "@/components/layout/SidebarReminders";
 import type { Brain as BrainType, Cluster as ClusterType, Thought as ThoughtType } from "@/types";
 
 export function Sidebar({
@@ -245,6 +247,9 @@ export function Sidebar({
                 <Lightbulb className="h-4 w-4" />
               </Button>
             </Link>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Bell className="h-4 w-4" />
+            </Button>
             <Link href="/review">
               <Button variant="ghost" size="icon" className="h-8 w-8 relative">
                 <GraduationCap className="h-4 w-4" />
@@ -299,6 +304,11 @@ export function Sidebar({
                 Trash
               </Button>
             </Link>
+          </nav>
+
+          <SidebarReminders />
+
+          <nav className="px-3 py-1 space-y-1">
             <Link href="/review">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
                 <GraduationCap className="h-4 w-4" />

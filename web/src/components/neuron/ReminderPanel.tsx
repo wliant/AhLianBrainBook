@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import {
   utcToLocalDatetimeString,
@@ -11,6 +11,7 @@ import type { Reminder } from "@/types";
 import { Loader2, Trash2, AlertCircle, X, Bell, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/lib/hooks/useSettings";
+import { TiptapEditor } from "@/components/editor/TiptapEditor";
 
 interface ReminderPanelProps {
   neuronId: string;
@@ -186,6 +187,9 @@ function ReminderCard({
 
   return (
     <div className="rounded-md border p-3 space-y-2" data-testid={`reminder-${reminder.id}`}>
+      {reminder.title && (
+        <p className="text-xs font-semibold truncate">{reminder.title}</p>
+      )}
       <div className="flex items-center gap-2">
         <Bell className="h-3.5 w-3.5 text-orange-400" />
         <span className="text-xs font-medium">
@@ -259,6 +263,23 @@ function ReminderForm({
   const [recurrenceInterval, setRecurrenceInterval] = useState(
     existing?.recurrenceInterval || 1
   );
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [descriptionJson, setDescriptionJson] = useState<Record<string, unknown> | null>(() => {
+    try {
+      return existing?.description ? JSON.parse(existing.description) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [descriptionText, setDescriptionText] = useState(existing?.descriptionText ?? "");
+
+  const handleDescriptionUpdate = useCallback(
+    (json: Record<string, unknown>, text: string) => {
+      setDescriptionJson(json);
+      setDescriptionText(text);
+    },
+    []
+  );
 
   const handleSave = async () => {
     if (!triggerAt) return;
@@ -270,6 +291,9 @@ function ReminderForm({
         triggerAt: localDatetimeToUTCIso(triggerAt),
         recurrencePattern: reminderType === "RECURRING" ? recurrencePattern : null,
         recurrenceInterval: reminderType === "RECURRING" ? recurrenceInterval : null,
+        title: title.trim() || null,
+        description: descriptionJson ? JSON.stringify(descriptionJson) : null,
+        descriptionText: descriptionText || null,
       };
 
       let saved: Reminder;
@@ -288,6 +312,17 @@ function ReminderForm({
 
   return (
     <div className="rounded-md border p-3 space-y-3 bg-muted/30" data-testid="reminder-form">
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Title</label>
+        <input
+          type="text"
+          placeholder="Optional title…"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="flex h-7 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+      </div>
+
       <fieldset className="space-y-1.5">
         <legend className="text-xs font-medium">Type</legend>
         <div role="radiogroup" aria-label="Reminder type" className="flex gap-2">
@@ -361,6 +396,17 @@ function ReminderForm({
           </div>
         </div>
       )}
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium">Description</label>
+        <div className="min-h-[100px] rounded-md border border-input">
+          <TiptapEditor
+            content={descriptionJson}
+            onUpdate={handleDescriptionUpdate}
+            editable
+          />
+        </div>
+      </div>
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onCancel}>
