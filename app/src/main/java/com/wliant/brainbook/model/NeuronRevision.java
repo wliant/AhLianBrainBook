@@ -13,6 +13,8 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.wliant.brainbook.config.TimeProvider;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -50,7 +52,7 @@ public class NeuronRevision {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = TimeProvider.now();
     }
 
     public UUID getId() { return id; }

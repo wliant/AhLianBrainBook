@@ -15,7 +15,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -111,8 +113,8 @@ public class TagService {
                     (UUID) row[1],
                     (String) row[2],
                     (String) row[3],
-                    ((Timestamp) row[4]).toLocalDateTime(),
-                    ((Timestamp) row[5]).toLocalDateTime()
+                    toLocalDateTime(row[4]),
+                    toLocalDateTime(row[5])
             );
             result.computeIfAbsent(neuronId, k -> new ArrayList<>()).add(tag);
         }
@@ -155,8 +157,8 @@ public class TagService {
                     (UUID) row[1],
                     (String) row[2],
                     (String) row[3],
-                    ((Timestamp) row[4]).toLocalDateTime(),
-                    ((Timestamp) row[5]).toLocalDateTime()
+                    toLocalDateTime(row[4]),
+                    toLocalDateTime(row[5])
             );
             result.computeIfAbsent(brainId, k -> new ArrayList<>()).add(tag);
         }
@@ -171,5 +173,15 @@ public class TagService {
                 tag.getCreatedAt(),
                 tag.getUpdatedAt()
         );
+    }
+
+    private static LocalDateTime toLocalDateTime(Object value) {
+        if (value instanceof Instant instant) {
+            return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+        }
+        if (value instanceof java.sql.Timestamp ts) {
+            return ts.toLocalDateTime();
+        }
+        throw new IllegalArgumentException("Unexpected timestamp type: " + value.getClass());
     }
 }

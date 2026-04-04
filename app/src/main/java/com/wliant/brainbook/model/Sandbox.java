@@ -1,5 +1,7 @@
 package com.wliant.brainbook.model;
 
+import com.wliant.brainbook.config.TimeProvider;
+
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -63,7 +65,7 @@ public class Sandbox {
 
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimeProvider.now();
         this.createdAt = now;
         this.updatedAt = now;
         this.lastAccessedAt = now;
@@ -72,7 +74,7 @@ public class Sandbox {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = TimeProvider.now();
     }
 
     // Getters and setters

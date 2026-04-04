@@ -7,7 +7,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -98,12 +100,22 @@ public class BrainStatsService {
         for (Object[] row : recentRows) {
             recentlyEdited.add(new BrainStatsResponse.RecentNeuron(
                     (UUID) row[0], (String) row[1], (UUID) row[2],
-                    row[3] != null ? ((Timestamp) row[3]).toLocalDateTime() : null));
+                    row[3] != null ? toLocalDateTime(row[3]) : null));
         }
 
         return new BrainStatsResponse(
                 clusterCount, neuronCount, tagCount, linkCount,
                 simpleCount, moderateCount, complexCount,
                 mostConnected, recentlyEdited);
+    }
+
+    private static LocalDateTime toLocalDateTime(Object value) {
+        if (value instanceof Instant instant) {
+            return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+        }
+        if (value instanceof java.sql.Timestamp ts) {
+            return ts.toLocalDateTime();
+        }
+        throw new IllegalArgumentException("Unexpected timestamp type: " + value.getClass());
     }
 }

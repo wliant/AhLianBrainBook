@@ -11,6 +11,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+import com.wliant.brainbook.config.TimeProvider;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -48,7 +50,7 @@ public class LinkSuggestion {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = TimeProvider.now();
     }
 
     public UUID getId() { return id; }

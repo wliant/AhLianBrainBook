@@ -14,6 +14,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -208,7 +212,17 @@ public class LinkSuggestionService {
                 (String) row[3],                             // suggestionType
                 (String) row[6],                             // displayType
                 row[4] != null ? ((Number) row[4]).doubleValue() : null,  // score
-                row[5] != null ? ((java.sql.Timestamp) row[5]).toLocalDateTime() : null  // createdAt
+                row[5] != null ? toLocalDateTime(row[5]) : null  // createdAt
         );
+    }
+
+    private static LocalDateTime toLocalDateTime(Object value) {
+        if (value instanceof Instant instant) {
+            return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+        }
+        if (value instanceof java.sql.Timestamp ts) {
+            return ts.toLocalDateTime();
+        }
+        throw new IllegalArgumentException("Unexpected timestamp type: " + value.getClass());
     }
 }

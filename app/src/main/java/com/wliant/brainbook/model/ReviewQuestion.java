@@ -14,6 +14,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import com.wliant.brainbook.config.TimeProvider;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -64,14 +66,14 @@ public class ReviewQuestion {
 
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimeProvider.now();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = TimeProvider.now();
     }
 
     public UUID getId() { return id; }

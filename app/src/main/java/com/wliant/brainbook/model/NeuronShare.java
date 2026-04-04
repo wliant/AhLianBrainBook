@@ -1,5 +1,7 @@
 package com.wliant.brainbook.model;
 
+import com.wliant.brainbook.config.TimeProvider;
+
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -26,7 +28,7 @@ public class NeuronShare {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = TimeProvider.now();
     }
 
     public UUID getId() { return id; }
