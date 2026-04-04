@@ -25,6 +25,7 @@ import {
   Sparkles,
   Code,
   CheckSquare,
+  Crosshair,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -148,6 +149,22 @@ export function Sidebar({
     setExpandedBrains(new Set());
     setExpandedClusters(new Set());
   };
+
+  const handleLocateActive = useCallback(() => {
+    if (!activeBrainId) return;
+    setExpandedBrains((prev) => new Set([...prev, activeBrainId]));
+    if (activeClusterId) {
+      setExpandedClusters((prev) => new Set([...prev, activeClusterId]));
+    }
+    setTimeout(() => {
+      const selector = activeNeuronId
+        ? `[data-testid="sidebar-neuron-${activeNeuronId}"]`
+        : activeClusterId
+        ? `[data-testid="sidebar-cluster-${activeClusterId}"]`
+        : `[data-testid="sidebar-brain-${activeBrainId}"]`;
+      document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
+  }, [activeBrainId, activeClusterId, activeNeuronId]);
 
   const handleCreateBrain = () => {
     setDialogMode("create-brain");
@@ -391,6 +408,11 @@ export function Sidebar({
           <div className="flex items-center justify-between px-4 py-2">
             <span className="text-xs font-medium uppercase text-sidebar-muted">Brains</span>
             <div className="flex items-center gap-0.5">
+              {activeBrainId && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleLocateActive} title="Locate current item">
+                  <Crosshair className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {expandedBrains.size > 0 && (
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCollapseAll}>
                   <ChevronsDownUp className="h-3.5 w-3.5" />
