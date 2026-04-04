@@ -24,6 +24,7 @@ import {
   GraduationCap,
   Sparkles,
   Code,
+  CheckSquare,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -52,6 +53,7 @@ import { useClusters } from "@/lib/hooks/useClusters";
 import { useSandboxList } from "@/lib/hooks/useSandboxList";
 import { api } from "@/lib/api";
 import { useNeurons } from "@/lib/hooks/useNeurons";
+import { useTodoClusterMetadata } from "@/lib/hooks/useTodoMetadata";
 import { useThoughts } from "@/lib/hooks/useThoughts";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -586,10 +588,12 @@ function BrainItem({
   onDeleteCluster: (cluster: ClusterType) => void;
 }) {
   const { clusters: rawClusters } = useClusters(isExpanded ? brain.id : null);
-  // Sort: AI Research first, then by sortOrder
+  // Sort: Todo first, AI Research second, then by sortOrder
   const clusters = [...rawClusters].sort((a, b) => {
-    if (a.type === "ai-research" && b.type !== "ai-research") return -1;
-    if (a.type !== "ai-research" && b.type === "ai-research") return 1;
+    const typeOrder: Record<string, number> = { "todo": 0, "ai-research": 1 };
+    const aOrder = typeOrder[a.type] ?? 99;
+    const bOrder = typeOrder[b.type] ?? 99;
+    if (aOrder !== bOrder) return aOrder - bOrder;
     return a.sortOrder - b.sortOrder;
   });
 
@@ -675,8 +679,13 @@ function ClusterItem({
   onDeleteCluster: (cluster: ClusterType) => void;
 }) {
   const isAiResearch = cluster.type === "ai-research";
+  const isTodo = cluster.type === "todo";
   const canExpand = !isAiResearch;
-  const { neurons } = useNeurons(isExpanded && canExpand ? cluster.id : null);
+  const { neurons: allNeurons } = useNeurons(isExpanded && canExpand ? cluster.id : null);
+  const { metadataMap } = useTodoClusterMetadata(isExpanded && isTodo ? cluster.id : null);
+  const neurons = isTodo
+    ? allNeurons.filter((n) => !metadataMap[n.id]?.completed)
+    : allNeurons;
   const VIRTUAL_THRESHOLD = 20;
   const neuronListRef = useRef<HTMLDivElement>(null);
 
@@ -710,7 +719,8 @@ function ClusterItem({
           href={`/brain/${brainId}/cluster/${cluster.id}`}
           className="flex items-center gap-1.5 flex-1 truncate"
         >
-          {cluster.type === "ai-research" ? <Sparkles className="h-3.5 w-3.5 shrink-0" />
+          {cluster.type === "todo" ? <CheckSquare className="h-3.5 w-3.5 shrink-0" />
+            : cluster.type === "ai-research" ? <Sparkles className="h-3.5 w-3.5 shrink-0" />
             : cluster.type === "project" ? <Code className="h-3.5 w-3.5 shrink-0" />
             : <FolderOpen className="h-3.5 w-3.5 shrink-0" />}
           <span className="truncate">{cluster.name}</span>

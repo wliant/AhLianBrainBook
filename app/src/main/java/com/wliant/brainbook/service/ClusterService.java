@@ -93,6 +93,11 @@ public class ClusterService {
             cluster.setStatus(ClusterStatus.READY);
         }
 
+        // Auto-name todo clusters
+        if (type == ClusterType.TODO) {
+            cluster.setName("Tasks");
+        }
+
         Cluster saved = clusterRepository.save(cluster);
         UUID savedId = saved.getId();
 

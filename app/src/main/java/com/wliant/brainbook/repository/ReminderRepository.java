@@ -18,6 +18,8 @@ public interface ReminderRepository extends JpaRepository<Reminder, UUID> {
 
     List<Reminder> findByIsActiveTrueAndTriggerAtLessThanEqual(LocalDateTime now);
 
-    @Query("SELECT r FROM Reminder r JOIN FETCH r.neuron WHERE r.isActive = true ORDER BY r.triggerAt ASC")
+    @Query("SELECT r FROM Reminder r JOIN FETCH r.neuron WHERE r.isActive = true AND r.isSystem = false ORDER BY r.triggerAt ASC")
     List<Reminder> findAllActiveWithNeuronOrderByTriggerAtAsc();
+
+    java.util.Optional<Reminder> findByNeuronIdAndIsSystemTrueAndIsActiveTrue(UUID neuronId);
 }

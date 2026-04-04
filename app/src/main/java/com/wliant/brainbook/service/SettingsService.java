@@ -43,6 +43,10 @@ public class SettingsService {
             settings.setMaxRemindersPerNeuron(req.maxRemindersPerNeuron());
             log.info("Max reminders per neuron changed to {}", req.maxRemindersPerNeuron());
         }
+        if (req.timezone() != null) {
+            settings.setTimezone(req.timezone());
+            log.info("Timezone changed to {}", req.timezone());
+        }
         AppSettings saved = appSettingsRepository.save(settings);
         return toResponse(saved);
     }
@@ -51,10 +55,15 @@ public class SettingsService {
         return appSettingsRepository.findAll().getFirst().getMaxRemindersPerNeuron();
     }
 
+    public String getTimezone() {
+        return appSettingsRepository.findAll().getFirst().getTimezone();
+    }
+
     private AppSettingsResponse toResponse(AppSettings settings) {
         return new AppSettingsResponse(
                 settings.getDisplayName(),
                 settings.getMaxRemindersPerNeuron(),
+                settings.getTimezone(),
                 settings.getCreatedAt(),
                 settings.getUpdatedAt()
         );

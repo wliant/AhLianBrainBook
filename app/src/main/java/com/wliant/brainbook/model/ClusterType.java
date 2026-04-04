@@ -7,7 +7,8 @@ public enum ClusterType {
 
     KNOWLEDGE("knowledge"),
     AI_RESEARCH("ai-research"),
-    PROJECT("project");
+    PROJECT("project"),
+    TODO("todo");
 
     private final String value;
 
@@ -29,7 +30,7 @@ public enum ClusterType {
     }
 
     public boolean isUnique() {
-        return this == AI_RESEARCH;
+        return this == AI_RESEARCH || this == TODO;
     }
 
     @Converter(autoApply = false)

@@ -5,7 +5,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
-import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap, Share2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap, Share2, ListTodo } from "lucide-react";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent, extractPlainText } from "@/components/sections/sectionUtils";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
@@ -17,6 +17,9 @@ import { ReminderPanel } from "@/components/neuron/ReminderPanel";
 import { SpacedRepetitionPanel } from "@/components/neuron/SpacedRepetitionPanel";
 import { ShareDialog } from "@/components/neuron/ShareDialog";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
+import { useTodoMetadata } from "@/lib/hooks/useTodoMetadata";
+import { TodoMetadataEditor } from "@/components/todo/TodoMetadataEditor";
+import { TasksPanel } from "@/components/todo/TasksPanel";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -58,7 +61,10 @@ function NeuronPageContent({
   const [showReminder, setShowReminder] = useState(false);
   const [showSR, setShowSR] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [showTasks, setShowTasks] = useState(false);
   const [cluster, setCluster] = useState<Cluster | null>(null);
+  const isTodo = cluster?.type === "todo";
+  const { metadata: todoMeta, updateMetadata: updateTodoMeta } = useTodoMetadata(isTodo ? neuronId : null);
   const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
@@ -339,111 +345,142 @@ function NeuronPageContent({
             )}
           />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={toggleReminder}
-          title="Set Reminder"
-          data-testid="toggle-reminder"
-        >
-          <Bell
-            className={cn(
-              "h-4 w-4",
-              hasReminder && "fill-orange-400 text-orange-400",
-              showReminder && !hasReminder && "text-blue-400"
-            )}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={toggleSR}
-          title="Spaced Repetition"
-          data-testid="toggle-sr"
-        >
-          <GraduationCap
-            className={cn(
-              "h-4 w-4",
-              isInReview(neuronId) && "fill-purple-400 text-purple-400",
-              showSR && !isInReview(neuronId) && "text-blue-400"
-            )}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={toggleHistory}
-          title="Toggle History"
-          data-testid="toggle-history"
-        >
-          <History
-            className={cn(
-              "h-4 w-4",
-              showHistory && "text-blue-400"
-            )}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={toggleToc}
-          title="Toggle Table of Contents"
-          data-testid="toggle-toc"
-        >
-          <List
-            className={cn(
-              "h-4 w-4",
-              showToc && "text-blue-400"
-            )}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={toggleLinks}
-          title="Toggle Connections"
-          data-testid="toggle-connections"
-        >
-          <Link2
-            className={cn(
-              "h-4 w-4",
-              showLinks && "text-blue-400"
-            )}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setShareDialogOpen(true)}
-          title="Share"
-          data-testid="toggle-share"
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Export">
-              <Download className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => {
-              const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-              window.open(`${API_BASE}/api/neurons/${neuronId}/export/markdown`, "_blank");
-            }}>
-              Export as Markdown
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.print()}>
-              Export as PDF (Print)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={toggleReminder}
+            title="Set Reminder"
+            data-testid="toggle-reminder"
+          >
+            <Bell
+              className={cn(
+                "h-4 w-4",
+                hasReminder && "fill-orange-400 text-orange-400",
+                showReminder && !hasReminder && "text-blue-400"
+              )}
+            />
+          </Button>
+        )}
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={toggleSR}
+            title="Spaced Repetition"
+            data-testid="toggle-sr"
+          >
+            <GraduationCap
+              className={cn(
+                "h-4 w-4",
+                isInReview(neuronId) && "fill-purple-400 text-purple-400",
+                showSR && !isInReview(neuronId) && "text-blue-400"
+              )}
+            />
+          </Button>
+        )}
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={toggleHistory}
+            title="Toggle History"
+            data-testid="toggle-history"
+          >
+            <History
+              className={cn(
+                "h-4 w-4",
+                showHistory && "text-blue-400"
+              )}
+            />
+          </Button>
+        )}
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={toggleToc}
+            title="Toggle Table of Contents"
+            data-testid="toggle-toc"
+          >
+            <List
+              className={cn(
+                "h-4 w-4",
+                showToc && "text-blue-400"
+              )}
+            />
+          </Button>
+        )}
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={toggleLinks}
+            title="Toggle Connections"
+            data-testid="toggle-connections"
+          >
+            <Link2
+              className={cn(
+                "h-4 w-4",
+                showLinks && "text-blue-400"
+              )}
+            />
+          </Button>
+        )}
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShareDialogOpen(true)}
+            title="Share"
+            data-testid="toggle-share"
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+        )}
+        {!isTodo && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Export">
+                <Download className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => {
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+                window.open(`${API_BASE}/api/neurons/${neuronId}/export/markdown`, "_blank");
+              }}>
+                Export as Markdown
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}>
+                Export as PDF (Print)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        {!isTodo && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShowTasks((prev) => !prev)}
+            title="Tasks"
+            data-testid="toggle-tasks-panel"
+          >
+            <ListTodo
+              className={cn(
+                "h-4 w-4",
+                showTasks && "text-blue-400"
+              )}
+            />
+          </Button>
+        )}
       </div>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 overflow-auto p-4 sm:p-6 max-w-4xl mx-auto w-full">
@@ -467,6 +504,12 @@ function NeuronPageContent({
             </>
           ) : (
             <>
+              {isTodo && todoMeta && (
+                <TodoMetadataEditor
+                  metadata={todoMeta}
+                  onUpdate={updateTodoMeta}
+                />
+              )}
               <div className="mb-4">
                 <EntityMetadata
                   createdBy={neuron.createdBy}
@@ -543,6 +586,14 @@ function NeuronPageContent({
               removeFromReview={removeFromReview}
             />
           </div>
+        )}
+        {showTasks && !isTodo && (
+          <TasksPanel
+            neuronId={neuronId}
+            brainId={brainId}
+            neuronTitle={title}
+            onClose={() => setShowTasks(false)}
+          />
         )}
       </div>
       <ShareDialog

@@ -15,7 +15,7 @@ import {
 import type { Neuron, NeuronLink } from "@/types";
 
 interface SearchResponse {
-  results: Neuron[];
+  results: { neuron: Neuron }[];
   totalCount: number;
 }
 
@@ -50,7 +50,7 @@ export function AddLinkDialog({
         const data = await api.get<SearchResponse>(
           `/api/search?q=${encodeURIComponent(query)}&brainId=${brainId}&size=10`
         );
-        setResults(data.results.filter((n) => n.id !== neuronId));
+        setResults(data.results.map((r) => r.neuron).filter((n) => n.id !== neuronId));
       } catch {
         setResults([]);
       }

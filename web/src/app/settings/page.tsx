@@ -7,18 +7,22 @@ import { useSettings } from "@/lib/hooks/useSettings";
 import { CheckCircle, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { settings, loading, updateDisplayName, updateMaxReminders } = useSettings();
+  const { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone } = useSettings();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [maxReminders, setMaxReminders] = useState(10);
   const [maxRemindersSaving, setMaxRemindersSaving] = useState(false);
   const [maxRemindersSaved, setMaxRemindersSaved] = useState(false);
+  const [timezone, setTimezone] = useState("Asia/Singapore");
+  const [timezoneSaving, setTimezoneSaving] = useState(false);
+  const [timezoneSaved, setTimezoneSaved] = useState(false);
 
   useEffect(() => {
     if (settings) {
       setDisplayName(settings.displayName);
       setMaxReminders(settings.maxRemindersPerNeuron);
+      setTimezone(settings.timezone);
     }
   }, [settings]);
 
@@ -110,6 +114,44 @@ export default function SettingsPage() {
             />
             {maxRemindersSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             {maxRemindersSaved && <CheckCircle className="h-4 w-4 text-green-500" />}
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <label htmlFor="timezone" className="block text-sm font-medium mb-1.5">
+            Timezone
+          </label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Used for scheduling todo task reminders at 7 PM local time.
+          </p>
+          <div className="flex gap-2 items-center">
+            <select
+              id="timezone"
+              value={timezone}
+              onChange={async (e) => {
+                const tz = e.target.value;
+                setTimezone(tz);
+                setTimezoneSaving(true);
+                setTimezoneSaved(false);
+                await updateTimezone(tz);
+                setTimezoneSaving(false);
+                setTimezoneSaved(true);
+                setTimeout(() => setTimezoneSaved(false), 2000);
+              }}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm max-w-xs"
+              data-testid="timezone-select"
+            >
+              {typeof Intl !== "undefined" && typeof Intl.supportedValuesOf === "function"
+                ? Intl.supportedValuesOf("timeZone").map((tz) => (
+                    <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                  ))
+                : ["UTC", "Asia/Singapore", "America/New_York", "America/Los_Angeles", "Europe/London", "Europe/Berlin", "Asia/Tokyo"].map((tz) => (
+                    <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                  ))
+              }
+            </select>
+            {timezoneSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {timezoneSaved && <CheckCircle className="h-4 w-4 text-green-500" />}
           </div>
         </div>
       </div>

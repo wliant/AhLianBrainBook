@@ -16,4 +16,6 @@ public interface ClusterRepository extends JpaRepository<Cluster, UUID> {
     List<Cluster> findByBrainIdOrderBySortOrder(UUID brainId);
 
     long countByBrainIdAndTypeAndIsArchivedFalse(UUID brainId, ClusterType type);
+
+    java.util.Optional<Cluster> findFirstByBrainIdAndTypeAndIsArchivedFalse(UUID brainId, ClusterType type);
 }

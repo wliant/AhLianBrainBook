@@ -24,5 +24,10 @@ export function useSettings() {
     queryClient.invalidateQueries({ queryKey: ["settings"] });
   }, [queryClient]);
 
-  return { settings, loading, updateDisplayName, updateMaxReminders };
+  const updateTimezone = useCallback(async (timezone: string) => {
+    await api.settings.update({ timezone });
+    queryClient.invalidateQueries({ queryKey: ["settings"] });
+  }, [queryClient]);
+
+  return { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone };
 }
