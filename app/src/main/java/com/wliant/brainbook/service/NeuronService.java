@@ -1,7 +1,6 @@
 package com.wliant.brainbook.service;
 
 import com.wliant.brainbook.dto.CreateNeuronAnchorRequest;
-import com.wliant.brainbook.dto.FileContentResponse;
 import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronAnchorResponse;
 import com.wliant.brainbook.dto.NeuronContentRequest;
@@ -149,12 +148,9 @@ public class NeuronService {
         Neuron saved = neuronRepository.save(neuron);
 
         if (req.anchor() != null) {
-            FileContentResponse file = urlBrowseService.getFile(
-                    cluster.getId(), null, req.anchor().filePath());
             CreateNeuronAnchorRequest anchorReq = new CreateNeuronAnchorRequest(
-                    saved.getId(), cluster.getId(),
-                    req.anchor().filePath(), req.anchor().startLine(), req.anchor().endLine());
-            anchorService.create(anchorReq, file.content());
+                    saved.getId(), cluster.getId(), req.anchor().filePath());
+            anchorService.create(anchorReq);
         }
 
         return toResponse(saved);

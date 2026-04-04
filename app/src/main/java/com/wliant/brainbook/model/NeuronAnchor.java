@@ -30,31 +30,6 @@ public class NeuronAnchor {
     @Column(name = "file_path", nullable = false, length = 1000)
     private String filePath;
 
-    @Column(name = "start_line", nullable = false)
-    private int startLine;
-
-    @Column(name = "end_line", nullable = false)
-    private int endLine;
-
-    @Column(name = "content_hash", nullable = false, length = 64)
-    private String contentHash;
-
-    @Column(name = "anchored_text", nullable = false, columnDefinition = "text")
-    private String anchoredText;
-
-    @Column(name = "commit_sha", length = 40)
-    private String commitSha;
-
-    @Column(name = "status", nullable = false, length = 20)
-    @Convert(converter = AnchorStatus.JpaConverter.class)
-    private AnchorStatus status;
-
-    @Column(name = "drifted_start_line")
-    private Integer driftedStartLine;
-
-    @Column(name = "drifted_end_line")
-    private Integer driftedEndLine;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -66,9 +41,6 @@ public class NeuronAnchor {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        if (this.status == null) {
-            this.status = AnchorStatus.ACTIVE;
-        }
     }
 
     @PreUpdate
@@ -114,70 +86,6 @@ public class NeuronAnchor {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
-    }
-
-    public int getStartLine() {
-        return startLine;
-    }
-
-    public void setStartLine(int startLine) {
-        this.startLine = startLine;
-    }
-
-    public int getEndLine() {
-        return endLine;
-    }
-
-    public void setEndLine(int endLine) {
-        this.endLine = endLine;
-    }
-
-    public String getContentHash() {
-        return contentHash;
-    }
-
-    public void setContentHash(String contentHash) {
-        this.contentHash = contentHash;
-    }
-
-    public String getAnchoredText() {
-        return anchoredText;
-    }
-
-    public void setAnchoredText(String anchoredText) {
-        this.anchoredText = anchoredText;
-    }
-
-    public String getCommitSha() {
-        return commitSha;
-    }
-
-    public void setCommitSha(String commitSha) {
-        this.commitSha = commitSha;
-    }
-
-    public AnchorStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(AnchorStatus status) {
-        this.status = status;
-    }
-
-    public Integer getDriftedStartLine() {
-        return driftedStartLine;
-    }
-
-    public void setDriftedStartLine(Integer driftedStartLine) {
-        this.driftedStartLine = driftedStartLine;
-    }
-
-    public Integer getDriftedEndLine() {
-        return driftedEndLine;
-    }
-
-    public void setDriftedEndLine(Integer driftedEndLine) {
-        this.driftedEndLine = driftedEndLine;
     }
 
     public LocalDateTime getCreatedAt() {

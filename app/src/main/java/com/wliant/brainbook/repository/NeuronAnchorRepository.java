@@ -1,6 +1,5 @@
 package com.wliant.brainbook.repository;
 
-import com.wliant.brainbook.model.AnchorStatus;
 import com.wliant.brainbook.model.NeuronAnchor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,8 +16,6 @@ public interface NeuronAnchorRepository extends JpaRepository<NeuronAnchor, UUID
     Page<NeuronAnchor> findByClusterId(UUID clusterId, Pageable pageable);
 
     Page<NeuronAnchor> findByClusterIdAndFilePath(UUID clusterId, String filePath, Pageable pageable);
-
-    List<NeuronAnchor> findByClusterIdAndStatusNot(UUID clusterId, AnchorStatus status);
 
     List<NeuronAnchor> findByClusterIdAndFilePathIn(UUID clusterId, List<String> filePaths);
 

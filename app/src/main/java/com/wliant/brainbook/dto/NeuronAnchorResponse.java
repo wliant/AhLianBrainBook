@@ -8,13 +8,6 @@ public record NeuronAnchorResponse(
         UUID neuronId,
         UUID clusterId,
         String filePath,
-        int startLine,
-        int endLine,
-        String contentHash,
-        String commitSha,
-        String status,
-        Integer driftedStartLine,
-        Integer driftedEndLine,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

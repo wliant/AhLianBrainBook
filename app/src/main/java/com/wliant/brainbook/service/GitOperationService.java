@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -218,6 +219,44 @@ public class GitOperationService {
                     }
                 }
                 return files.stream().distinct().collect(Collectors.toList());
+            }
+        }
+    }
+
+    public Map<String, String> getFileRenames(Path repoDir, String fromCommit, String toCommit)
+            throws IOException {
+        try (Git git = Git.open(repoDir.toFile())) {
+            Repository repo = git.getRepository();
+            ObjectId fromId = repo.resolve(fromCommit);
+            ObjectId toId = repo.resolve(toCommit);
+
+            if (fromId == null || toId == null) {
+                return Map.of();
+            }
+
+            try (ObjectReader reader = repo.newObjectReader();
+                 RevWalk walk = new RevWalk(repo);
+                 DiffFormatter formatter = new DiffFormatter(ByteArrayOutputStream.nullOutputStream())) {
+
+                formatter.setRepository(repo);
+                formatter.setDetectRenames(true);
+
+                RevCommit from = walk.parseCommit(fromId);
+                RevCommit to = walk.parseCommit(toId);
+
+                CanonicalTreeParser oldTree = new CanonicalTreeParser();
+                oldTree.reset(reader, from.getTree());
+                CanonicalTreeParser newTree = new CanonicalTreeParser();
+                newTree.reset(reader, to.getTree());
+
+                List<DiffEntry> diffs = formatter.scan(oldTree, newTree);
+                Map<String, String> renames = new java.util.HashMap<>();
+                for (DiffEntry entry : diffs) {
+                    if (entry.getChangeType() == DiffEntry.ChangeType.RENAME) {
+                        renames.put(entry.getOldPath(), entry.getNewPath());
+                    }
+                }
+                return renames;
             }
         }
     }

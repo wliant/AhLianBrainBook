@@ -13,7 +13,6 @@ public class SandboxConfig {
     private int cloneTimeoutSec = 300;
     private int maxConcurrentClones = 2;
     private int maxCount = 10;
-    private double fuzzyThreshold = 0.7;
     private int staleDays = 30;
 
     public String getRootPath() { return rootPath; }
@@ -33,9 +32,6 @@ public class SandboxConfig {
 
     public int getMaxCount() { return maxCount; }
     public void setMaxCount(int maxCount) { this.maxCount = maxCount; }
-
-    public double getFuzzyThreshold() { return fuzzyThreshold; }
-    public void setFuzzyThreshold(double fuzzyThreshold) { this.fuzzyThreshold = fuzzyThreshold; }
 
     public int getStaleDays() { return staleDays; }
     public void setStaleDays(int staleDays) { this.staleDays = staleDays; }

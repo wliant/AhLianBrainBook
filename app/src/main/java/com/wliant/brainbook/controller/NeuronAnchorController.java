@@ -1,11 +1,9 @@
 package com.wliant.brainbook.controller;
 
 import com.wliant.brainbook.dto.CreateNeuronAnchorRequest;
-import com.wliant.brainbook.dto.FileContentResponse;
 import com.wliant.brainbook.dto.NeuronAnchorResponse;
 import com.wliant.brainbook.dto.UpdateNeuronAnchorRequest;
 import com.wliant.brainbook.service.AnchorService;
-import com.wliant.brainbook.service.UrlBrowseService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -13,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -21,11 +18,9 @@ import java.util.UUID;
 public class NeuronAnchorController {
 
     private final AnchorService anchorService;
-    private final UrlBrowseService urlBrowseService;
 
-    public NeuronAnchorController(AnchorService anchorService, UrlBrowseService urlBrowseService) {
+    public NeuronAnchorController(AnchorService anchorService) {
         this.anchorService = anchorService;
-        this.urlBrowseService = urlBrowseService;
     }
 
     @GetMapping("/cluster/{clusterId}")
@@ -45,16 +40,10 @@ public class NeuronAnchorController {
         return ResponseEntity.ok(anchorService.listByFile(clusterId, path, PageRequest.of(page, size)));
     }
 
-    @GetMapping("/cluster/{clusterId}/orphaned")
-    public ResponseEntity<List<NeuronAnchorResponse>> listOrphaned(@PathVariable UUID clusterId) {
-        return ResponseEntity.ok(anchorService.listOrphanedAndDrifted(clusterId));
-    }
-
     @PostMapping
     public ResponseEntity<NeuronAnchorResponse> create(
             @Valid @RequestBody CreateNeuronAnchorRequest req) {
-        FileContentResponse file = urlBrowseService.getFile(req.clusterId(), null, req.filePath());
-        NeuronAnchorResponse response = anchorService.create(req, file.content());
+        NeuronAnchorResponse response = anchorService.create(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -62,9 +51,7 @@ public class NeuronAnchorController {
     public ResponseEntity<NeuronAnchorResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateNeuronAnchorRequest req) {
-        NeuronAnchorResponse existing = anchorService.getById(id);
-        FileContentResponse file = urlBrowseService.getFile(existing.clusterId(), null, req.filePath());
-        NeuronAnchorResponse response = anchorService.update(id, req, file.content());
+        NeuronAnchorResponse response = anchorService.update(id, req);
         return ResponseEntity.ok(response);
     }
 
@@ -72,10 +59,5 @@ public class NeuronAnchorController {
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         anchorService.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/{id}/confirm-drift")
-    public ResponseEntity<NeuronAnchorResponse> confirmDrift(@PathVariable UUID id) {
-        return ResponseEntity.ok(anchorService.confirmDrift(id));
     }
 }

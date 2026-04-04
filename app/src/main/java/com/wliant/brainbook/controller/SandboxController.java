@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -72,24 +73,17 @@ public class SandboxController {
         String oldCommit = sandbox.getCurrentCommit();
         String newCommit = gitOperationService.pull(repoDir);
 
-        ReconciliationResult result = ReconciliationResult.empty();
+        int renamedAnchors = 0;
         if (oldCommit != null && !oldCommit.equals(newCommit)) {
-            List<String> changedFiles = gitOperationService.getChangedFiles(repoDir, oldCommit, newCommit);
-            if (!changedFiles.isEmpty()) {
-                result = anchorService.reconcile(sandbox.getClusterId(), changedFiles, repoDir);
+            Map<String, String> renames = gitOperationService.getFileRenames(repoDir, oldCommit, newCommit);
+            if (!renames.isEmpty()) {
+                renamedAnchors = anchorService.updateFilePathsForRenames(sandbox.getClusterId(), renames);
             }
         }
 
         sandboxService.updateAfterPull(clusterId, newCommit);
 
-        PullResponse response = new PullResponse(
-                newCommit,
-                new PullResponse.AnchorsAffected(
-                        result.unchanged(), result.autoUpdated(),
-                        result.drifted(), result.orphaned()
-                )
-        );
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new PullResponse(newCommit, renamedAnchors));
     }
 
     @PostMapping("/api/clusters/{clusterId}/sandbox/checkout")
