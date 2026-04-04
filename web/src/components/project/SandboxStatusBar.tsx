@@ -70,28 +70,28 @@ export function SandboxStatusBar({
 
       {/* Actions */}
       {isActive && (
-        <>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 text-xs px-2"
-            onClick={onPull}
-            disabled={pulling || terminating}
-          >
-            <RefreshCw className={`h-3 w-3 mr-1 ${pulling ? "animate-spin" : ""}`} />
-            {pulling ? "Pulling..." : "Pull"}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 text-xs px-2 text-destructive"
-            onClick={onTerminate}
-            disabled={terminating || pulling}
-          >
-            <Trash2 className="h-3 w-3 mr-1" />
-            {terminating ? "Terminating..." : "Terminate"}
-          </Button>
-        </>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 text-xs px-2"
+          onClick={onPull}
+          disabled={pulling || terminating}
+        >
+          <RefreshCw className={`h-3 w-3 mr-1 ${pulling ? "animate-spin" : ""}`} />
+          {pulling ? "Pulling..." : "Pull"}
+        </Button>
+      )}
+      {(isActive || sandbox.status === "error") && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 text-xs px-2 text-destructive"
+          onClick={onTerminate}
+          disabled={terminating || pulling}
+        >
+          <Trash2 className="h-3 w-3 mr-1" />
+          {terminating ? "Terminating..." : "Terminate"}
+        </Button>
       )}
     </div>
   );

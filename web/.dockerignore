@@ -8,6 +8,9 @@ out/
 # Test / lint artifacts
 coverage/
 *.tsbuildinfo
+e2e/
+playwright.config.ts
+src/test/
 
 # IDE / OS
 .idea/

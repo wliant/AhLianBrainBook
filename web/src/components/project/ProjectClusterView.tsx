@@ -33,7 +33,7 @@ interface ProjectClusterViewProps {
 }
 
 export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps) {
-  const { config } = useProjectConfig(cluster.id);
+  const { config, loading: configLoading } = useProjectConfig(cluster.id);
   const { sandbox, provision, terminate, pull, checkout } = useSandbox(cluster.id);
   const isSandboxActive = sandbox?.status === "active";
   const ref = config?.defaultBranch ?? undefined;
@@ -61,11 +61,11 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     enabled: isSandboxActive,
   });
   const { entries: browseEntries, loading: browseTreeLoading } = useFileTree(
-    isSandboxActive ? null : cluster.id,
+    !isSandboxActive && config ? cluster.id : null,
     ref
   );
   const entries = isSandboxActive ? sandboxEntries : browseEntries;
-  const treeLoading = isSandboxActive ? sandboxTreeLoading : browseTreeLoading;
+  const treeLoading = isSandboxActive ? sandboxTreeLoading : (configLoading || browseTreeLoading);
 
   // File content: use sandbox endpoint when active
   const { data: sandboxFileContent, isLoading: sandboxFileLoading } = useQuery({
@@ -277,6 +277,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
               selectedPath={selectedPath}
               onSelectFile={handleSelectFile}
               onLoadChildren={isSandboxActive ? handleLoadChildren : undefined}
+              onOpenSearch={() => setQuickOpenOpen(true)}
             />
           </div>
           {structurePanelOpen && isSandboxActive && selectedPath && (
@@ -341,6 +342,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             fileAnchors={fileAnchors}
             anchorsLoading={anchorsLoading}
             codeSelection={codeSelection}
+            onNavigateToFile={handleSelectFile}
           />
         </div>
       </div>

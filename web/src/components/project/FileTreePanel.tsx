@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
+import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown, Loader2, Search } from "lucide-react";
 import type { FileTreeEntry } from "@/types";
 
 interface TreeNode {
@@ -113,7 +113,7 @@ interface TreeNodeItemProps {
 }
 
 function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren, onChildrenLoaded }: TreeNodeItemProps) {
-  const [expanded, setExpanded] = useState(depth === 0);
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleToggle = useCallback(async () => {
@@ -200,9 +200,10 @@ interface FileTreePanelProps {
   selectedPath: string | null;
   onSelectFile: (path: string) => void;
   onLoadChildren?: (path: string) => Promise<FileTreeEntry[]>;
+  onOpenSearch?: () => void;
 }
 
-export function FileTreePanel({ entries, loading, selectedPath, onSelectFile, onLoadChildren }: FileTreePanelProps) {
+export function FileTreePanel({ entries, loading, selectedPath, onSelectFile, onLoadChildren, onOpenSearch }: FileTreePanelProps) {
   const initialTree = useMemo(() => buildTree(entries), [entries]);
   const [tree, setTree] = useState<TreeNode[]>(initialTree);
 
@@ -228,35 +229,37 @@ export function FileTreePanel({ entries, loading, selectedPath, onSelectFile, on
     });
   }, []);
 
-  if (loading) {
-    return (
-      <div className="p-4 text-sm text-muted-foreground">
-        Loading file tree...
-      </div>
-    );
-  }
-
-  if (entries.length === 0) {
-    return (
-      <div className="p-4 text-sm text-muted-foreground">
-        No files found.
-      </div>
-    );
-  }
-
   return (
-    <div className="overflow-y-auto h-full py-1" data-testid="file-tree-panel">
-      {tree.map((node) => (
-        <TreeNodeItem
-          key={node.path}
-          node={node}
-          depth={0}
-          selectedPath={selectedPath}
-          onSelectFile={onSelectFile}
-          onLoadChildren={onLoadChildren}
-          onChildrenLoaded={handleChildrenLoaded}
-        />
-      ))}
+    <div className="flex flex-col h-full" data-testid="file-tree-panel">
+      <div className="flex items-center justify-between px-2 py-1 border-b shrink-0">
+        <span className="text-xs font-medium text-muted-foreground">FILES</span>
+        <button
+          className="p-1 hover:bg-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={onOpenSearch}
+          title="Search files (Ctrl+P)"
+        >
+          <Search className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="overflow-y-auto flex-1 py-1">
+        {loading ? (
+          <div className="p-4 text-sm text-muted-foreground">Loading file tree...</div>
+        ) : entries.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground">No files found.</div>
+        ) : (
+          tree.map((node) => (
+            <TreeNodeItem
+              key={node.path}
+              node={node}
+              depth={0}
+              selectedPath={selectedPath}
+              onSelectFile={onSelectFile}
+              onLoadChildren={onLoadChildren}
+              onChildrenLoaded={handleChildrenLoaded}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
