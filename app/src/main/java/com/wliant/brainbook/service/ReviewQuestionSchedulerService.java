@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,16 +18,19 @@ public class ReviewQuestionSchedulerService {
 
     private final SpacedRepetitionRepository srRepository;
     private final ReviewQuestionService reviewQuestionService;
+    private final Clock clock;
 
     public ReviewQuestionSchedulerService(SpacedRepetitionRepository srRepository,
-                                           ReviewQuestionService reviewQuestionService) {
+                                           ReviewQuestionService reviewQuestionService,
+                                           Clock clock) {
         this.srRepository = srRepository;
         this.reviewQuestionService = reviewQuestionService;
+        this.clock = clock;
     }
 
     @Scheduled(fixedRateString = "${app.review-qa.scheduler.fixed-rate:300000}")
     public void generatePendingQuestions() {
-        LocalDateTime horizon = LocalDateTime.now().plusHours(24);
+        LocalDateTime horizon = LocalDateTime.now(clock).plusHours(24);
         List<SpacedRepetitionItem> items = srRepository.findDueWithoutReadyQuestions(horizon);
 
         if (items.isEmpty()) {

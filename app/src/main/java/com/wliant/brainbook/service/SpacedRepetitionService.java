@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -24,13 +25,16 @@ public class SpacedRepetitionService {
     private final SpacedRepetitionRepository srRepository;
     private final NeuronRepository neuronRepository;
     private final ReviewQuestionService reviewQuestionService;
+    private final Clock clock;
 
     public SpacedRepetitionService(SpacedRepetitionRepository srRepository,
                                    NeuronRepository neuronRepository,
-                                   ReviewQuestionService reviewQuestionService) {
+                                   ReviewQuestionService reviewQuestionService,
+                                   Clock clock) {
         this.srRepository = srRepository;
         this.neuronRepository = neuronRepository;
         this.reviewQuestionService = reviewQuestionService;
+        this.clock = clock;
     }
 
     public SpacedRepetitionItemResponse addItem(UUID neuronId) {
@@ -45,7 +49,7 @@ public class SpacedRepetitionService {
 
         SpacedRepetitionItem item = new SpacedRepetitionItem();
         item.setNeuron(neuron);
-        item.setNextReviewAt(LocalDateTime.now());
+        item.setNextReviewAt(LocalDateTime.now(clock));
 
         SpacedRepetitionItem saved = srRepository.save(item);
         log.info("Added neuron {} ('{}') to spaced repetition", neuronId, neuron.getTitle());
@@ -83,7 +87,7 @@ public class SpacedRepetitionService {
     @Transactional(readOnly = true)
     public List<SpacedRepetitionItemResponse> getReviewQueue() {
         return srRepository
-                .findDueForReviewWithNeuron(LocalDateTime.now())
+                .findDueForReviewWithNeuron(LocalDateTime.now(clock))
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -93,7 +97,7 @@ public class SpacedRepetitionService {
         SpacedRepetitionItem item = srRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         applySm2(item, quality, now);
         item.setLastReviewedAt(now);
 

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -30,15 +31,18 @@ public class RevisionService {
     private final NeuronRepository neuronRepository;
     private final TagService tagService;
     private final SettingsService settingsService;
+    private final Clock clock;
 
     public RevisionService(NeuronRevisionRepository revisionRepository,
                            NeuronRepository neuronRepository,
                            TagService tagService,
-                           SettingsService settingsService) {
+                           SettingsService settingsService,
+                           Clock clock) {
         this.revisionRepository = revisionRepository;
         this.neuronRepository = neuronRepository;
         this.tagService = tagService;
         this.settingsService = settingsService;
+        this.clock = clock;
     }
 
     public List<RevisionResponse> getRevisions(UUID neuronId) {
@@ -102,7 +106,7 @@ public class RevisionService {
         neuron.setContentJson(revision.getContentJson());
         neuron.setContentText(revision.getContentText());
         neuron.setVersion(neuron.getVersion() + 1);
-        neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastEditedAt(LocalDateTime.now(clock));
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
 

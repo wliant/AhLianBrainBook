@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -24,12 +25,14 @@ public class ReminderService {
     private final ReminderRepository reminderRepository;
     private final NeuronRepository neuronRepository;
     private final SettingsService settingsService;
+    private final Clock clock;
 
     public ReminderService(ReminderRepository reminderRepository, NeuronRepository neuronRepository,
-                           SettingsService settingsService) {
+                           SettingsService settingsService, Clock clock) {
         this.reminderRepository = reminderRepository;
         this.neuronRepository = neuronRepository;
         this.settingsService = settingsService;
+        this.clock = clock;
     }
 
     @Transactional
@@ -94,7 +97,7 @@ public class ReminderService {
     }
 
     private void applyRequest(Reminder reminder, ReminderRequest req) {
-        if (req.triggerAt().isBefore(LocalDateTime.now())) {
+        if (req.triggerAt().isBefore(LocalDateTime.now(clock))) {
             throw new IllegalArgumentException("Reminder trigger time must be in the future");
         }
         reminder.setReminderType(req.reminderType());

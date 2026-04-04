@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,16 +18,19 @@ public class ReminderSchedulerService {
 
     private final ReminderRepository reminderRepository;
     private final ReminderProcessingService reminderProcessingService;
+    private final Clock clock;
 
     public ReminderSchedulerService(ReminderRepository reminderRepository,
-                                     ReminderProcessingService reminderProcessingService) {
+                                     ReminderProcessingService reminderProcessingService,
+                                     Clock clock) {
         this.reminderRepository = reminderRepository;
         this.reminderProcessingService = reminderProcessingService;
+        this.clock = clock;
     }
 
     @Scheduled(fixedRateString = "${app.reminder.scheduler.fixed-rate:60000}")
     public void processReminders() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         List<Reminder> dueReminders = reminderRepository.findByIsActiveTrueAndTriggerAtLessThanEqual(now);
 
         if (dueReminders.isEmpty()) {

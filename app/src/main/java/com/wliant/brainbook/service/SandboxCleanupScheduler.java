@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,18 +21,21 @@ public class SandboxCleanupScheduler {
     private final SandboxRepository sandboxRepository;
     private final SandboxService sandboxService;
     private final SandboxConfig config;
+    private final Clock clock;
 
     public SandboxCleanupScheduler(SandboxRepository sandboxRepository,
                                    SandboxService sandboxService,
-                                   SandboxConfig config) {
+                                   SandboxConfig config,
+                                   Clock clock) {
         this.sandboxRepository = sandboxRepository;
         this.sandboxService = sandboxService;
         this.config = config;
+        this.clock = clock;
     }
 
     @Scheduled(cron = "0 0 3 * * *") // Daily at 3 AM
     public void cleanupStaleSandboxes() {
-        LocalDateTime threshold = LocalDateTime.now().minusDays(config.getStaleDays());
+        LocalDateTime threshold = LocalDateTime.now(clock).minusDays(config.getStaleDays());
         List<Sandbox> stale = sandboxRepository.findByLastAccessedAtBeforeAndStatus(
                 threshold, SandboxStatus.ACTIVE);
 

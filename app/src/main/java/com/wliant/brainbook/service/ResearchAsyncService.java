@@ -20,6 +20,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +43,7 @@ public class ResearchAsyncService {
     private final SettingsService settingsService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
 
     public ResearchAsyncService(ClusterRepository clusterRepository,
                                  BrainRepository brainRepository,
@@ -51,7 +53,8 @@ public class ResearchAsyncService {
                                  ResearchSseService researchSseService,
                                  SettingsService settingsService,
                                  ObjectMapper objectMapper,
-                                 TransactionTemplate transactionTemplate) {
+                                 TransactionTemplate transactionTemplate,
+                                 Clock clock) {
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
         this.neuronRepository = neuronRepository;
@@ -61,6 +64,7 @@ public class ResearchAsyncService {
         this.settingsService = settingsService;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+        this.clock = clock;
     }
 
     private record ClusterContext(UUID clusterId, String brainName, List<Map<String, Object>> neuronSummaries,
@@ -160,7 +164,7 @@ public class ResearchAsyncService {
                 topic.setTitle(title);
                 topic.setContentJson(toJsonString(contentJson));
                 topic.setOverallCompleteness(CompletenessLevel.fromValue(overallCompleteness));
-                topic.setLastRefreshedAt(LocalDateTime.now());
+                topic.setLastRefreshedAt(LocalDateTime.now(clock));
             }
 
             topic.setStatus(ResearchTopicStatus.READY);
@@ -223,7 +227,7 @@ public class ResearchAsyncService {
                 String overallCompleteness = (String) scored.getOrDefault("overall_completeness", "none");
                 topic.setContentJson(toJsonString(freshContentJson));
                 topic.setOverallCompleteness(CompletenessLevel.fromValue(overallCompleteness));
-                topic.setLastRefreshedAt(LocalDateTime.now());
+                topic.setLastRefreshedAt(LocalDateTime.now(clock));
             }
 
             topic.setStatus(ResearchTopicStatus.READY);

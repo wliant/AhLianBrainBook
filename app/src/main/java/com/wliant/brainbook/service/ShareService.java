@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
@@ -27,13 +28,15 @@ public class ShareService {
     private final NeuronRepository neuronRepository;
     private final BrainRepository brainRepository;
     private final TagService tagService;
+    private final Clock clock;
 
     public ShareService(NeuronShareRepository shareRepository, NeuronRepository neuronRepository,
-                        BrainRepository brainRepository, TagService tagService) {
+                        BrainRepository brainRepository, TagService tagService, Clock clock) {
         this.shareRepository = shareRepository;
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.tagService = tagService;
+        this.clock = clock;
     }
 
     public ShareResponse createShareLink(UUID neuronId, Integer expiresInHours) {
@@ -48,7 +51,7 @@ public class ShareService {
         share.setNeuronId(neuronId);
         share.setToken(token);
         if (expiresInHours != null && expiresInHours > 0) {
-            share.setExpiresAt(LocalDateTime.now().plusHours(expiresInHours));
+            share.setExpiresAt(LocalDateTime.now(clock).plusHours(expiresInHours));
         }
 
         share = shareRepository.save(share);
@@ -60,7 +63,7 @@ public class ShareService {
         NeuronShare share = shareRepository.findByToken(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Share link not found or expired"));
 
-        if (share.getExpiresAt() != null && share.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (share.getExpiresAt() != null && share.getExpiresAt().isBefore(LocalDateTime.now(clock))) {
             throw new ResourceNotFoundException("Share link has expired");
         }
 

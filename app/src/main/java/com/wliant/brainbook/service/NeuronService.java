@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,6 +54,7 @@ public class NeuronService {
     private final UrlBrowseService urlBrowseService;
     private final LinkSuggestionAsyncService linkSuggestionAsyncService;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     public NeuronService(NeuronRepository neuronRepository,
                          BrainRepository brainRepository,
@@ -64,7 +66,8 @@ public class NeuronService {
                          AnchorService anchorService,
                          UrlBrowseService urlBrowseService,
                          LinkSuggestionAsyncService linkSuggestionAsyncService,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         Clock clock) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
@@ -76,6 +79,7 @@ public class NeuronService {
         this.urlBrowseService = urlBrowseService;
         this.linkSuggestionAsyncService = linkSuggestionAsyncService;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     public List<NeuronResponse> getByClusterId(UUID clusterId) {
@@ -165,7 +169,7 @@ public class NeuronService {
         if (req.contentText() != null) neuron.setContentText(req.contentText());
         if (req.templateId() != null) neuron.setTemplateId(req.templateId());
         if (req.complexity() != null) neuron.setComplexity(req.complexity());
-        neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastEditedAt(LocalDateTime.now(clock));
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         return toResponse(saved);
@@ -184,7 +188,7 @@ public class NeuronService {
         neuron.setContentJson(req.contentJson());
         neuron.setContentText(req.contentText());
         neuron.setVersion(neuron.getVersion() + 1);
-        neuron.setLastEditedAt(LocalDateTime.now());
+        neuron.setLastEditedAt(LocalDateTime.now(clock));
         neuron.setLastUpdatedBy(settingsService.getDisplayName());
         Neuron saved = neuronRepository.save(neuron);
         snapshotScheduler.recordUpdate(id);

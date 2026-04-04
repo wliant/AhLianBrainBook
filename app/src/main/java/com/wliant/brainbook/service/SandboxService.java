@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -39,19 +41,22 @@ public class SandboxService {
     private final GitOperationService gitOperationService;
     private final SandboxCloneService sandboxCloneService;
     private final SandboxConfig config;
+    private final Clock clock;
 
     public SandboxService(SandboxRepository sandboxRepository,
                           ClusterRepository clusterRepository,
                           ProjectConfigRepository projectConfigRepository,
                           GitOperationService gitOperationService,
                           SandboxCloneService sandboxCloneService,
-                          SandboxConfig config) {
+                          SandboxConfig config,
+                          Clock clock) {
         this.sandboxRepository = sandboxRepository;
         this.clusterRepository = clusterRepository;
         this.projectConfigRepository = projectConfigRepository;
         this.gitOperationService = gitOperationService;
         this.sandboxCloneService = sandboxCloneService;
         this.config = config;
+        this.clock = clock;
     }
 
     public SandboxResponse provision(UUID clusterId, ProvisionSandboxRequest req) {
@@ -172,7 +177,7 @@ public class SandboxService {
     public void updateAfterPull(UUID clusterId, String newCommit) {
         sandboxRepository.findByClusterId(clusterId).ifPresent(s -> {
             s.setCurrentCommit(newCommit);
-            s.setLastAccessedAt(java.time.LocalDateTime.now());
+            s.setLastAccessedAt(LocalDateTime.now(clock));
             sandboxRepository.save(s);
         });
     }
@@ -181,14 +186,14 @@ public class SandboxService {
         sandboxRepository.findByClusterId(clusterId).ifPresent(s -> {
             s.setCurrentBranch(branch);
             s.setCurrentCommit(commit);
-            s.setLastAccessedAt(java.time.LocalDateTime.now());
+            s.setLastAccessedAt(LocalDateTime.now(clock));
             sandboxRepository.save(s);
         });
     }
 
     public void updateLastAccessed(UUID clusterId) {
         sandboxRepository.findByClusterId(clusterId).ifPresent(s -> {
-            s.setLastAccessedAt(java.time.LocalDateTime.now());
+            s.setLastAccessedAt(LocalDateTime.now(clock));
             sandboxRepository.save(s);
         });
     }
