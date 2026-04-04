@@ -12,13 +12,6 @@ const mockAnchor = {
   neuronId: 'neuron-1',
   clusterId: 'cluster-1',
   filePath: 'src/Main.java',
-  startLine: 5,
-  endLine: 10,
-  contentHash: 'abc123',
-  commitSha: null,
-  status: 'active',
-  driftedStartLine: null,
-  driftedEndLine: null,
   createdAt: '2024-01-01T00:00:00',
   updatedAt: '2024-01-01T00:00:00',
 };
@@ -53,7 +46,6 @@ describe('useNeuronAnchors', () => {
 
     expect(result.current.anchors).toHaveLength(1);
     expect(result.current.anchors[0].filePath).toBe('src/Main.java');
-    expect(result.current.anchors[0].status).toBe('active');
   });
 });
 
@@ -87,6 +79,6 @@ describe('useFileAnchors', () => {
     });
 
     expect(result.current.anchors).toHaveLength(1);
-    expect(result.current.anchors[0].startLine).toBe(5);
+    expect(result.current.anchors[0].filePath).toBe('src/Main.java');
   });
 });

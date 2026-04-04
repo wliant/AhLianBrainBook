@@ -328,16 +328,12 @@ export const api = {
       request<{ content: import("@/types").NeuronAnchor[]; totalElements: number }>(
         `/api/neuron-anchors/cluster/${clusterId}/file?path=${encodeURIComponent(path)}&page=${page}&size=${size}`
       ),
-    listOrphaned: (clusterId: string) =>
-      request<import("@/types").NeuronAnchor[]>(`/api/neuron-anchors/cluster/${clusterId}/orphaned`),
-    create: (body: { neuronId: string; clusterId: string; filePath: string; startLine: number; endLine: number }) =>
+    create: (body: { neuronId: string; clusterId: string; filePath: string }) =>
       request<import("@/types").NeuronAnchor>("/api/neuron-anchors", { method: "POST", body }),
-    update: (id: string, body: { filePath: string; startLine: number; endLine: number }) =>
+    update: (id: string, body: { filePath: string }) =>
       request<import("@/types").NeuronAnchor>(`/api/neuron-anchors/${id}`, { method: "PATCH", body }),
     delete: (id: string) =>
       request<void>(`/api/neuron-anchors/${id}`, { method: "DELETE" }),
-    confirmDrift: (id: string) =>
-      request<import("@/types").NeuronAnchor>(`/api/neuron-anchors/${id}/confirm-drift`, { method: "POST" }),
   },
 
   researchTopics: {

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List, History, AlignLeft, AlertTriangle, Loader2 } from "lucide-react";
+import { GitBranch, Box, List, History, AlignLeft, Loader2 } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
 import { useFileTree } from "@/lib/hooks/useFileTree";
 import { useFileContent } from "@/lib/hooks/useFileContent";
-import { useFileAnchors, useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
+import { useFileAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useSandbox } from "@/lib/hooks/useSandbox";
 import { useResizeHandle } from "@/lib/hooks/useResizeHandle";
 import { api } from "@/lib/api";
@@ -19,7 +19,7 @@ import { SandboxStatusBar } from "./SandboxStatusBar";
 import { GitLogPanel } from "./GitLogPanel";
 import { BlameView } from "./BlameView";
 import { DiffView } from "./DiffView";
-import { OrphanList } from "./OrphanList";
+import type { CodeSelection } from "./CodeViewer";
 import { GoToLineDialog } from "./GoToLineDialog";
 import { FileStructurePanel } from "./FileStructurePanel";
 import { QuickOpenDialog } from "./QuickOpenDialog";
@@ -47,7 +47,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [gitLogOpen, setGitLogOpen] = useState(false);
   const [diffView, setDiffView] = useState<{ from: string; to: string } | null>(null);
   const [blameVisible, setBlameVisible] = useState(false);
-  const [orphanListOpen, setOrphanListOpen] = useState(false);
+  const [codeSelection, setCodeSelection] = useState<CodeSelection | null>(null);
   const [goToLineOpen, setGoToLineOpen] = useState(false);
   const { size: leftPanelWidth, handleMouseDown: handleLeftResize } = useResizeHandle(250, 150, 500, "left");
   const { size: rightPanelWidth, handleMouseDown: handleRightResize } = useResizeHandle(300, 200, 600, "right");
@@ -82,8 +82,6 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const fileLoading = isSandboxActive ? sandboxFileLoading : browseFileLoading;
 
   const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(cluster.id, selectedPath);
-  const { anchors: allAnchors } = useNeuronAnchors(cluster.id);
-  const orphanCount = allAnchors.filter((a) => a.status === "drifted" || a.status === "orphaned").length;
   const { symbols, loading: symbolsLoading } = useCodeStructure(
     isSandboxActive ? cluster.id : null,
     selectedPath
@@ -113,7 +111,6 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
       }
       if (e.key === "Escape") {
         setGitLogOpen(false);
-        setOrphanListOpen(false);
         setBlameVisible(false);
         setStructurePanelOpen(false);
       }
@@ -165,11 +162,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const handleSelectFile = useCallback((path: string) => {
     setSelectedPath(path);
     setScrollToLine(null);
-  }, []);
-
-  const handleAnchorClick = useCallback((line: number) => {
-    setScrollToLine(line);
-    setScrollKey((k) => k + 1);
+    setCodeSelection(null);
   }, []);
 
   const handleProvision = async (body: { branch: string; shallow: boolean }) => {
@@ -245,18 +238,6 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             >
               <AlignLeft className="h-3 w-3" />
             </Button>
-            {orphanCount > 0 && (
-              <Button
-                size="sm"
-                variant={orphanListOpen ? "secondary" : "ghost"}
-                className="h-7 text-xs gap-1"
-                onClick={() => setOrphanListOpen((prev) => !prev)}
-                title="Orphaned anchors"
-              >
-                <AlertTriangle className="h-3 w-3" />
-                <span>{orphanCount}</span>
-              </Button>
-            )}
           </>
         )}
         {!sandbox && (
@@ -332,13 +313,11 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           {selectedPath && fileContent ? (
             <CodeViewer
               fileContent={fileContent}
-              anchors={fileAnchors}
               scrollToLine={scrollToLine}
               scrollKey={scrollKey}
-              clusterId={cluster.id}
-              brainId={brainId}
               onGoToDefinition={isSandboxActive ? handleGoToDefinition : undefined}
               blameData={blameVisible ? blameData ?? null : null}
+              onCodeSelection={setCodeSelection}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
@@ -355,22 +334,14 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
         {/* Neuron Panel / Orphan List */}
         <div className="overflow-hidden flex-shrink-0" style={{ width: rightPanelWidth }}>
-          {orphanListOpen ? (
-            <OrphanList
-              clusterId={cluster.id}
-              entries={entries}
-              onClose={() => setOrphanListOpen(false)}
-            />
-          ) : (
-            <NeuronPanel
-              clusterId={cluster.id}
-              brainId={brainId}
-              selectedPath={selectedPath}
-              fileAnchors={fileAnchors}
-              anchorsLoading={anchorsLoading}
-              onAnchorClick={handleAnchorClick}
-            />
-          )}
+          <NeuronPanel
+            clusterId={cluster.id}
+            brainId={brainId}
+            selectedPath={selectedPath}
+            fileAnchors={fileAnchors}
+            anchorsLoading={anchorsLoading}
+            codeSelection={codeSelection}
+          />
         </div>
       </div>
       )}

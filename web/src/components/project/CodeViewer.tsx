@@ -1,14 +1,13 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect } from "react";
 import {
   EditorView,
-  Decoration,
   lineNumbers,
   highlightSpecialChars,
   drawSelection,
 } from "@codemirror/view";
-import { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import {
   syntaxHighlighting,
   defaultHighlightStyle,
@@ -18,11 +17,15 @@ import {
 } from "@codemirror/language";
 import { highlightSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { anchorGutter } from "./AnchorGutter";
 import { blameGutter } from "./BlameGutter";
 import { goToDefinitionExtension, type GoToDefinitionHandler } from "./GoToDefinition";
-import { CreateAnchorDialog } from "./CreateAnchorDialog";
-import type { FileContent, NeuronAnchor, BlameLine } from "@/types";
+import type { FileContent, BlameLine } from "@/types";
+
+export interface CodeSelection {
+  code: string;
+  startLine: number;
+  endLine: number;
+}
 
 const languageLoaders: Record<string, () => Promise<LanguageSupport>> = {
   javascript: () =>
@@ -59,24 +62,20 @@ const languageLoaders: Record<string, () => Promise<LanguageSupport>> = {
 
 interface CodeViewerProps {
   fileContent: FileContent;
-  anchors: NeuronAnchor[];
   scrollToLine: number | null;
   scrollKey: number;
-  clusterId: string;
-  brainId: string;
   onGoToDefinition?: GoToDefinitionHandler;
   blameData?: BlameLine[] | null;
+  onCodeSelection?: (selection: CodeSelection | null) => void;
 }
 
 export function CodeViewer({
   fileContent,
-  anchors,
   scrollToLine,
   scrollKey,
-  clusterId,
-  brainId,
   onGoToDefinition,
   blameData,
+  onCodeSelection,
 }: CodeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -88,11 +87,8 @@ export function CodeViewer({
   const onGoToDefinitionRef = useRef(onGoToDefinition);
   onGoToDefinitionRef.current = onGoToDefinition;
 
-  const [anchorSelection, setAnchorSelection] = useState<{
-    startLine: number;
-    endLine: number;
-  } | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const onCodeSelectionRef = useRef(onCodeSelection);
+  onCodeSelectionRef.current = onCodeSelection;
 
   // Initialize editor
   useEffect(() => {
@@ -110,7 +106,7 @@ export function CodeViewer({
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorState.readOnly.of(true),
         languageCompartment.current.of([]),
-        gutterCompartment.current.of(anchorGutter(anchors)),
+        gutterCompartment.current.of([]),
         blameCompartment.current.of(blameData ? blameGutter(blameData) : []),
         goToDefCompartment.current.of(
           onGoToDefinitionRef.current
@@ -162,15 +158,6 @@ export function CodeViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileContent.path, fileContent.content]);
 
-  // Update anchor gutter when anchors change
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    view.dispatch({
-      effects: gutterCompartment.current.reconfigure(anchorGutter(anchors)),
-    });
-  }, [anchors]);
-
   // Update blame gutter when blame data changes
   useEffect(() => {
     const view = viewRef.current;
@@ -206,105 +193,58 @@ export function CodeViewer({
     });
   }, [scrollToLine, scrollKey]);
 
-  // Highlight selected anchor lines
+  // Notify parent of text selection changes
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
-    if (!anchorSelection) {
-      view.dispatch({
-        effects: selectionHighlightCompartment.current.reconfigure([]),
-      });
-      return;
-    }
-    const lineDeco = Decoration.line({ class: "cm-anchor-selection" });
-    const builder = new RangeSetBuilder<Decoration>();
-    const startLine = Math.max(1, anchorSelection.startLine);
-    const endLine = Math.min(anchorSelection.endLine, view.state.doc.lines);
-    for (let i = startLine; i <= endLine; i++) {
-      const line = view.state.doc.line(i);
-      builder.add(line.from, line.from, lineDeco);
-    }
-    const decoSet = builder.finish();
-    view.dispatch({
-      effects: selectionHighlightCompartment.current.reconfigure(
-        EditorView.decorations.of(decoSet)
-      ),
-    });
-  }, [anchorSelection]);
 
-  // Handle line gutter click for anchor selection
-  const handleContainerClick = useCallback(
-    (e: React.MouseEvent) => {
-      const view = viewRef.current;
-      if (!view) return;
-
-      // Check if click is on the line number gutter
-      const target = e.target as HTMLElement;
-      if (!target.closest(".cm-lineNumbers")) return;
-
-      const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-      if (pos === null) return;
-
-      const lineNumber = view.state.doc.lineAt(pos).number;
-
-      if (e.shiftKey && anchorSelection) {
-        // Shift+click: extend selection
-        const start = Math.min(anchorSelection.startLine, lineNumber);
-        const end = Math.max(anchorSelection.startLine, lineNumber);
-        if (end - start <= 100) {
-          setAnchorSelection({ startLine: start, endLine: end });
-          setDialogOpen(true);
-        }
-      } else {
-        // Single click: start selection
-        setAnchorSelection({ startLine: lineNumber, endLine: lineNumber });
+    const listener = EditorView.updateListener.of((update) => {
+      if (!update.selectionSet) return;
+      const sel = update.state.selection.main;
+      if (sel.empty) {
+        onCodeSelectionRef.current?.(null);
+        return;
       }
-    },
-    [anchorSelection]
-  );
+      const startLine = update.state.doc.lineAt(sel.from);
+      const endLine = update.state.doc.lineAt(sel.to);
+      // Extract full lines
+      const lines: string[] = [];
+      for (let i = startLine.number; i <= endLine.number; i++) {
+        lines.push(update.state.doc.line(i).text);
+      }
+      onCodeSelectionRef.current?.({
+        code: lines.join("\n"),
+        startLine: startLine.number,
+        endLine: endLine.number,
+      });
+    });
+
+    view.dispatch({
+      effects: selectionHighlightCompartment.current.reconfigure(listener),
+    });
+
+    return () => {
+      if (viewRef.current) {
+        viewRef.current.dispatch({
+          effects: selectionHighlightCompartment.current.reconfigure([]),
+        });
+      }
+    };
+  }, [fileContent.path]);
 
   return (
     <div className="flex flex-col h-full">
       {/* File path header */}
-      <div className="px-3 py-1.5 border-b text-xs text-muted-foreground bg-muted/30 flex items-center justify-between">
+      <div className="px-3 py-1.5 border-b text-xs text-muted-foreground bg-muted/30">
         <span className="truncate">{fileContent.path}</span>
-        {anchorSelection && !dialogOpen && (
-          <button
-            className="text-xs px-2 py-0.5 bg-primary text-primary-foreground rounded hover:bg-primary/90 ml-2 shrink-0"
-            onClick={() => setDialogOpen(true)}
-          >
-            Create Anchor (L{anchorSelection.startLine}
-            {anchorSelection.endLine !== anchorSelection.startLine
-              ? `-${anchorSelection.endLine}`
-              : ""}
-            )
-          </button>
-        )}
       </div>
 
       {/* Editor */}
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden"
-        onClick={handleContainerClick}
         data-testid="code-viewer"
       />
-
-      {/* Create Anchor Dialog */}
-      {anchorSelection && (
-        <CreateAnchorDialog
-          open={dialogOpen}
-          onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) setAnchorSelection(null);
-          }}
-          clusterId={clusterId}
-          brainId={brainId}
-          filePath={fileContent.path}
-          startLine={anchorSelection.startLine}
-          endLine={anchorSelection.endLine}
-        />
-      )}
     </div>
   );
 }

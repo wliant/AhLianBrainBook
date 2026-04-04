@@ -113,6 +113,7 @@ export function SectionList({
   const deleteSection = useCallback(
     (id: string) => {
       const section = sectionsRef.current.find((s) => s.id === id);
+      if (section?.meta?.locked) return;
       if (
         (section?.type === "image" || section?.type === "audio") &&
         section.content.attachmentId
@@ -133,6 +134,7 @@ export function SectionList({
       const current = sectionsRef.current;
       const idx = current.findIndex((s) => s.id === id);
       if (idx < 0) return;
+      if (current[idx].meta?.locked) return;
       const targetIdx = direction === "up" ? idx - 1 : idx + 1;
       if (targetIdx < 0 || targetIdx >= current.length) return;
       const updated = [...current];
@@ -270,7 +272,7 @@ export function SectionList({
             >
               {renderSection(section, isEditing)}
             </SectionWrapper>
-            {!viewMode && (
+            {!viewMode && !section.meta?.locked && (
               <div className="flex justify-center py-1 opacity-0 hover:opacity-100 transition-opacity">
                 <AddSectionButton onAdd={(type) => addSection(type, idx)} />
               </div>

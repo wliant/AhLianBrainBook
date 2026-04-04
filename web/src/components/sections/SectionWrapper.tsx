@@ -42,10 +42,11 @@ export function SectionWrapper({
   children,
 }: SectionWrapperProps) {
   const isPreview = !!section.meta?.preview;
+  const isLocked = !!section.meta?.locked;
 
   return (
     <div className="group relative" data-section-id={section.id}>
-      {!viewMode && (
+      {!viewMode && !isLocked && (
         <div
           className={cn(
             "absolute -left-10 top-0 flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity",

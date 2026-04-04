@@ -101,12 +101,7 @@ export interface BlameLine {
 
 export interface PullResponse {
   newCommit: string;
-  anchorsAffected: {
-    unchanged: number;
-    autoUpdated: number;
-    drifted: number;
-    orphaned: number;
-  };
+  renamedAnchors: number;
 }
 
 // Project Cluster types
@@ -120,20 +115,11 @@ export interface ProjectConfig {
   updatedAt: string;
 }
 
-export type AnchorStatus = "active" | "drifted" | "orphaned";
-
 export interface NeuronAnchor {
   id: string;
   neuronId: string;
   clusterId: string;
   filePath: string;
-  startLine: number;
-  endLine: number;
-  contentHash: string;
-  commitSha: string | null;
-  status: AnchorStatus;
-  driftedStartLine: number | null;
-  driftedEndLine: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -200,6 +186,7 @@ export interface Neuron {
   lastUpdatedBy: string;
   lastEditedAt: string;
   tags: Tag[];
+  anchor: NeuronAnchor | null;
 }
 
 export interface AppSettings {

@@ -205,9 +205,6 @@ export const handlers = [
   http.get(`${API_BASE}/api/neuron-anchors/cluster/:clusterId/file`, () =>
     HttpResponse.json({ content: [], totalElements: 0 })
   ),
-  http.get(`${API_BASE}/api/neuron-anchors/cluster/:clusterId/orphaned`, () =>
-    HttpResponse.json([])
-  ),
   http.post(`${API_BASE}/api/neuron-anchors`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json(
@@ -216,13 +213,6 @@ export const handlers = [
         neuronId: body.neuronId,
         clusterId: body.clusterId,
         filePath: body.filePath,
-        startLine: body.startLine,
-        endLine: body.endLine,
-        contentHash: 'abc123',
-        commitSha: null,
-        status: 'active',
-        driftedStartLine: null,
-        driftedEndLine: null,
         createdAt: '2024-01-01T00:00:00',
         updatedAt: '2024-01-01T00:00:00',
       },
@@ -236,27 +226,12 @@ export const handlers = [
       neuronId: 'neuron-1',
       clusterId: 'cluster-1',
       filePath: body.filePath,
-      startLine: body.startLine,
-      endLine: body.endLine,
-      contentHash: 'updated-hash',
-      commitSha: null,
-      status: 'active',
-      driftedStartLine: null,
-      driftedEndLine: null,
       createdAt: '2024-01-01T00:00:00',
       updatedAt: '2024-01-01T00:00:00',
     });
   }),
   http.delete(`${API_BASE}/api/neuron-anchors/:id`, () =>
     new HttpResponse(null, { status: 204 })
-  ),
-  http.post(`${API_BASE}/api/neuron-anchors/:id/confirm-drift`, ({ params }) =>
-    HttpResponse.json({
-      id: params.id,
-      status: 'active',
-      createdAt: '2024-01-01T00:00:00',
-      updatedAt: '2024-01-01T00:00:00',
-    })
   ),
 
   // Sandbox lifecycle
@@ -308,7 +283,7 @@ export const handlers = [
   http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/pull`, () =>
     HttpResponse.json({
       newCommit: 'def789abc012',
-      anchorsAffected: { unchanged: 5, autoUpdated: 1, drifted: 0, orphaned: 0 },
+      renamedAnchors: 0,
     })
   ),
   http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/checkout`, ({ params }) =>

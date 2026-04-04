@@ -58,6 +58,7 @@ function NeuronPageContent({
   const [showReminder, setShowReminder] = useState(false);
   const [showSR, setShowSR] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [cluster, setCluster] = useState<Cluster | null>(null);
   const { isInReview, addToReview, removeFromReview } = useSpacedRepetition();
   const saveTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const versionRef = useRef(1);
@@ -90,10 +91,11 @@ function NeuronPageContent({
     Promise.all([
       api.get<Brain>(`/api/brains/${brainId}`),
       api.get<Cluster>(`/api/clusters/${clusterId}`),
-    ]).then(([brain, cluster]) => {
+    ]).then(([brain, clusterData]) => {
+      setCluster(clusterData);
       setBreadcrumbItems([
         { label: brain.name, href: `/brain/${brainId}` },
-        { label: cluster.name, href: `/brain/${brainId}/cluster/${clusterId}` },
+        { label: clusterData.name, href: `/brain/${brainId}/cluster/${clusterId}` },
       ]);
     }).catch(() => {
       setLoadError("Brain or cluster not found.");

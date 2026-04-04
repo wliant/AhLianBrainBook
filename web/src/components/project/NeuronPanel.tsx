@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, FileCode, AlertTriangle, CheckCircle, Trash2, ChevronRight, ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { FileText, Plus, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNeuronAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
-import type { NeuronAnchor } from "@/types";
+import { api } from "@/lib/api";
+import type { NeuronAnchor, Neuron } from "@/types";
+import type { CodeSelection } from "./CodeViewer";
 
 interface NeuronPanelProps {
   clusterId: string;
@@ -14,7 +17,7 @@ interface NeuronPanelProps {
   selectedPath: string | null;
   fileAnchors: NeuronAnchor[];
   anchorsLoading: boolean;
-  onAnchorClick: (line: number) => void;
+  codeSelection: CodeSelection | null;
 }
 
 export function NeuronPanel({
@@ -23,19 +26,15 @@ export function NeuronPanel({
   selectedPath,
   fileAnchors,
   anchorsLoading,
-  onAnchorClick,
+  codeSelection,
 }: NeuronPanelProps) {
   const { neurons } = useNeurons(clusterId);
-  const { confirmDrift, deleteAnchor } = useNeuronAnchors(clusterId);
   const [expandedNeurons, setExpandedNeurons] = useState<Set<string>>(new Set());
+  const [creating, setCreating] = useState(false);
+  const queryClient = useQueryClient();
+  const router = useRouter();
 
-  // Build neuron lookup
   const neuronMap = new Map(neurons.map((n) => [n.id, n]));
-
-  const activeAnchors = fileAnchors.filter((a) => a.status === "active");
-  const needsReview = fileAnchors.filter(
-    (a) => a.status === "drifted" || a.status === "orphaned"
-  );
 
   const toggleExpanded = (neuronId: string) => {
     setExpandedNeurons((prev) => {
@@ -49,19 +48,69 @@ export function NeuronPanel({
     });
   };
 
-  const handleConfirmDrift = async (anchor: NeuronAnchor) => {
+  const handleCreateNeuron = async () => {
+    if (!selectedPath || !codeSelection || creating) return;
+    setCreating(true);
     try {
-      await confirmDrift(anchor.id);
-    } catch (err) {
-      console.error("Failed to confirm drift:", err);
-    }
-  };
+      const sectionId1 = crypto.randomUUID();
+      const sectionId2 = crypto.randomUUID();
+      const sectionId3 = crypto.randomUUID();
 
-  const handleDeleteAnchor = async (anchor: NeuronAnchor) => {
-    try {
-      await deleteAnchor(anchor.id);
+      // Detect language from file extension
+      const ext = selectedPath.split(".").pop()?.toLowerCase() ?? "";
+      const langMap: Record<string, string> = {
+        js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
+        py: "python", java: "java", cpp: "cpp", c: "c", cs: "csharp",
+        rs: "rust", go: "go", html: "html", css: "css", json: "json",
+        md: "markdown", sql: "sql", xml: "xml", yaml: "yaml", yml: "yaml",
+        sh: "bash", bash: "bash",
+      };
+      const language = langMap[ext] ?? "";
+
+      const contentJson = JSON.stringify({
+        version: 2,
+        sections: [
+          {
+            id: sectionId1,
+            type: "callout",
+            order: 0,
+            content: { type: "info", text: selectedPath },
+            meta: { locked: true },
+          },
+          {
+            id: sectionId2,
+            type: "code",
+            order: 1,
+            content: { code: codeSelection.code, language },
+            meta: { locked: true },
+          },
+          {
+            id: sectionId3,
+            type: "rich-text",
+            order: 2,
+            content: {},
+            meta: {},
+          },
+        ],
+      });
+
+      const neuron = await api.post<Neuron>("/api/neurons", {
+        title: "",
+        brainId,
+        clusterId,
+        contentJson,
+        contentText: "",
+        anchor: { filePath: selectedPath },
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
+      queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
+
+      router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`);
     } catch (err) {
-      console.error("Failed to delete anchor:", err);
+      console.error("Failed to create anchored neuron:", err);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -76,24 +125,40 @@ export function NeuronPanel({
   return (
     <div className="flex flex-col h-full overflow-y-auto" data-testid="neuron-panel">
       {/* Header */}
-      <div className="px-3 py-2 border-b">
+      <div className="px-3 py-2 border-b flex items-center justify-between">
         <h3 className="text-sm font-medium truncate">
           Neurons in {selectedPath.split("/").pop()}
         </h3>
       </div>
 
-      {/* Active Anchors */}
+      {/* Create Neuron from selection */}
+      {codeSelection && (
+        <div className="px-3 py-2 border-b">
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={handleCreateNeuron}
+            disabled={creating}
+            data-testid="create-neuron-from-selection"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            {creating ? "Creating..." : `Create Neuron (L${codeSelection.startLine}–${codeSelection.endLine})`}
+          </Button>
+        </div>
+      )}
+
+      {/* Anchor list */}
       <div className="flex-1 p-2 space-y-1">
         {anchorsLoading ? (
           <p className="text-xs text-muted-foreground p-2">Loading...</p>
-        ) : activeAnchors.length === 0 && needsReview.length === 0 ? (
+        ) : fileAnchors.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>No anchored neurons.</p>
-            <p className="text-xs mt-1">Click line numbers to select a range, then shift+click to create an anchor.</p>
+            <p className="text-xs mt-1">Highlight code to create a neuron.</p>
           </div>
         ) : (
-          activeAnchors.map((anchor) => {
+          fileAnchors.map((anchor) => {
             const neuron = neuronMap.get(anchor.neuronId);
             const isExpanded = expandedNeurons.has(anchor.neuronId);
             const contentJson = neuron?.contentJson
@@ -107,7 +172,7 @@ export function NeuronPanel({
               <div key={anchor.id} className="rounded-md border border-border/50">
                 <button
                   className="w-full text-left p-2 hover:bg-accent transition-colors rounded-t-md"
-                  onClick={() => onAnchorClick(anchor.startLine)}
+                  onClick={() => router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${anchor.neuronId}`)}
                 >
                   <div className="flex items-center gap-2">
                     {hasContent ? (
@@ -131,14 +196,8 @@ export function NeuronPanel({
                       {neuron?.title || "Untitled"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 ml-5.5">
-                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">
-                      <FileCode className="h-2.5 w-2.5" />
-                      L{anchor.startLine}
-                      {anchor.endLine !== anchor.startLine
-                        ? `–${anchor.endLine}`
-                        : ""}
-                    </span>
+                  <div className="text-[10px] text-muted-foreground truncate ml-5.5">
+                    {anchor.filePath}
                   </div>
                 </button>
 
@@ -159,61 +218,6 @@ export function NeuronPanel({
           })
         )}
       </div>
-
-      {/* Needs Review Section */}
-      {needsReview.length > 0 && (
-        <div className="border-t p-2">
-          <h4 className="text-xs font-medium text-muted-foreground px-2 py-1 flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Needs Review ({needsReview.length})
-          </h4>
-          <div className="space-y-1">
-            {needsReview.map((anchor) => (
-              <div
-                key={anchor.id}
-                className="p-2 rounded-md border border-yellow-500/30 bg-yellow-500/5"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium truncate">
-                    {neuronMap.get(anchor.neuronId)?.title || "Untitled"}
-                  </span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
-                      anchor.status === "drifted"
-                        ? "bg-yellow-500/20 text-yellow-400"
-                        : "bg-red-500/20 text-red-400"
-                    }`}
-                  >
-                    {anchor.status}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 mt-1.5">
-                  {anchor.status === "drifted" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-xs px-2"
-                      onClick={() => handleConfirmDrift(anchor)}
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Confirm
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 text-xs px-2 text-destructive"
-                    onClick={() => handleDeleteAnchor(anchor)}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
