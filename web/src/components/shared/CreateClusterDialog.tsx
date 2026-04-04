@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FolderOpen, Sparkles, Code } from "lucide-react";
+import { FolderOpen, Sparkles, Code, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +17,7 @@ interface CreateClusterDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hasAiResearch: boolean;
+  hasTodo?: boolean;
   onSubmit: (name: string, type: ClusterType, repoUrl?: string) => Promise<unknown>;
 }
 
@@ -24,6 +25,7 @@ export function CreateClusterDialog({
   open,
   onOpenChange,
   hasAiResearch,
+  hasTodo,
   onSubmit,
 }: CreateClusterDialogProps) {
   const [clusterName, setClusterName] = useState("");
@@ -40,12 +42,12 @@ export function CreateClusterDialog({
   }, [open]);
 
   const canSubmit =
-    (clusterType === "ai-research" || clusterName.trim()) &&
+    (clusterType === "ai-research" || clusterType === "todo" || clusterName.trim()) &&
     (clusterType !== "project" || repoUrl.trim());
 
   const handleSubmit = async () => {
     if (!canSubmit || creating) return;
-    const name = clusterType === "ai-research" ? "AI Research" : clusterName.trim();
+    const name = clusterType === "ai-research" ? "AI Research" : clusterType === "todo" ? "Tasks" : clusterName.trim();
     setCreating(true);
     try {
       await onSubmit(name, clusterType, clusterType === "project" ? repoUrl.trim() : undefined);
@@ -61,7 +63,7 @@ export function CreateClusterDialog({
         <DialogHeader>
           <DialogTitle>New Cluster</DialogTitle>
         </DialogHeader>
-        {clusterType !== "ai-research" && (
+        {clusterType !== "ai-research" && clusterType !== "todo" && (
           <Input
             autoFocus
             placeholder="Cluster name"
@@ -99,6 +101,16 @@ export function CreateClusterDialog({
                 className="accent-primary" />
               <Code className="h-4 w-4 text-muted-foreground" />
               Project
+            </label>
+            <label className={`flex items-center gap-2 text-sm ${hasTodo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+              <input type="radio" name="cluster-type" value="todo"
+                checked={clusterType === "todo"}
+                onChange={() => setClusterType("todo")}
+                disabled={hasTodo}
+                className="accent-primary" />
+              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+              Todo List
+              {hasTodo && <span className="text-xs text-muted-foreground">(already exists)</span>}
             </label>
           </div>
         </div>

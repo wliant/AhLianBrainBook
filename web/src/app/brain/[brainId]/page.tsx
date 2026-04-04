@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { FolderOpen, Plus, Network, Sparkles, Code } from "lucide-react";
+import { FolderOpen, Plus, Network, Sparkles, Code, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useClusters } from "@/lib/hooks/useClusters";
 import { useBrains } from "@/lib/hooks/useBrains";
@@ -46,6 +46,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
   };
 
   const hasAiResearch = clusters.some((c) => c.type === "ai-research");
+  const hasTodo = clusters.some((c) => c.type === "todo");
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto" data-testid="brain-page">
@@ -102,11 +103,14 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
       ) : (
         <div className="grid gap-3">
           {[...clusters].sort((a, b) => {
-            if (a.type === "ai-research" && b.type !== "ai-research") return -1;
-            if (a.type !== "ai-research" && b.type === "ai-research") return 1;
+            const typeOrder: Record<string, number> = { "todo": 0, "ai-research": 1 };
+            const aOrder = typeOrder[a.type] ?? 99;
+            const bOrder = typeOrder[b.type] ?? 99;
+            if (aOrder !== bOrder) return aOrder - bOrder;
             return a.sortOrder - b.sortOrder;
           }).map((cluster) => {
-            const Icon = cluster.type === "ai-research" ? Sparkles
+            const Icon = cluster.type === "todo" ? CheckSquare
+              : cluster.type === "ai-research" ? Sparkles
               : cluster.type === "project" ? Code : FolderOpen;
             return (
               <Link
@@ -125,6 +129,7 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
         open={clusterDialogOpen}
         onOpenChange={setClusterDialogOpen}
         hasAiResearch={hasAiResearch}
+        hasTodo={hasTodo}
         onSubmit={createCluster}
       />
     </div>

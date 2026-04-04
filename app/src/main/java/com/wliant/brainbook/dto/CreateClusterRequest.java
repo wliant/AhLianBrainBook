@@ -17,7 +17,7 @@ public record CreateClusterRequest(
         UUID brainId,
 
         @Nullable
-        @Pattern(regexp = "knowledge|ai-research|project", message = "Type must be knowledge, ai-research, or project")
+        @Pattern(regexp = "knowledge|ai-research|project|todo", message = "Type must be knowledge, ai-research, project, or todo")
         String type,
 
         @Nullable

@@ -13,7 +13,7 @@ export interface Brain {
   tags: Tag[];
 }
 
-export type ClusterType = "knowledge" | "ai-research" | "project";
+export type ClusterType = "knowledge" | "ai-research" | "project" | "todo";
 
 export type ClusterStatusType = "generating" | "ready";
 export type ResearchTopicStatusType = "generating" | "ready" | "updating" | "error";
@@ -192,8 +192,30 @@ export interface Neuron {
 export interface AppSettings {
   displayName: string;
   maxRemindersPerNeuron: number;
+  timezone: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TodoEffort = "15min" | "30min" | "1hr" | "2hr" | "4hr" | "8hr";
+export type TodoPriority = "critical" | "important" | "normal";
+
+export interface TodoMetadata {
+  neuronId: string;
+  dueDate: string | null;
+  completed: boolean;
+  completedAt: string | null;
+  effort: TodoEffort | null;
+  priority: TodoPriority;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskFromNeuronResponse {
+  neuron: Neuron;
+  todoMetadata: TodoMetadata;
+  clusterId: string;
+  brainId: string;
 }
 
 export interface Tag {
@@ -308,6 +330,7 @@ export interface Reminder {
   recurrencePattern: "DAILY" | "WEEKLY" | "MONTHLY" | null;
   recurrenceInterval: number | null;
   isActive: boolean;
+  isSystem: boolean;
   createdAt: string;
   updatedAt: string;
   title?: string | null;

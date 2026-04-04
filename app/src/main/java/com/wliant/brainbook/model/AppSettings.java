@@ -29,6 +29,9 @@ public class AppSettings {
     @Column(name = "max_reminders_per_neuron", nullable = false)
     private int maxRemindersPerNeuron = 10;
 
+    @Column(name = "timezone", nullable = false, length = 50)
+    private String timezone = "Asia/Singapore";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -57,4 +60,6 @@ public class AppSettings {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public int getMaxRemindersPerNeuron() { return maxRemindersPerNeuron; }
     public void setMaxRemindersPerNeuron(int maxRemindersPerNeuron) { this.maxRemindersPerNeuron = maxRemindersPerNeuron; }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
 }

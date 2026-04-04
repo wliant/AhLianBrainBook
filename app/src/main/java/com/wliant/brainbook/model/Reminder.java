@@ -54,6 +54,9 @@ public class Reminder {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
+    @Column(name = "is_system", nullable = false)
+    private boolean isSystem = false;
+
     @Column(name = "title")
     private String title;
 
@@ -98,6 +101,8 @@ public class Reminder {
     public void setRecurrenceInterval(Integer recurrenceInterval) { this.recurrenceInterval = recurrenceInterval; }
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
+    public boolean isSystem() { return isSystem; }
+    public void setSystem(boolean system) { isSystem = system; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }

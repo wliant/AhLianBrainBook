@@ -10,6 +10,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { EntityMetadata } from "@/components/shared/EntityMetadata";
 import { ResearchClusterView } from "@/components/research/ResearchClusterView";
 import { ProjectClusterView } from "@/components/project/ProjectClusterView";
+import { TodoClusterView } from "@/components/todo/TodoClusterView";
 import { api } from "@/lib/api";
 import type { Brain, Cluster, Neuron, Tag } from "@/types";
 
@@ -55,7 +56,11 @@ export default function ClusterPage({
   return (
     <div className="flex flex-col h-full" data-testid="cluster-page">
       <Breadcrumb items={breadcrumbItems} />
-      {cluster?.type === "project" ? (
+      {cluster?.type === "todo" ? (
+        <div className="flex-1 min-h-0">
+          <TodoClusterView cluster={cluster} brainId={brainId} />
+        </div>
+      ) : cluster?.type === "project" ? (
         <div className="flex-1 min-h-0">
           <ProjectClusterView cluster={cluster} brainId={brainId} />
         </div>

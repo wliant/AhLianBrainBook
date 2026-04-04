@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 
 public record AppSettingsRequest(
         @Size(max = 100) String displayName,
-        @Min(1) @Max(100) Integer maxRemindersPerNeuron
+        @Min(1) @Max(100) Integer maxRemindersPerNeuron,
+        @Size(max = 50) String timezone
 ) {
 }

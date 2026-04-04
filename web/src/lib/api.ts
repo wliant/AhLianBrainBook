@@ -246,8 +246,20 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName?: string; maxRemindersPerNeuron?: number }) =>
+    update: (body: { displayName?: string; maxRemindersPerNeuron?: number; timezone?: string }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
+  },
+
+  // Todo endpoints
+  todo: {
+    getMetadata: (neuronId: string) =>
+      request<import("@/types").TodoMetadata>(`/api/neurons/${neuronId}/todo`),
+    updateMetadata: (neuronId: string, body: { dueDate?: string | null; completed?: boolean; effort?: string | null; priority?: string }) =>
+      request<import("@/types").TodoMetadata>(`/api/neurons/${neuronId}/todo`, { method: "PATCH", body }),
+    getClusterMetadata: (clusterId: string) =>
+      request<Record<string, import("@/types").TodoMetadata>>(`/api/clusters/${clusterId}/todo`),
+    createTaskFromNeuron: (brainId: string, body: { sourceNeuronId: string; title: string }) =>
+      request<import("@/types").CreateTaskFromNeuronResponse>(`/api/brains/${brainId}/tasks`, { method: "POST", body }),
   },
 
   // Notification endpoints
