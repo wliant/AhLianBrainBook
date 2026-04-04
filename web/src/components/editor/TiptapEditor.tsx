@@ -12,6 +12,8 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { InlineCheckbox } from "./InlineCheckbox";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
 import Highlight from "@tiptap/extension-highlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -40,11 +42,13 @@ const STATIC_EXTENSIONS = [
   TableCell,
   TableHeader,
   InlineCheckbox,
+  TaskList,
+  TaskItem.configure({ nested: true }),
   Placeholder.configure({
     placeholder: "Start writing... Use / for commands",
   }),
   Highlight,
-  CodeBlockLowlight.configure({ lowlight }),
+  CodeBlockLowlight.configure({ lowlight, exitOnTripleEnter: false, exitOnArrowDown: false }),
   Typography,
 ];
 
@@ -60,6 +64,7 @@ export function TiptapEditor({ content, onUpdate, editable = true, onInsertSecti
   const router = useRouter();
   const isExternalUpdate = useRef(false);
   const contentRef = useRef(content);
+  const lastEditorContent = useRef<Record<string, unknown> | null>(null);
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
 
@@ -77,6 +82,7 @@ export function TiptapEditor({ content, onUpdate, editable = true, onInsertSecti
       if (isExternalUpdate.current) return;
       const json = editor.getJSON() as Record<string, unknown>;
       const text = editor.getText();
+      lastEditorContent.current = json;
       onUpdateRef.current(json, text);
     },
     editorProps: {
@@ -91,6 +97,11 @@ export function TiptapEditor({ content, onUpdate, editable = true, onInsertSecti
   // Reuse editor instance when content prop changes externally
   useEffect(() => {
     if (editor && content && content !== contentRef.current) {
+      // Skip setContent if this update originated from the editor itself
+      if (content === lastEditorContent.current) {
+        contentRef.current = content;
+        return;
+      }
       isExternalUpdate.current = true;
       editor.commands.setContent(content);
       contentRef.current = content;

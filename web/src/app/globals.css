@@ -112,6 +112,45 @@
   height: 0.9em;
 }
 
+/* Task list in TipTap editor */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+ul[data-type="taskList"] > li > label {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+  user-select: none;
+}
+
+ul[data-type="taskList"] > li > label input[type="checkbox"] {
+  appearance: auto;
+  cursor: pointer;
+  width: 0.9em;
+  height: 0.9em;
+}
+
+ul[data-type="taskList"] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+ul[data-type="taskList"] > li[data-checked="true"] > div {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
 /* Print styles for PDF export */
 @media print {
   /* Hide non-content elements */

@@ -81,7 +81,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
                 editor.chain().focus().toggleOrderedList().run();
                 break;
               case "taskList":
-                editor.chain().focus().toggleBulletList().run();
+                editor.chain().focus().toggleTaskList().run();
                 break;
               case "blockquote":
                 editor.chain().focus().toggleBlockquote().run();
