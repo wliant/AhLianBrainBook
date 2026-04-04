@@ -126,7 +126,7 @@ describe('NeuronPanel', () => {
       });
     });
 
-    it('navigates to neuron page when anchor card is clicked', async () => {
+    it('opens content dialog when anchor card is clicked', async () => {
       const neuron = makeNeuron({ title: 'Auth Middleware' });
       const anchor = makeAnchor();
       useNeuronsHandler([neuron]);
@@ -142,6 +142,31 @@ describe('NeuronPanel', () => {
       });
 
       await user.click(screen.getByText('Auth Middleware'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Go to neuron page' })).toBeInTheDocument();
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('navigates to neuron page via context menu', async () => {
+      const neuron = makeNeuron({ title: 'Auth Middleware' });
+      const anchor = makeAnchor();
+      useNeuronsHandler([neuron]);
+
+      const user = userEvent.setup();
+      render(
+        <NeuronPanel {...defaultProps} fileAnchors={[anchor]} />,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Auth Middleware')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Neuron options' }));
+      await user.click(screen.getByText('Go to neuron page'));
+
       expect(mockPush).toHaveBeenCalledWith('/brain/brain-1/cluster/cluster-1/neuron/neuron-1');
     });
   });
@@ -267,7 +292,7 @@ describe('NeuronPanel', () => {
       });
     });
 
-    it('calls onNavigateToFile and switches to file tab when file path is clicked', async () => {
+    it('calls onNavigateToFile and switches to file tab via context menu', async () => {
       const onNavigateToFile = vi.fn();
       const neurons = [
         makeNeuron({ title: 'My Note', anchor: makeAnchor({ filePath: 'src/Main.java' }) }),
@@ -286,14 +311,15 @@ describe('NeuronPanel', () => {
         expect(screen.getByText('src/Main.java')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('src/Main.java'));
+      await user.click(screen.getByRole('button', { name: 'Neuron options' }));
+      await user.click(screen.getByText('Open file in tree'));
 
       expect(onNavigateToFile).toHaveBeenCalledWith('src/Main.java');
       // Should switch back to "This File" tab
       expect(screen.getByText(/Neurons in/)).toBeInTheDocument();
     });
 
-    it('navigates to neuron page when neuron card is clicked', async () => {
+    it('opens content dialog when neuron card is clicked', async () => {
       const neurons = [makeNeuron({ id: 'n1', title: 'Click Me' })];
       useNeuronsHandler(neurons);
 
@@ -307,6 +333,28 @@ describe('NeuronPanel', () => {
       });
 
       await user.click(screen.getByText('Click Me'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Go to neuron page' })).toBeInTheDocument();
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('navigates to neuron page via context menu in All Neurons tab', async () => {
+      const neurons = [makeNeuron({ id: 'n1', title: 'Click Me' })];
+      useNeuronsHandler(neurons);
+
+      const user = userEvent.setup();
+      render(<NeuronPanel {...defaultProps} />, { wrapper: createWrapper() });
+
+      await user.click(screen.getByText('All Neurons'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Click Me')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Neuron options' }));
+      await user.click(screen.getByText('Go to neuron page'));
 
       expect(mockPush).toHaveBeenCalledWith('/brain/brain-1/cluster/cluster-1/neuron/n1');
     });

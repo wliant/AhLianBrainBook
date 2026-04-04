@@ -3,9 +3,22 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, ChevronRight, ChevronDown, Search, Layers } from "lucide-react";
+import { FileText, Plus, Search, Layers, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useNeurons } from "@/lib/hooks/useNeurons";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import { api } from "@/lib/api";
@@ -32,10 +45,10 @@ export function NeuronPanel({
   onNavigateToFile,
 }: NeuronPanelProps) {
   const { neurons } = useNeurons(clusterId);
-  const [expandedNeurons, setExpandedNeurons] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<"file" | "cluster">("file");
   const [clusterSearch, setClusterSearch] = useState("");
+  const [dialogNeuron, setDialogNeuron] = useState<{ neuron: Neuron; anchor?: NeuronAnchor } | null>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -50,18 +63,6 @@ export function NeuronPanel({
         n.contentText?.toLowerCase().includes(lower)
     );
   }, [neurons, clusterSearch]);
-
-  const toggleExpanded = (neuronId: string) => {
-    setExpandedNeurons((prev) => {
-      const next = new Set(prev);
-      if (next.has(neuronId)) {
-        next.delete(neuronId);
-      } else {
-        next.add(neuronId);
-      }
-      return next;
-    });
-  };
 
   const handleCreateNeuron = async () => {
     if (!selectedPath || !codeSelection || creating) return;
@@ -200,38 +201,15 @@ export function NeuronPanel({
               ) : (
                 fileAnchors.map((anchor) => {
                   const neuron = neuronMap.get(anchor.neuronId);
-                  const isExpanded = expandedNeurons.has(anchor.neuronId);
-                  const contentJson = neuron?.contentJson
-                    ? (typeof neuron.contentJson === "string"
-                        ? JSON.parse(neuron.contentJson)
-                        : neuron.contentJson)
-                    : null;
-                  const hasContent = contentJson && contentJson.content?.length > 0;
 
                   return (
-                    <div key={anchor.id} className="rounded-md border border-border/50">
+                    <div key={anchor.id} className="group rounded-md border border-border/50 flex items-center">
                       <button
-                        className="w-full text-left p-2 hover:bg-accent transition-colors rounded-t-md"
-                        onClick={() => router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${anchor.neuronId}`)}
+                        className="flex-1 text-left p-2 hover:bg-accent transition-colors rounded-l-md min-w-0"
+                        onClick={() => neuron && setDialogNeuron({ neuron, anchor })}
                       >
                         <div className="flex items-center gap-2">
-                          {hasContent ? (
-                            <button
-                              className="shrink-0 p-0.5 hover:bg-accent rounded"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleExpanded(anchor.neuronId);
-                              }}
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                              )}
-                            </button>
-                          ) : (
-                            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          )}
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span className="text-sm font-medium truncate">
                             {neuron?.title || "Untitled"}
                           </span>
@@ -241,18 +219,25 @@ export function NeuronPanel({
                         </div>
                       </button>
 
-                      {/* Expanded content */}
-                      {isExpanded && contentJson && (
-                        <div className="px-3 pb-2 border-t border-border/30">
-                          <div className="mt-2 text-sm">
-                            <TiptapEditor
-                              content={contentJson}
-                              onUpdate={() => {}}
-                              editable={false}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button aria-label="Neuron options" className="p-1.5 mr-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded shrink-0">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => onNavigateToFile?.(anchor.filePath)}
+                          >
+                            Open file in tree
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${anchor.neuronId}`)}
+                          >
+                            Go to neuron page
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   );
                 })
@@ -288,34 +273,102 @@ export function NeuronPanel({
               </div>
             ) : (
               filteredNeurons.map((neuron) => (
-                <div key={neuron.id} className="rounded-md border border-border/50">
+                <div key={neuron.id} className="group rounded-md border border-border/50 flex items-center">
                   <button
-                    className="w-full text-left p-2 hover:bg-accent transition-colors rounded-md"
-                    onClick={() => router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`)}
+                    className="flex-1 text-left p-2 hover:bg-accent transition-colors rounded-l-md min-w-0"
+                    onClick={() => setDialogNeuron({ neuron, anchor: neuron.anchor ?? undefined })}
                   >
                     <div className="text-sm font-medium truncate">
                       {neuron.title || "Untitled"}
                     </div>
                     {neuron.anchor && (
-                      <div
-                        className="text-[10px] text-muted-foreground truncate mt-0.5 hover:text-foreground cursor-pointer"
-                        title={neuron.anchor.filePath}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigateToFile?.(neuron.anchor!.filePath);
-                          setTab("file");
-                        }}
-                      >
+                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">
                         {neuron.anchor.filePath}
                       </div>
                     )}
                   </button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button aria-label="Neuron options" className="p-1.5 mr-1 opacity-0 group-hover:opacity-100 hover:bg-accent rounded shrink-0">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {neuron.anchor && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            onNavigateToFile?.(neuron.anchor!.filePath);
+                            setTab("file");
+                          }}
+                        >
+                          Open file in tree
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={() => router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`)}
+                      >
+                        Go to neuron page
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))
             )}
           </div>
         </div>
       )}
+
+      {/* Neuron content dialog */}
+      <Dialog open={!!dialogNeuron} onOpenChange={(open) => { if (!open) setDialogNeuron(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{dialogNeuron?.neuron.title || "Untitled"}</DialogTitle>
+            {dialogNeuron?.anchor && (
+              <p className="text-xs text-muted-foreground">{dialogNeuron.anchor.filePath}</p>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {dialogNeuron?.neuron.contentJson && (
+              <TiptapEditor
+                content={parseContent(dialogNeuron.neuron.contentJson)}
+                onUpdate={() => {}}
+                editable={false}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            {dialogNeuron?.anchor && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onNavigateToFile?.(dialogNeuron.anchor!.filePath);
+                  setDialogNeuron(null);
+                }}
+              >
+                Open file in tree
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() =>
+                router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${dialogNeuron!.neuron.id}`)
+              }
+            >
+              Go to neuron page
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function parseContent(contentJson: unknown): Record<string, unknown> | null {
+  if (!contentJson) return null;
+  if (typeof contentJson === "string") {
+    try { return JSON.parse(contentJson); } catch { return null; }
+  }
+  return contentJson as Record<string, unknown>;
 }
