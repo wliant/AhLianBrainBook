@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -97,6 +98,17 @@ public class AnchorService {
         return neuronAnchorRepository.findByNeuronId(neuronId)
                 .map(this::toResponse)
                 .orElse(null);
+    }
+
+    public int updateFilePathsForRenames(UUID clusterId, Map<String, String> renames) {
+        if (renames.isEmpty()) return 0;
+        List<NeuronAnchor> anchors = neuronAnchorRepository
+                .findByClusterIdAndFilePathIn(clusterId, new ArrayList<>(renames.keySet()));
+        for (NeuronAnchor anchor : anchors) {
+            anchor.setFilePath(renames.get(anchor.getFilePath()));
+        }
+        neuronAnchorRepository.saveAll(anchors);
+        return anchors.size();
     }
 
     public Map<UUID, NeuronAnchorResponse> getByNeuronIds(List<UUID> neuronIds) {

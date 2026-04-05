@@ -119,7 +119,7 @@ public class MarkdownExportService {
     private void convertSectionToMarkdown(JsonNode section, StringBuilder sb) {
         String type = section.has("type") ? section.get("type").asText() : "richtext";
         switch (type) {
-            case "richtext" -> {
+            case "rich-text", "richtext" -> {
                 JsonNode content = section.get("content");
                 if (content != null && content.has("type") && content.has("content")) {
                     for (JsonNode node : content.get("content")) {

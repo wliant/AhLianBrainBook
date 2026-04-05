@@ -18,7 +18,6 @@ public class DatabaseCleaner {
         jdbcTemplate.execute("TRUNCATE TABLE link_suggestions CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE neuron_embeddings CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE neuron_anchors CASCADE");
-        jdbcTemplate.execute("TRUNCATE TABLE sandboxes CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE research_topics CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE spaced_repetition_items CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
