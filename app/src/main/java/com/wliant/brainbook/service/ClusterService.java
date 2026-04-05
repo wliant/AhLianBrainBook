@@ -6,6 +6,7 @@ import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
+import com.wliant.brainbook.config.SandboxGrpcClient;
 import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.ClusterStatus;
@@ -38,19 +39,19 @@ public class ClusterService {
     private final ProjectConfigRepository projectConfigRepository;
     private final SettingsService settingsService;
     private final ResearchAsyncService researchAsyncService;
-    private final GitOperationService gitOperationService;
+    private final SandboxGrpcClient sandboxGrpcClient;
 
     public ClusterService(ClusterRepository clusterRepository, BrainRepository brainRepository,
                           NeuronRepository neuronRepository, ProjectConfigRepository projectConfigRepository,
                           SettingsService settingsService, ResearchAsyncService researchAsyncService,
-                          GitOperationService gitOperationService) {
+                          SandboxGrpcClient sandboxGrpcClient) {
         this.clusterRepository = clusterRepository;
         this.brainRepository = brainRepository;
         this.neuronRepository = neuronRepository;
         this.projectConfigRepository = projectConfigRepository;
         this.settingsService = settingsService;
         this.researchAsyncService = researchAsyncService;
-        this.gitOperationService = gitOperationService;
+        this.sandboxGrpcClient = sandboxGrpcClient;
     }
 
     @Cacheable(value = "clustersByBrain", key = "#brainId")
@@ -109,7 +110,7 @@ public class ClusterService {
             String defaultBranch = req.defaultBranch();
             if (defaultBranch == null || defaultBranch.isBlank()) {
                 try {
-                    defaultBranch = gitOperationService.detectDefaultBranch(req.repoUrl());
+                    defaultBranch = sandboxGrpcClient.detectDefaultBranch(req.repoUrl());
                     log.info("Detected default branch '{}' for {}", defaultBranch, req.repoUrl());
                 } catch (Exception e) {
                     log.warn("Failed to detect default branch for {}, falling back to 'main': {}",

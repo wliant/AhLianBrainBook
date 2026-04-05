@@ -108,34 +108,6 @@ public class AnchorService {
                 ));
     }
 
-    /**
-     * Updates file paths for anchors whose files were renamed during a git pull.
-     * @param clusterId the cluster to scope the update to
-     * @param renames map of oldPath → newPath
-     * @return count of anchors updated
-     */
-    public int updateFilePathsForRenames(UUID clusterId, Map<String, String> renames) {
-        if (renames == null || renames.isEmpty()) return 0;
-
-        List<String> oldPaths = List.copyOf(renames.keySet());
-        List<NeuronAnchor> anchors = neuronAnchorRepository.findByClusterIdAndFilePathIn(clusterId, oldPaths);
-
-        int updated = 0;
-        for (NeuronAnchor anchor : anchors) {
-            String newPath = renames.get(anchor.getFilePath());
-            if (newPath != null) {
-                anchor.setFilePath(newPath);
-                neuronAnchorRepository.save(anchor);
-                updated++;
-            }
-        }
-
-        if (updated > 0) {
-            logger.info("Updated {} anchor file paths for renames in cluster {}", updated, clusterId);
-        }
-        return updated;
-    }
-
     private NeuronAnchorResponse toResponse(NeuronAnchor anchor) {
         return new NeuronAnchorResponse(
                 anchor.getId(),

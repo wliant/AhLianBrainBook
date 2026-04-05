@@ -1,14 +1,15 @@
-FROM gradle:8.12-jdk21-alpine AS build
+# Build context must be the project root (set via docker-compose build.context: .)
+FROM gradle:8.12-jdk21 AS build
 WORKDIR /app
-COPY build.gradle.kts settings.gradle.kts ./
-COPY gradle ./gradle
+COPY app/build.gradle.kts app/settings.gradle.kts ./
+COPY app/gradle ./gradle
+COPY proto ../proto
 RUN gradle dependencies --no-daemon
-COPY src ./src
+COPY app/src ./src
 RUN gradle bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S app && adduser -S app -G app
-RUN mkdir -p /data/brainbook/sandboxes && chown -R app:app /data/brainbook
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 USER app

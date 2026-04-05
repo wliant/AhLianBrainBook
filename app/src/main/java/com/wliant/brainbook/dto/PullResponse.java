@@ -1,7 +1,6 @@
 package com.wliant.brainbook.dto;
 
 public record PullResponse(
-        String newCommit,
-        int renamedAnchors
+        String newCommit
 ) {
 }
