@@ -58,8 +58,17 @@ class BrainBookAPI:
 
     # ── Clusters ──
 
-    def create_cluster(self, name: str, brain_id: str) -> dict:
-        body = {"name": name, "brainId": brain_id}
+    def create_cluster(self, name: str, brain_id: str, *,
+                       cluster_type: str | None = None,
+                       repo_url: str | None = None,
+                       default_branch: str | None = None) -> dict:
+        body: dict = {"name": name, "brainId": brain_id}
+        if cluster_type:
+            body["type"] = cluster_type
+        if repo_url:
+            body["repoUrl"] = repo_url
+        if default_branch:
+            body["defaultBranch"] = default_branch
         r = self.client.post("/api/clusters", json=body)
         r.raise_for_status()
         return r.json()
@@ -203,6 +212,13 @@ class BrainBookAPI:
         r = self.client.post("/api/tags", json=body)
         r.raise_for_status()
         return r.json()
+
+    def find_or_create_tag(self, name: str, color: str | None = None) -> dict:
+        existing = self.search_tags(name)
+        for t in existing:
+            if t["name"] == name:
+                return t
+        return self.create_tag(name, color)
 
     def list_tags(self) -> list[dict]:
         r = self.client.get("/api/tags")
@@ -505,5 +521,17 @@ class BrainBookAPI:
 
     def update_settings(self, **kwargs) -> dict:
         r = self.client.patch("/api/settings", json=kwargs)
+        r.raise_for_status()
+        return r.json()
+
+    # ── Todo Metadata ──
+
+    def get_todo_metadata(self, neuron_id: str) -> dict:
+        r = self.client.get(f"/api/neurons/{neuron_id}/todo")
+        r.raise_for_status()
+        return r.json()
+
+    def update_todo_metadata(self, neuron_id: str, **kwargs) -> dict:
+        r = self.client.patch(f"/api/neurons/{neuron_id}/todo", json=kwargs)
         r.raise_for_status()
         return r.json()
