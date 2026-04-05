@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, Search, Layers, MoreHorizontal } from "lucide-react";
+import { FileText, FolderOpen, Plus, Search, Layers, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,20 +29,24 @@ interface NeuronPanelProps {
   clusterId: string;
   brainId: string;
   selectedPath: string | null;
+  selectedType?: "file" | "directory" | null;
   fileAnchors: NeuronAnchor[];
   anchorsLoading: boolean;
   codeSelection: CodeSelection | null;
   onNavigateToFile?: (filePath: string) => void;
+  onNavigateToFolder?: (folderPath: string) => void;
 }
 
 export function NeuronPanel({
   clusterId,
   brainId,
   selectedPath,
+  selectedType,
   fileAnchors,
   anchorsLoading,
   codeSelection,
   onNavigateToFile,
+  onNavigateToFolder,
 }: NeuronPanelProps) {
   const { neurons } = useNeurons(clusterId);
   const [creating, setCreating] = useState(false);
@@ -64,8 +68,11 @@ export function NeuronPanel({
     );
   }, [neurons, clusterSearch]);
 
+  const isDirectory = selectedType === "directory";
+  const displayPath = selectedPath === "" ? "Project Root" : selectedPath;
+
   const handleCreateNeuron = async () => {
-    if (!selectedPath || !codeSelection || creating) return;
+    if (selectedPath === null || !codeSelection || creating) return;
     setCreating(true);
     try {
       const sectionId1 = crypto.randomUUID();
@@ -130,6 +137,53 @@ export function NeuronPanel({
     }
   };
 
+  const handleCreateFolderNeuron = async () => {
+    if (selectedPath === null || creating) return;
+    setCreating(true);
+    try {
+      const sectionId1 = crypto.randomUUID();
+      const sectionId2 = crypto.randomUUID();
+
+      const contentJson = JSON.stringify({
+        version: 2,
+        sections: [
+          {
+            id: sectionId1,
+            type: "callout",
+            order: 0,
+            content: { type: "info", text: displayPath },
+            meta: { locked: true },
+          },
+          {
+            id: sectionId2,
+            type: "rich-text",
+            order: 1,
+            content: {},
+            meta: {},
+          },
+        ],
+      });
+
+      const neuron = await api.post<Neuron>("/api/neurons", {
+        title: "",
+        brainId,
+        clusterId,
+        contentJson,
+        contentText: "",
+        anchor: { filePath: selectedPath },
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
+      queryClient.invalidateQueries({ queryKey: ["neuron-anchors", clusterId] });
+
+      router.push(`/brain/${brainId}/cluster/${clusterId}/neuron/${neuron.id}`);
+    } catch (err) {
+      console.error("Failed to create folder neuron:", err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden" data-testid="neuron-panel">
       {/* Tab header */}
@@ -142,7 +196,7 @@ export function NeuronPanel({
           }`}
           onClick={() => setTab("file")}
         >
-          This File
+          {isDirectory ? "This Folder" : "This File"}
         </button>
         <button
           className={`text-xs px-2 py-1 rounded-sm transition-colors flex items-center gap-1 ${
@@ -158,22 +212,36 @@ export function NeuronPanel({
       </div>
 
       {tab === "file" ? (
-        /* "This File" tab */
-        !selectedPath ? (
+        /* "This File / This Folder" tab */
+        selectedPath === null ? (
           <div className="p-4 text-sm text-muted-foreground">
-            Select a file to see anchored neurons.
+            Select a file or folder to see anchored neurons.
           </div>
         ) : (
           <div className="flex flex-col flex-1 overflow-y-auto">
-            {/* File name header */}
+            {/* Path header */}
             <div className="px-3 py-2 border-b">
               <h3 className="text-sm font-medium truncate">
-                Neurons in {selectedPath.split("/").pop()}
+                {isDirectory
+                  ? `Notes in ${displayPath}`
+                  : `Neurons in ${selectedPath.split("/").pop()}`}
               </h3>
             </div>
 
-            {/* Create Neuron from selection */}
-            {codeSelection && (
+            {/* Create Neuron — folder mode: always show button; file mode: only on code selection */}
+            {isDirectory ? (
+              <div className="px-3 py-2 border-b">
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={handleCreateFolderNeuron}
+                  disabled={creating}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  {creating ? "Creating..." : "Create Note"}
+                </Button>
+              </div>
+            ) : codeSelection ? (
               <div className="px-3 py-2 border-b">
                 <Button
                   size="sm"
@@ -186,7 +254,7 @@ export function NeuronPanel({
                   {creating ? "Creating..." : `Create Neuron (L${codeSelection.startLine}–${codeSelection.endLine})`}
                 </Button>
               </div>
-            )}
+            ) : null}
 
             {/* Anchor list */}
             <div className="flex-1 p-2 space-y-1">
@@ -194,9 +262,19 @@ export function NeuronPanel({
                 <p className="text-xs text-muted-foreground p-2">Loading...</p>
               ) : fileAnchors.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
-                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No anchored neurons.</p>
-                  <p className="text-xs mt-1">Highlight code to create a neuron.</p>
+                  {isDirectory ? (
+                    <>
+                      <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No notes for this folder.</p>
+                      <p className="text-xs mt-1">Click &ldquo;Create Note&rdquo; to add one.</p>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No anchored neurons.</p>
+                      <p className="text-xs mt-1">Highlight code to create a neuron.</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 fileAnchors.map((anchor) => {

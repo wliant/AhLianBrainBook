@@ -43,7 +43,7 @@ export function useFileAnchors(clusterId: string | null, path: string | null) {
   const { data, isLoading: loading } = useQuery({
     queryKey: ["neuron-anchors", clusterId, "file", path],
     queryFn: () => api.neuronAnchors.listByFile(clusterId!, path!),
-    enabled: !!clusterId && !!path,
+    enabled: !!clusterId && path !== null,
   });
 
   const anchors = data?.content ?? [];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List, History, AlignLeft, Loader2 } from "lucide-react";
+import { GitBranch, Box, List, History, AlignLeft, Loader2, Folder } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
@@ -12,7 +12,7 @@ import { useSandbox } from "@/lib/hooks/useSandbox";
 import { useResizeHandle } from "@/lib/hooks/useResizeHandle";
 import { api } from "@/lib/api";
 import { FileTreePanel } from "./FileTreePanel";
-import { CodeViewer } from "./CodeViewer";
+import { FileContentViewer } from "./FileContentViewer";
 import { NeuronPanel } from "./NeuronPanel";
 import { ProvisionSandboxDialog } from "./ProvisionSandboxDialog";
 import { SandboxStatusBar } from "./SandboxStatusBar";
@@ -20,6 +20,7 @@ import { GitLogPanel } from "./GitLogPanel";
 import { BlameView } from "./BlameView";
 import { DiffView } from "./DiffView";
 import type { CodeSelection } from "./CodeViewer";
+import { isImageFile } from "@/lib/fileIcons";
 import { GoToLineDialog } from "./GoToLineDialog";
 import { FileStructurePanel } from "./FileStructurePanel";
 import { QuickOpenDialog } from "./QuickOpenDialog";
@@ -39,6 +40,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const ref = config?.defaultBranch ?? undefined;
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<"file" | "directory" | null>(null);
   const [scrollToLine, setScrollToLine] = useState<number | null>(null);
   const [scrollKey, setScrollKey] = useState(0);
   const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
@@ -67,15 +69,16 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const entries = isSandboxActive ? sandboxEntries : browseEntries;
   const treeLoading = isSandboxActive ? sandboxTreeLoading : (configLoading || browseTreeLoading);
 
-  // File content: use sandbox endpoint when active
+  // File content: use sandbox endpoint when active, only for files (not directories)
+  const isFileSelected = selectedType === "file" && !!selectedPath;
   const { data: sandboxFileContent, isLoading: sandboxFileLoading } = useQuery({
     queryKey: ["sandbox-file", cluster.id, selectedPath],
     queryFn: () => api.sandbox.file(cluster.id, selectedPath!),
-    enabled: isSandboxActive && !!selectedPath,
+    enabled: isSandboxActive && isFileSelected,
   });
   const { fileContent: browseFileContent, loading: browseFileLoading } = useFileContent(
     isSandboxActive ? null : cluster.id,
-    selectedPath,
+    isFileSelected ? selectedPath : null,
     ref
   );
   const fileContent = isSandboxActive ? sandboxFileContent : browseFileContent;
@@ -83,15 +86,15 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
   const { anchors: fileAnchors, loading: anchorsLoading } = useFileAnchors(cluster.id, selectedPath);
   const { symbols, loading: symbolsLoading } = useCodeStructure(
-    isSandboxActive ? cluster.id : null,
-    selectedPath
+    isSandboxActive && isFileSelected ? cluster.id : null,
+    isFileSelected ? selectedPath : null
   );
 
   // Blame data - fetched when blame toggle is on
   const { data: blameData } = useQuery({
     queryKey: ["sandbox-blame", cluster.id, selectedPath],
     queryFn: () => api.sandbox.blame(cluster.id, selectedPath!),
-    enabled: blameVisible && isSandboxActive && !!selectedPath,
+    enabled: blameVisible && isSandboxActive && isFileSelected,
   });
 
   // Keyboard shortcuts: Ctrl+P (quick open), Ctrl+Shift+O (structure panel)
@@ -161,9 +164,31 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
   const handleSelectFile = useCallback((path: string) => {
     setSelectedPath(path);
+    setSelectedType("file");
     setScrollToLine(null);
     setCodeSelection(null);
   }, []);
+
+  const handleSelectFolder = useCallback((path: string) => {
+    setSelectedPath(path);
+    setSelectedType("directory");
+    setScrollToLine(null);
+    setCodeSelection(null);
+  }, []);
+
+  // Navigate to an anchor path — auto-detects if it's a file or directory
+  const handleNavigateToAnchor = useCallback((path: string) => {
+    if (path === "") {
+      handleSelectFolder(path);
+      return;
+    }
+    const isDir = entries.some((e) => e.type === "directory" && e.path === path);
+    if (isDir) {
+      handleSelectFolder(path);
+    } else {
+      handleSelectFile(path);
+    }
+  }, [entries, handleSelectFile, handleSelectFolder]);
 
   const handleProvision = async (body: { branch: string; shallow: boolean }) => {
     await provision(body);
@@ -277,12 +302,13 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
               isError={!isSandboxActive && browseTreeError}
               selectedPath={selectedPath}
               onSelectFile={handleSelectFile}
+              onSelectFolder={handleSelectFolder}
               onLoadChildren={isSandboxActive ? handleLoadChildren : undefined}
               onOpenSearch={() => setQuickOpenOpen(true)}
               onProvisionSandbox={!sandbox ? () => setProvisionDialogOpen(true) : undefined}
             />
           </div>
-          {structurePanelOpen && isSandboxActive && selectedPath && (
+          {structurePanelOpen && isSandboxActive && isFileSelected && (
             <div className="border-t max-h-[40%] overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-2 py-1 text-xs font-medium text-muted-foreground border-b">
                 <span>OUTLINE</span>
@@ -311,15 +337,23 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           onMouseDown={handleLeftResize}
         />
 
-        {/* Code Viewer */}
+        {/* File Content Viewer */}
         <div className="flex-1 min-w-0 overflow-hidden">
-          {selectedPath && fileContent ? (
-            <CodeViewer
+          {selectedType === "directory" ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+              <Folder className="h-12 w-12 opacity-30" />
+              <p className="text-sm font-medium">
+                {selectedPath === "" ? "Project Root" : selectedPath}
+              </p>
+              <p className="text-xs opacity-60">Select a file to view code</p>
+            </div>
+          ) : isFileSelected && fileContent ? (
+            <FileContentViewer
               fileContent={fileContent}
               scrollToLine={scrollToLine}
               scrollKey={scrollKey}
-              onGoToDefinition={isSandboxActive ? handleGoToDefinition : undefined}
-              blameData={blameVisible ? blameData ?? null : null}
+              onGoToDefinition={isSandboxActive && !isImageFile(selectedPath!) ? handleGoToDefinition : undefined}
+              blameData={blameVisible && !isImageFile(selectedPath!) ? blameData ?? null : null}
               onCodeSelection={setCodeSelection}
             />
           ) : (
@@ -341,10 +375,12 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             clusterId={cluster.id}
             brainId={brainId}
             selectedPath={selectedPath}
+            selectedType={selectedType}
             fileAnchors={fileAnchors}
             anchorsLoading={anchorsLoading}
             codeSelection={codeSelection}
-            onNavigateToFile={handleSelectFile}
+            onNavigateToFile={handleNavigateToAnchor}
+            onNavigateToFolder={handleSelectFolder}
           />
         </div>
       </div>
@@ -405,7 +441,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
         open={goToLineOpen}
         onOpenChange={setGoToLineOpen}
         onGoToLine={handleGoToLine}
-        maxLine={fileContent?.content.split("\n").length}
+        maxLine={fileContent && fileContent.encoding !== "base64" ? fileContent.content.split("\n").length : undefined}
       />
 
       {/* Quick Open Dialog */}
