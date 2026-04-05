@@ -63,4 +63,69 @@ describe('api', () => {
     const result = await api.delete('/api/brains/brain-1');
     expect(result).toBeUndefined();
   });
+
+  it('retries once on 500 error then succeeds', async () => {
+    let callCount = 0;
+    server.use(
+      http.get(`${API_BASE}/api/brains/retry-test`, () => {
+        callCount++;
+        if (callCount === 1) {
+          return HttpResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+        }
+        return HttpResponse.json({ id: 'brain-1', name: 'Success' });
+      })
+    );
+
+    const result = await api.get<{ id: string; name: string }>('/api/brains/retry-test');
+    expect(callCount).toBe(2);
+    expect(result.name).toBe('Success');
+  });
+
+  it('does not retry on 400 error', async () => {
+    let callCount = 0;
+    server.use(
+      http.get(`${API_BASE}/api/brains/bad-request`, () => {
+        callCount++;
+        return HttpResponse.json({ message: 'Bad Request' }, { status: 400 });
+      })
+    );
+
+    await expect(api.get('/api/brains/bad-request')).rejects.toThrow('Bad Request');
+    expect(callCount).toBe(1);
+  });
+
+  it('throws error with message from response body', async () => {
+    server.use(
+      http.post(`${API_BASE}/api/brains/error-body`, () =>
+        HttpResponse.json({ message: 'Name already exists' }, { status: 409 })
+      )
+    );
+
+    await expect(api.post('/api/brains/error-body', { name: 'dup' })).rejects.toThrow(
+      'Name already exists'
+    );
+  });
+
+  it('throws error with error field from response body', async () => {
+    server.use(
+      http.get(`${API_BASE}/api/brains/error-field`, () =>
+        HttpResponse.json({ error: 'Custom error message' }, { status: 422 })
+      )
+    );
+
+    await expect(api.get('/api/brains/error-field')).rejects.toThrow(
+      'Custom error message'
+    );
+  });
+
+  it('returns undefined for empty response body with 200', async () => {
+    server.use(
+      http.get(`${API_BASE}/api/brains/empty-body`, () =>
+        new HttpResponse('', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      )
+    );
+
+    const result = await api.get('/api/brains/empty-body');
+    expect(result).toBeUndefined();
+  });
 });
