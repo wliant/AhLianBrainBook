@@ -1,7 +1,7 @@
 # DEF-003: Sandbox File Browser Panel Not Resizable
 
 ## Status
-Open
+Closed
 
 ## Severity
 Low

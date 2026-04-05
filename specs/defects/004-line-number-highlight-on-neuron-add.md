@@ -1,7 +1,7 @@
 # DEF-004: Line Number Not Highlighted When Adding Neuron in Project Cluster
 
 ## Status
-Open
+Closed — superseded by anchor UI redesign (text-selection-based anchoring)
 
 ## Severity
 Low

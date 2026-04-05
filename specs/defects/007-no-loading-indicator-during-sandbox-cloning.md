@@ -1,7 +1,7 @@
 # DEF-007: No Loading Indicator During Sandbox Cloning
 
 ## Status
-Open
+Closed
 
 ## Severity
 Medium

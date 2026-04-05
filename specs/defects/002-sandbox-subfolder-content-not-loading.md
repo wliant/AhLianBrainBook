@@ -1,7 +1,7 @@
 # DEF-002: Sandbox Subfolder Content Not Loading
 
 ## Status
-Open
+Closed
 
 ## Severity
 Medium

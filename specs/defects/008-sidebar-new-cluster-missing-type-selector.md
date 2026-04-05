@@ -1,7 +1,7 @@
 # DEF-008: Sidebar Context Menu "New Cluster" Missing Type Selector
 
 ## Status
-Open
+Closed
 
 ## Severity
 Medium

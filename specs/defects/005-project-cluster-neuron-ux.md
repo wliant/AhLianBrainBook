@@ -1,7 +1,7 @@
 # DEF-005: Project Cluster Neuron Creation and Display UX
 
 ## Status
-Open
+Closed
 
 ## Severity
 Medium

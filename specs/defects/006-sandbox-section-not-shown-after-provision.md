@@ -1,7 +1,7 @@
 # DEF-006: Sandbox Section Not Shown in Sidebar After Provisioning
 
 ## Status
-Open
+Closed
 
 ## Severity
 Medium

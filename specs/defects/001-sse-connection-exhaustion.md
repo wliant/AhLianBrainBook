@@ -1,7 +1,7 @@
 # DEF-001: SSE Connection Exhaustion on Multiple Tabs
 
 ## Status
-Open
+Closed
 
 ## Severity
 High
