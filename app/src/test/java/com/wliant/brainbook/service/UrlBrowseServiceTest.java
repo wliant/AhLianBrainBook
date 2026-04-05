@@ -205,6 +205,29 @@ class UrlBrowseServiceTest {
     }
 
     @Test
+    void getFile_imageFileKeepsBase64() {
+        ProjectConfig config = createProjectConfig("https://github.com/owner/repo", "main");
+        when(projectConfigRepository.findByClusterId(clusterId)).thenReturn(Optional.of(config));
+
+        // Simulate raw base64 image content from GitHub API
+        String rawBase64 = "iVBORw0KGgoAAAANSUhEUg==";
+
+        ObjectNode fileResponse = objectMapper.createObjectNode();
+        fileResponse.put("content", rawBase64);
+        fileResponse.put("size", 42);
+
+        setupRestClientGet(fileResponse);
+
+        FileContentResponse result = urlBrowseService.getFile(clusterId, null, "assets/logo.png");
+
+        assertThat(result.path()).isEqualTo("assets/logo.png");
+        assertThat(result.content()).isEqualTo(rawBase64);
+        assertThat(result.language()).isEqualTo("image");
+        assertThat(result.encoding()).isEqualTo("base64");
+        assertThat(result.size()).isEqualTo(42);
+    }
+
+    @Test
     void detectLanguage_knownExtensions() {
         assertThat(urlBrowseService.detectLanguage("file.java")).isEqualTo("java");
         assertThat(urlBrowseService.detectLanguage("file.py")).isEqualTo("python");
@@ -219,6 +242,31 @@ class UrlBrowseServiceTest {
         assertThat(urlBrowseService.detectLanguage("file.yaml")).isEqualTo("yaml");
         assertThat(urlBrowseService.detectLanguage("file.yml")).isEqualTo("yaml");
         assertThat(urlBrowseService.detectLanguage("file.sh")).isEqualTo("bash");
+    }
+
+    @Test
+    void detectLanguage_gradleAndKotlin() {
+        assertThat(urlBrowseService.detectLanguage("build.gradle")).isEqualTo("groovy");
+        assertThat(urlBrowseService.detectLanguage("app.kt")).isEqualTo("kotlin");
+        assertThat(urlBrowseService.detectLanguage("script.kts")).isEqualTo("kotlin");
+        assertThat(urlBrowseService.detectLanguage("build.gradle.kts")).isEqualTo("kotlin");
+        assertThat(urlBrowseService.detectLanguage("settings.gradle.kts")).isEqualTo("kotlin");
+    }
+
+    @Test
+    void detectLanguage_imageExtensions() {
+        assertThat(urlBrowseService.detectLanguage("logo.png")).isEqualTo("image");
+        assertThat(urlBrowseService.detectLanguage("photo.jpg")).isEqualTo("image");
+        assertThat(urlBrowseService.detectLanguage("photo.jpeg")).isEqualTo("image");
+        assertThat(urlBrowseService.detectLanguage("anim.gif")).isEqualTo("image");
+        assertThat(urlBrowseService.detectLanguage("icon.ico")).isEqualTo("image");
+        assertThat(urlBrowseService.detectLanguage("hero.webp")).isEqualTo("image");
+        assertThat(urlBrowseService.detectLanguage("img.bmp")).isEqualTo("image");
+    }
+
+    @Test
+    void detectLanguage_svgIsTreatedAsXml() {
+        assertThat(urlBrowseService.detectLanguage("icon.svg")).isEqualTo("xml");
     }
 
     @Test
