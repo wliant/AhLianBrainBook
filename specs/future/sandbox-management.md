@@ -1,5 +1,7 @@
 # Sandbox Management
 
+> **Status: Implemented.** Originally a planning spec; updated to reflect actual implementation. The architecture diverged from the original plan: instead of an embedded JGit-based solution, sandbox management is a standalone Go microservice accessed via gRPC.
+
 ## 1. Context
 
 ### Why a Separate Feature
@@ -7,9 +9,9 @@
 The Project Cluster feature (`specs/06-project-cluster.md`) defines two modes for browsing codebases:
 
 1. **URL browse mode** (default) — lightweight, no server resources. Code fetched via hosting provider API.
-2. **Sandbox mode** — server clones the git repo into a managed directory. Enables full git operations, tree-sitter indexing, full-text search, and automatic anchor reconciliation.
+2. **Sandbox mode** — a standalone service clones the git repo into a managed directory. Enables full git operations, file browsing from the local filesystem, and code intelligence features.
 
-Sandbox mode is a separate feature spec because it introduces infrastructure concerns absent from URL browse mode: disk consumption, lifecycle management, security surface, and resource contention. This document specifies the sandbox infrastructure that the Project Cluster's sandbox mode depends on.
+Sandbox mode is a separate feature spec because it introduces infrastructure concerns absent from URL browse mode: disk consumption, lifecycle management, security surface, resource contention, and a dedicated microservice.
 
 ### When Sandbox Mode Is Needed
 
@@ -22,9 +24,8 @@ Sandbox mode is a separate feature spec because it introduces infrastructure con
 | Git blame | No | Yes |
 | Git diff (arbitrary commits) | No | Yes |
 | Branch switch | Limited (API-based) | Yes (local checkout) |
-| Tree-sitter symbol navigation | No | Yes |
-| Full-text codebase search | No | Yes |
-| Anchor reconciliation on pull | No | Yes |
+| Code intelligence (structure, definition, references) | No | Yes (via intelligence-service) |
+| Works with private repos (GitHub PAT) | No | Yes |
 | Works with non-GitHub repos | No | Yes |
 | Requires server disk space | No | Yes |
 
@@ -37,14 +38,14 @@ Sandbox mode is a separate feature spec because it introduces infrastructure con
 ### 2.1 Status Diagram
 
 ```
-[No Sandbox] ── Provision ──> [Cloning] ── Success ──> [Indexing] ── Done ──> [Active]
-                                  │                                              │
-                                  │ Failure                           User terminates
-                                  ▼                                              │
-                              [Error]                               [Terminating] ──> [Deleted]
+[No Sandbox] ── Provision ──> [Cloning] ── Success ──> [Active]
+                                  │                        │
+                                  │ Failure      User terminates
+                                  v                        │
+                              [Error]           [Terminating] ──> [Deleted]
                                   │
                                   │ Retry
-                                  ▼
+                                  v
                               [Cloning]
 
 Active sandbox operations:
@@ -53,12 +54,14 @@ Active sandbox operations:
   [Active] ── idle N days ──> cleanup job ──> [Deleted]
 ```
 
+Note: The `indexing` status exists in the status enum but is currently unused. The Go service transitions directly from `cloning` to `active` after a successful clone.
+
 ### 2.2 Status Enum
 
 | Status | Description |
 |--------|-------------|
 | `cloning` | Initial git clone in progress |
-| `indexing` | Clone complete, tree-sitter pre-indexing in progress |
+| `indexing` | Reserved for future use (tree-sitter pre-indexing) |
 | `active` | Ready for use |
 | `error` | Clone or indexing failed; user can retry |
 | `terminating` | Cleanup in progress (deleting files) |
@@ -67,89 +70,86 @@ Active sandbox operations:
 
 | Operation | Trigger | Behavior |
 |-----------|---------|----------|
-| **Provision** | User clicks "Provision Sandbox" | Validate URL → create sandbox record (status=cloning) → async clone |
-| **Clone complete** | Async task finishes | Status → indexing → trigger tree-sitter pre-index → status → active |
-| **Pull** | User clicks "Pull" | `git pull --ff-only`, re-index changed files, run anchor reconciliation |
-| **Branch switch** | User selects branch | `git checkout <branch>`, re-index, run anchor reconciliation |
-| **Terminate** | User clicks "Terminate Sandbox" | Status → terminating → async delete directory → delete sandbox record |
-| **Auto-cleanup** | Scheduled job (daily) | Terminate sandboxes not accessed in N days (configurable, default 30) |
-| **Retry** | User clicks "Retry" on error | Delete partial clone if any, restart clone |
+| **Provision** | User clicks "Provision Sandbox" | Validate URL (SSRF) -> check quotas -> create sandbox record (status=cloning) -> async clone |
+| **Clone complete** | Async goroutine finishes | Check repo size limit -> read HEAD commit -> status -> active |
+| **Pull** | User clicks "Pull" | `git pull`, update commit in DB. Frontend invalidates anchor queries. |
+| **Branch switch** | User selects branch | `git checkout <branch>`, update branch + commit in DB |
+| **Terminate** | User clicks "Terminate Sandbox" | Status -> terminating -> delete directory -> delete DB record |
+| **Auto-cleanup** | `CleanupScheduler` (daily at 3 AM UTC) | Find sandboxes with `last_accessed_at` older than threshold -> delete directory -> delete DB record |
+| **Retry** | User clicks "Retry" on error | Delete partial clone directory, reset status to cloning, restart clone |
 
 ---
 
 ## 3. Data Model
 
-### 3.1 Sandboxes Table
+### 3.1 Proto Definition (Canonical)
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| id | UUID | PK, auto-generated | Unique identifier |
-| cluster_id | UUID | NOT NULL, FK → clusters ON CASCADE, UNIQUE | Parent project cluster |
-| brain_id | UUID | NOT NULL, FK → brains ON CASCADE | Parent brain (denormalized for sidebar query) |
-| repo_url | VARCHAR(2000) | NOT NULL | Git remote URL |
-| current_branch | VARCHAR(255) | NOT NULL | Currently checked-out branch |
-| current_commit | VARCHAR(40) | nullable | Current HEAD commit SHA |
-| sandbox_path | VARCHAR(500) | NOT NULL | Absolute path to cloned repo on host filesystem |
-| is_shallow | boolean | NOT NULL, default true | Whether clone is shallow (`--depth 1`) |
-| status | VARCHAR(20) | NOT NULL, default 'cloning' | Lifecycle status |
-| disk_usage_bytes | bigint | nullable | Last measured disk usage |
-| error_message | TEXT | nullable | Error details when status = error |
-| last_accessed_at | TIMESTAMP | NOT NULL | Last user interaction timestamp |
-| created_at | TIMESTAMP | NOT NULL, auto-set | Provision timestamp |
-| updated_at | TIMESTAMP | NOT NULL, auto-updated | Last modification timestamp |
+The sandbox data model is defined in `proto/sandbox/v1/sandbox.proto`. The `SandboxInfo` message is the canonical representation:
 
-**Constraints:**
-- CHECK: `status IN ('cloning', 'indexing', 'active', 'error', 'terminating')`
-- UNIQUE(`cluster_id`) — one sandbox per project cluster
+```protobuf
+message SandboxInfo {
+  string id = 1;
+  string cluster_id = 2;
+  string brain_id = 3;
+  string repo_url = 4;
+  string current_branch = 5;
+  string current_commit = 6;
+  bool is_shallow = 7;
+  string status = 8;
+  int64 disk_usage_bytes = 9;
+  string error_message = 10;
+  google.protobuf.Timestamp last_accessed_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+```
 
-**Indexes:**
-- `idx_sandboxes_cluster` on `cluster_id`
-- `idx_sandboxes_brain` on `brain_id`
-- `idx_sandboxes_status` on `status`
-- `idx_sandboxes_last_accessed` on `last_accessed_at` (for cleanup job)
+The Go model (`sandbox-service/internal/model/sandbox.go`) includes an additional `SandboxPath` field (the absolute path to the cloned repo on disk) that is internal to the sandbox-service and not exposed via gRPC.
 
-**Design note:** `brain_id` is denormalized from the cluster for sidebar query efficiency (listing all sandboxes with brain names without joining through clusters).
+### 3.2 Database
 
-### 3.2 Private Repo Credentials (Deferred)
+Sandbox data is owned by the standalone sandbox-service, stored in a separate PostgreSQL database (`sandbox`).
 
-Private repository support is deferred to a future iteration. V1 supports public repositories only.
+**Database initialization:** `docker/init-sandbox-db.sql` creates the `sandbox` database and user during infrastructure setup.
 
-When implemented, credentials will be stored in a separate `sandbox_credentials` table with AES-256-GCM encryption at rest. The encryption key will be provided via environment variable, not stored in the database. Credentials will only be decrypted in memory immediately before a git operation.
-
-### 3.3 Flyway Migration
-
-The sandboxes table is created in V29 (`V29__add_sandboxes_table.sql`):
+**Schema migration:** The sandbox-service runs its own migrations via golang-migrate (`sandbox-service/internal/store/migrations/001_create_sandboxes.up.sql`):
 
 ```sql
--- Sandboxes (part of project cluster infrastructure)
 CREATE TABLE sandboxes (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cluster_id        UUID NOT NULL UNIQUE REFERENCES clusters(id) ON DELETE CASCADE,
-    brain_id          UUID NOT NULL REFERENCES brains(id) ON DELETE CASCADE,
+    cluster_id        UUID NOT NULL UNIQUE,
+    brain_id          UUID NOT NULL,
     repo_url          VARCHAR(2000) NOT NULL,
     current_branch    VARCHAR(255) NOT NULL,
     current_commit    VARCHAR(40),
     sandbox_path      VARCHAR(500) NOT NULL,
     is_shallow        BOOLEAN NOT NULL DEFAULT true,
-    status            VARCHAR(20) NOT NULL DEFAULT 'cloning',
+    status            VARCHAR(20) NOT NULL DEFAULT 'cloning'
+                      CHECK (status IN ('cloning','indexing','active','error','terminating')),
     disk_usage_bytes  BIGINT,
     error_message     TEXT,
-    last_accessed_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-    created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT check_sandbox_status
-        CHECK (status IN ('cloning', 'indexing', 'active', 'error', 'terminating'))
+    last_accessed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX idx_sandboxes_cluster ON sandboxes(cluster_id);
-CREATE INDEX idx_sandboxes_brain ON sandboxes(brain_id);
-CREATE INDEX idx_sandboxes_status ON sandboxes(status);
-CREATE INDEX idx_sandboxes_last_accessed ON sandboxes(last_accessed_at);
 ```
+
+The table has no foreign key constraints to the main brainbook database (clusters, brains). The `cluster_id` and `brain_id` columns are plain UUID columns; referential integrity is managed at the application level.
+
+**Main app migration history:** The main app's `V29__add_sandboxes_table.sql` originally created a sandboxes table with FK constraints. `V34__remove_sandboxes_table.sql` drops it, noting "Sandbox data is now owned by the standalone sandbox-service."
+
+### 3.3 Private Repo Support (GitHub PAT)
+
+Private repository cloning is supported via GitHub Personal Access Token:
+
+- `GITHUB_PAT` environment variable is passed to the sandbox-service container
+- `GitService.injectToken()` rewrites `github.com` URLs to embed the PAT as `x-access-token` in the URL userinfo
+- Only GitHub is supported; non-GitHub hosts are passed through unchanged
+- No per-repo credentials, no SSH key support, no encrypted credential storage
 
 ### 3.4 Brain Deletion Cascade
 
-When a brain is deleted, all its sandboxes must be terminated (directory cleanup) before the CASCADE delete removes the database rows. This requires service-level orchestration: `BrainService.delete()` must call `SandboxService.terminateAllForBrain(brainId)` before deleting the brain entity, or use a `@PreRemove` entity listener.
+When a brain is deleted, the main app calls `SandboxGrpcClient.terminateByBrain(brainId)` which invokes the `TerminateByBrain` RPC. The Go service iterates all sandboxes for that brain, deletes their directories, then bulk-deletes the DB records.
 
 ---
 
@@ -159,53 +159,47 @@ When a brain is deleted, all its sandboxes must be terminated (directory cleanup
 
 | Method | Path | Purpose | Response |
 |--------|------|---------|----------|
-| POST | `/api/clusters/{clusterId}/sandbox` | Provision sandbox (clone repo) | 202 Accepted + SandboxResponse |
+| POST | `/api/clusters/{clusterId}/sandbox` | Provision sandbox | 202 Accepted + SandboxResponse |
 | GET | `/api/clusters/{clusterId}/sandbox` | Get sandbox status | 200 OK or 404 |
 | DELETE | `/api/clusters/{clusterId}/sandbox` | Terminate sandbox | 202 Accepted |
 | POST | `/api/clusters/{clusterId}/sandbox/retry` | Retry failed provision | 202 Accepted + SandboxResponse |
 
 ### 4.2 Sandbox Operations (require status = active)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/api/clusters/{clusterId}/sandbox/pull` | Pull latest from remote |
-| POST | `/api/clusters/{clusterId}/sandbox/checkout` | Switch branch |
-| GET | `/api/clusters/{clusterId}/sandbox/branches` | List available branches |
-| GET | `/api/clusters/{clusterId}/sandbox/tree?path=` | Directory listing |
-| GET | `/api/clusters/{clusterId}/sandbox/file?path=` | File content |
-| GET | `/api/clusters/{clusterId}/sandbox/search?q=&regex=` | Full-text search |
-| GET | `/api/clusters/{clusterId}/sandbox/log?limit=&offset=` | Git log |
-| GET | `/api/clusters/{clusterId}/sandbox/blame?path=` | Git blame |
-| GET | `/api/clusters/{clusterId}/sandbox/diff?from=&to=` | Git diff |
+| Method | Path | Purpose | Response |
+|--------|------|---------|----------|
+| POST | `.../sandbox/pull` | Pull latest from remote | PullResponse (newCommit) |
+| POST | `.../sandbox/checkout` | Switch branch | SandboxResponse |
+| GET | `.../sandbox/branches` | List available branches | List\<String\> |
+| GET | `.../sandbox/tree?path=` | Directory listing | List\<FileTreeEntryResponse\> |
+| GET | `.../sandbox/file?path=` | File content | FileContentResponse |
+| GET | `.../sandbox/log?limit=&offset=` | Git log (limit clamped to 200) | List\<GitCommitResponse\> |
+| GET | `.../sandbox/blame?path=` | Git blame | List\<BlameLineResponse\> |
+| GET | `.../sandbox/diff?from=&to=` | Git diff | Unified diff string |
 
-### 4.3 Global Sandbox Listing (for sidebar)
+### 4.3 Code Intelligence (proxy: sandbox-service for file, intelligence-service for analysis)
 
 | Method | Path | Purpose | Response |
 |--------|------|---------|----------|
-| GET | `/api/sandboxes` | List all active sandboxes across all brains | 200 OK + SandboxResponse[] |
-| GET | `/api/sandboxes/stats` | Aggregate stats | 200 OK + SandboxStatsResponse |
+| GET | `.../sandbox/structure?path=` | Code structure (symbols) | Map |
+| GET | `.../sandbox/definition?path=&line=&col=` | Go to definition | Map |
+| GET | `.../sandbox/references?path=&line=&col=` | Find references | Map |
 
-### 4.4 SSE Events
+These endpoints fetch file content from the sandbox-service via gRPC, then forward the content to the intelligence-service (Python/FastAPI) for tree-sitter analysis.
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/clusters/{clusterId}/sandbox/events` | SSE stream for sandbox operations |
+### 4.4 Global Sandbox Listing (for sidebar)
 
-**Event types:**
-
-| Event | Data | When |
-|-------|------|------|
-| `sandbox-ready` | `{ clusterId, branch, commit }` | Clone + indexing complete |
-| `sandbox-error` | `{ clusterId, error }` | Clone or operation failed |
-| `pull-complete` | `{ clusterId, commit, anchorsAffected }` | Pull done, anchors re-matched |
+| Method | Path | Purpose | Response |
+|--------|------|---------|----------|
+| GET | `/api/sandboxes` | List all sandboxes across all brains | List\<SandboxResponse\> |
 
 ### 4.5 Request/Response DTOs
 
 **ProvisionSandboxRequest:**
 ```json
 {
-  "branch": "main",
-  "shallow": true
+  "branch": "main",       // optional, defaults to cluster's ProjectConfig.defaultBranch
+  "shallow": true          // optional, defaults to true
 }
 ```
 
@@ -217,8 +211,8 @@ The `repoUrl` is read from the cluster's `ProjectConfig`, not passed in the requ
   "id": "uuid",
   "clusterId": "uuid",
   "brainId": "uuid",
-  "brainName": "string",
-  "clusterName": "string",
+  "brainName": "string | null",
+  "clusterName": "string | null",
   "repoUrl": "https://github.com/user/repo.git",
   "currentBranch": "main",
   "currentCommit": "abc123...",
@@ -232,36 +226,38 @@ The `repoUrl` is read from the cluster's `ProjectConfig`, not passed in the requ
 }
 ```
 
-**SandboxStatsResponse:**
+`brainName` and `clusterName` are enriched by the Spring controller by joining to the cluster entity. They are nullable (null if the cluster has been deleted).
+
+**CheckoutRequest:**
 ```json
 {
-  "activeSandboxCount": 3,
-  "totalDiskUsageBytes": 157286400,
-  "maxDiskUsageBytes": 5368709120
+  "branch": "feature/xyz"   // required, max 255 chars, pattern: ^[\w/.\-]+$
 }
 ```
 
+**Other response DTOs:** `PullResponse`, `GitCommitResponse`, `BlameLineResponse`, `FileContentResponse`, `FileTreeEntryResponse`.
+
 ---
 
-## 5. Sidebar UI Concept
+## 5. Sidebar UI
 
-A new collapsible section in the existing Sidebar component, visible only when at least one sandbox exists.
+A collapsible "Sandboxes" section in the sidebar, visible only when at least one sandbox exists.
 
 ```
 ┌──────────────────────┐
 │  Home                │
 │                      │
-│  ▼ BRAINS            │
+│  v BRAINS            │
 │    Backend Eng       │
 │    ML Research       │
 │                      │
-│  ▼ THOUGHTS          │
+│  v THOUGHTS          │
 │    Design Patterns   │
 │                      │
-│  ▼ SANDBOXES (2)     │
-│    ● spring-framework│   ← green dot = active
-│      Backend Eng     │   ← brain name, dimmed
-│    ◌ my-ml-project   │   ← hollow circle = cloning
+│  v SANDBOXES (2)     │
+│    * spring-framework│   <- green dot = active
+│      Backend Eng     │   <- brain name, dimmed
+│    o my-ml-project   │   <- yellow pulsing = cloning
 │      ML Research     │
 │                      │
 │  Settings            │
@@ -269,20 +265,23 @@ A new collapsible section in the existing Sidebar component, visible only when a
 └──────────────────────┘
 ```
 
-**Status indicators:**
-- Green dot `●` = active
-- Spinner `◌` = cloning / indexing
-- Red dot `●` = error
-- Grey dot `●` = terminating
+**Status indicators (Tailwind CSS classes):**
+- Green dot (`bg-green-500`) = active
+- Yellow pulsing dot (`bg-yellow-500 animate-pulse`) = cloning or indexing
+- Red dot (`bg-red-500`) = error
+- Grey dot (`bg-gray-500`) = terminating
 
-**Click action:** Navigate to the project cluster page for that sandbox.
+**Display name:** `clusterName || repoUrl.split("/").pop()`
+
+**Click action:** Navigate to `/brain/${brainId}/cluster/${clusterId}`.
 
 ### Provision Dialog
 
-Triggered by "Provision Sandbox" button on the project cluster page:
-- Branch (default: from `ProjectConfig.defaultBranch` or "main")
-- Clone depth: shallow (default) or full
-- Repository URL shown (read-only, from ProjectConfig)
+`ProvisionSandboxDialog` component triggered by "Provision Sandbox" button on the project cluster page:
+- Branch input (default: `ProjectConfig.defaultBranch`)
+- Shallow clone checkbox (default: checked, labeled "faster, less disk space")
+- Repository URL shown read-only
+- Error display on failure
 
 ### Terminate Confirmation
 
@@ -295,51 +294,70 @@ Triggered by "Provision Sandbox" button on the project cluster page:
 ### 6.1 Directory Structure
 
 ```
-/data/brainbook/sandboxes/
-  ├── {sandbox-uuid-1}/
-  │   └── repo/              ← cloned git repository
-  ├── {sandbox-uuid-2}/
-  │   └── repo/
-  └── ...
+/data/sandboxes/
+  +-- {sandbox-uuid-1}/
+  |   +-- repo/              <- cloned git repository
+  +-- {sandbox-uuid-2}/
+  |   +-- repo/
+  +-- ...
 ```
 
-UUID-based directory names avoid collisions and prevent information leakage.
+UUID-based directory names avoid collisions and prevent information leakage. The root path defaults to `/data/sandboxes` (configurable via `SANDBOX_ROOT_PATH`).
 
-### 6.2 Docker Volume Mount
+### 6.2 Docker Compose
 
-Add to `docker-compose.app.yml`:
+The sandbox-service runs as a separate container. The volume is mounted on sandbox-service, not the main app:
 
 ```yaml
-services:
-  app:
-    volumes:
-      - sandbox-data:/data/brainbook/sandboxes
-    environment:
-      SANDBOX_ROOT_PATH: /data/brainbook/sandboxes
-
-volumes:
-  sandbox-data:
+sandbox-service:
+  build:
+    context: .
+    dockerfile: sandbox-service/Dockerfile
+  environment:
+    DATABASE_URL: postgres://sandbox:sandbox@postgres:5432/sandbox?sslmode=disable
+    SANDBOX_ROOT_PATH: /data/sandboxes
+    SANDBOX_MAX_REPO_SIZE_MB: ${SANDBOX_MAX_REPO_SIZE_MB:-1000}
+    SANDBOX_MAX_TOTAL_DISK_MB: ${SANDBOX_MAX_TOTAL_DISK_MB:-5120}
+    SANDBOX_CLONE_TIMEOUT_SEC: ${SANDBOX_CLONE_TIMEOUT_SEC:-300}
+    SANDBOX_MAX_CONCURRENT_CLONES: ${SANDBOX_MAX_CONCURRENT_CLONES:-2}
+    SANDBOX_MAX_COUNT: ${SANDBOX_MAX_COUNT:-10}
+    SANDBOX_STALE_DAYS: ${SANDBOX_STALE_DAYS:-30}
+    GITHUB_PAT: ${GITHUB_PAT:-}
+    GRPC_PORT: 50051
+  volumes:
+    - sandbox-data:/data/sandboxes
+  healthcheck:
+    test: ["CMD", "/app/grpc_health_probe", "-addr=:50051"]
+    interval: 30s
+    timeout: 5s
+    start_period: 10s
+    retries: 3
 ```
+
+The main `app` container has no access to sandbox files — it accesses everything through gRPC. It depends on `sandbox-service: condition: service_healthy`.
 
 ### 6.3 Clone Strategy
 
-- **Shallow clone** (default): `git clone --depth 1 --single-branch -b <branch> <url>` — minimal disk, fast. Limitations: no full log, blame limited to shallow commit.
-- **Full clone** (user opt-in): `git clone -b <branch> <url>` — full history for log, blame, diff. Larger disk footprint.
-- **Unshallow upgrade**: Support `git fetch --unshallow` as a future operation for users who provisioned shallow and later need full history.
+Clone command: `git clone --branch <branch> --single-branch --no-tags [--depth 1] <url> <dir>`
+
+After clone, git hooks are disabled: `git config core.hooksPath /dev/null`
+
+- **Shallow clone** (default): `--depth 1` — minimal disk, fast. Limitations: no full log, blame limited to shallow commit.
+- **Full clone** (user opt-in): full history for log, blame, diff. Larger disk footprint.
 
 ### 6.4 Disk Usage Tracking
 
-- Measured after clone completes and after each pull
-- Stored in `sandboxes.disk_usage_bytes`
-- Periodic refresh via `SandboxDiskUsageScheduler` (every 6 hours)
+Disk usage is calculated once after clone completes via `calculateDiskUsage()`, which walks the directory tree summing file sizes. The result is stored in `sandboxes.disk_usage_bytes`.
+
+No periodic refresh scheduler exists — disk usage is a snapshot from clone time.
 
 ### 6.5 Cleanup Policy
 
-`SandboxCleanupScheduler` runs daily:
+`CleanupScheduler` runs daily at 3 AM UTC inside the Go sandbox-service:
+
 1. Find sandboxes where `last_accessed_at < NOW() - SANDBOX_STALE_DAYS` and `status = 'active'`
-2. Set status to `terminating`
-3. Delete sandbox directory
-4. Delete database record
+2. Delete sandbox directory (with safety check: directory must be under sandbox root)
+3. Delete database record
 
 ---
 
@@ -347,170 +365,147 @@ volumes:
 
 ### 7.1 URL Validation (SSRF Prevention)
 
-Before cloning, validate the repository URL:
+Implemented in `sandbox-service/internal/service/ssrf.go`. Before cloning, the repository URL is validated:
 
-1. **Protocol whitelist** — only `https://`. Reject `file://`, `ftp://`, `ssh://`, `gopher://`, etc.
-2. **Host resolution check** — resolve hostname and reject if it resolves to:
-   - Loopback addresses (`127.0.0.0/8`, `::1`)
-   - Private network ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
-   - Link-local addresses (`169.254.0.0/16`)
-   - Docker internal DNS (`host.docker.internal`, container names)
-3. **Host allowlist (optional)** — configurable list of allowed git hosting domains. If configured, only these hosts are permitted. If empty, all non-private hosts are allowed.
+1. **Protocol whitelist** — only `https://` (case-insensitive). Rejects all other schemes.
+2. **Host blocklist** — rejects `localhost`, `host.docker.internal`, and any host ending in `.internal`.
+3. **DNS resolution check** — resolves hostname and rejects if it resolves to loopback, private, link-local unicast, or link-local multicast addresses.
 
 ### 7.2 Directory Isolation
 
-- Each sandbox in its own UUID directory under the sandbox root
-- Sandbox root is a dedicated Docker volume, separated from application data and database volumes
-- File-serving endpoints canonicalize paths: `Paths.get(sandboxPath).resolve(requestedPath).normalize()` must start with `Paths.get(sandboxPath).normalize()`
-- Reject paths containing `..` or absolute paths
+Path safety is implemented in two layers (defense-in-depth):
+
+**sandbox-service** (`pathsafe.go`):
+- Rejects absolute paths (starting with `/` or `\`)
+- Rejects `..` in path
+- Rejects `.git` and `.git/` access
+- Resolves to absolute path and verifies it is under the repo directory
+
+**Spring controller** (`SandboxController.validatePath()`):
+- Rejects `..`, paths starting with `/`, `.git`, `.git/`
 
 ### 7.3 Git Operation Safety
 
 - All git operations run in sandbox directory only, never in the application directory
 - No push, commit, or write-to-remote operations exposed
-- Git hooks disabled during clone: `--config core.hooksPath=/dev/null`
-- Submodule initialization disabled: `--no-recurse-submodules`
-- LFS disabled by default
+- Git hooks disabled after clone: `git config core.hooksPath /dev/null`
+- LFS not handled
 
 ---
 
 ## 8. Resource Limits and Quotas
 
-| Limit | Default | Environment Variable |
-|-------|---------|---------------------|
-| Max total disk (all sandboxes) | 5 GB | `SANDBOX_MAX_TOTAL_DISK_MB` |
-| Max single repo size | 1 GB | `SANDBOX_MAX_REPO_SIZE_MB` |
-| Clone timeout | 5 minutes | `SANDBOX_CLONE_TIMEOUT_SEC` |
-| Max concurrent clones | 2 | `SANDBOX_MAX_CONCURRENT_CLONES` |
-| Inactive cleanup threshold | 30 days | `SANDBOX_STALE_DAYS` |
-| Max sandboxes total | 10 | `SANDBOX_MAX_COUNT` |
+| Limit | Docker Compose Default | Go Fallback | Environment Variable |
+|-------|----------------------|-------------|---------------------|
+| Max single repo size | 1000 MB | 10000 MB | `SANDBOX_MAX_REPO_SIZE_MB` |
+| Max total disk (all sandboxes) | 5120 MB | 307200 MB | `SANDBOX_MAX_TOTAL_DISK_MB` |
+| Clone timeout | 300 sec | 300 sec | `SANDBOX_CLONE_TIMEOUT_SEC` |
+| Max concurrent clones | 2 | 2 | `SANDBOX_MAX_CONCURRENT_CLONES` |
+| Inactive cleanup threshold | 30 days | 30 days | `SANDBOX_STALE_DAYS` |
+| Max sandboxes total | 10 | 1000 | `SANDBOX_MAX_COUNT` |
+
+The Go fallback defaults are intentionally permissive; the docker-compose file applies tighter production defaults.
 
 ### Enforcement
 
-- **Before provisioning:** Check total disk usage + active sandbox count against limits. Reject with 409 Conflict if exceeded.
-- **During clone:** Monitor directory size at checkpoints. Kill clone if exceeds max repo size. Set status to error: "Repository exceeds size limit."
-- **Clone timeout:** Use JGit's `TransportCommand.setTimeout()`. Kill and clean up on timeout.
-- **Concurrent clones:** `Semaphore(maxConcurrentClones)` in `SandboxService`. Reject with 429 Too Many Requests if all slots occupied.
+All enforcement is in the Go sandbox-service:
+
+- **Before provisioning:** `store.CountByStatuses()` checks active sandbox count. `store.SumDiskUsageActive()` checks total disk usage. Rejected via gRPC `RESOURCE_EXHAUSTED` status, mapped to HTTP 409 Conflict by the Spring controller.
+- **After clone:** Repo size checked via `calculateDiskUsage()` against `MaxRepoSizeBytes()`. If exceeded, directory is deleted and sandbox set to error.
+- **Clone timeout:** `context.WithTimeout()` on the clone operation.
+- **Concurrent clones:** Channel-based semaphore (`chan struct{}`) with capacity `MaxConcurrentClones`. When full, sandbox immediately set to error with message "Too many concurrent clones."
 
 ---
 
 ## 9. Monitoring
 
-### 9.1 Spring Boot Health Indicator
+### 9.1 Health Check
 
-`SandboxHealthIndicator` reports via `/actuator/health`:
-- Number of active sandboxes
-- Total disk usage vs. max allowed
-- Number of stale sandboxes (past cleanup threshold)
-- Sandbox root directory writability
+- sandbox-service implements gRPC health check protocol
+- Docker healthcheck: `/app/grpc_health_probe -addr=:50051` (interval 30s, timeout 5s, 3 retries)
+- Main app depends on sandbox-service health (`condition: service_healthy`)
 
-### 9.2 Metrics (Micrometer)
+### 9.2 Logging
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `sandbox.count` | Gauge | Number of sandboxes by status |
-| `sandbox.disk.usage.bytes` | Gauge | Total disk usage |
-| `sandbox.disk.usage.ratio` | Gauge | Usage / max total disk (0.0-1.0) |
-| `sandbox.clone.duration` | Timer | Clone operation duration |
-| `sandbox.clone.failures` | Counter | Failed clone attempts |
+The Go sandbox-service uses structured logging via `log/slog`. Key log events:
+- `sandbox ready` (with disk_mb)
+- `clone failed` / `clone complete`
+- `sandbox terminated`
+- `cleanup complete` (with cleaned count)
+- Error conditions (quota exceeded, path traversal attempts, etc.)
+
+No Micrometer metrics are currently exposed.
 
 ---
 
-## 10. Architecture Decision: JGit vs Git CLI
+## 10. Architecture
 
-### Comparison
+### 10.1 Microservice via gRPC
 
-| Aspect | JGit (Pure Java) | Git CLI (Process) |
-|--------|-------------------|-------------------|
-| Dependency | Maven/Gradle dependency | `git` binary in Docker image |
-| Docker image | No change | Must add git package (~20MB) |
-| API | Programmatic, type-safe | String output parsing |
-| Clone / Pull / Checkout | Supported | Full feature set |
-| Log / Blame / Diff | Supported | Identical to native git |
-| Credential handling | `CredentialsProvider` (in-memory) | `GIT_ASKPASS` script (complex) |
-| Timeout / Cancel | `ProgressMonitor` with cancellation | `Process.destroyForcibly()` |
-| Performance | Slower for very large repos | Faster for large repos |
-| SSH support | Via Apache MINA SSHD (extra dep) | Native |
-
-### Recommendation: JGit
-
-1. No Docker image changes
-2. Type-safe API, no string parsing
-3. Clean credential handling (future)
-4. Read-only use case — JGit's performance gaps are in write-heavy scenarios
-5. ProgressMonitor allows graceful cancellation during long operations
-
-**Fallback:** If JGit proves too slow for specific operations (blame on very large files, diff on deep history), individual operations can be migrated to CLI via `ProcessBuilder` per-operation.
-
-**Dependency:**
-```gradle
-implementation 'org.eclipse.jgit:org.eclipse.jgit:7.1.0.202411261347-r'
+```
+Browser  --(REST)-->  Spring Boot App  --(gRPC)-->  sandbox-service (Go)
+                     (SandboxController)            (SandboxServer)
+                     (SandboxGrpcClient)            (SandboxService)
+                                                    (GitService)
+                                                    (Store / pgx)
+                                                         |
+                    main PostgreSQL  <--no FK-->  sandbox PostgreSQL
+                    (brainbook DB)                  (sandbox DB)
 ```
 
----
+For code intelligence, the Spring controller creates a three-service call chain:
+```
+Browser -> Spring (SandboxController)
+             -> sandbox-service (gRPC: GetFileContent)
+             -> intelligence-service (HTTP: code structure / definition / references)
+```
 
-## 11. Backend Service Design
+### 10.2 Components
 
-### SandboxService
+**Proto definition** (`proto/sandbox/v1/sandbox.proto`):
+- 17 RPCs: 6 lifecycle, 6 git operations, 1 stateless git, 2 file operations, plus health check
+- Go and Java code generation configured
 
-Core service managing sandbox lifecycle. Follows the existing `ClusterService` pattern.
+**Spring Boot app (thin REST-to-gRPC proxy):**
+- `SandboxGrpcClient` (`config/SandboxGrpcClient.java`) — Spring `@Service` bean, blocking gRPC stub at `${SANDBOX_SERVICE_HOST:localhost:50051}`, exception mapping (gRPC status codes -> Spring exceptions), graceful shutdown
+- `SandboxController` (`controller/SandboxController.java`) — REST endpoints, request validation, response enrichment (joins cluster/brain names from main DB), path validation
 
-- `provision(UUID clusterId, ProvisionSandboxRequest request)` — validate, create record, async clone
-- `terminate(UUID clusterId)` — set terminating, async cleanup
-- `terminateAllForBrain(UUID brainId)` — called before brain deletion
-- `getByClusterId(UUID clusterId)` — sandbox metadata
-- `getAllActive()` — for sidebar listing
-- `getStats()` — aggregate statistics
-- `retry(UUID clusterId)` — retry failed provision
-- `updateLastAccessed(UUID sandboxId)` — called on each user interaction
-- `getFileTree(UUID sandboxId, String path)` — directory listing
-- `getFileContent(UUID sandboxId, String path)` — file content
-- `searchFiles(UUID sandboxId, String query, boolean regex)` — full-text search
+**Go sandbox-service:**
+- `SandboxService` (`service/sandbox.go`) — core business logic: provision, terminate, retry, pull, checkout, list, file tree, file content, detect default branch. Clone concurrency via channel semaphore.
+- `GitService` (`service/git.go`) — native git CLI wrapper via `exec.CommandContext`. Operations: clone, pull, checkout, list branches, log, blame, diff, head commit, detect default branch. GitHub PAT injection for private repos.
+- `CleanupScheduler` (`service/cleanup.go`) — daily stale sandbox cleanup at 3 AM UTC
+- `Store` (`store/store.go`) — PostgreSQL access via pgx pool, embedded golang-migrate migrations
+- `ValidateRepoURL` (`service/ssrf.go`) — SSRF prevention
+- `ResolveSafePath` (`service/pathsafe.go`) — path traversal prevention
+- `DetectLanguage` (`service/language.go`) — file extension to language mapping
 
-### GitOperationService
+### 10.3 Why Go + Native Git
 
-JGit wrapper, isolated from lifecycle management.
-
-- `cloneRepository(String repoUrl, String branch, Path targetDir, boolean shallow)`
-- `pull(Path repoDir)`
-- `checkout(Path repoDir, String branch)`
-- `listBranches(Path repoDir)`
-- `log(Path repoDir, int limit, int offset)`
-- `blame(Path repoDir, String filePath)`
-- `diff(Path repoDir, String fromRef, String toRef)`
-
-### SandboxCleanupScheduler
-
-Scheduled service (`@Scheduled`) that runs daily. Same pattern as existing `ReminderSchedulerService`.
-
-### SandboxDiskUsageScheduler
-
-Runs every 6 hours. Refreshes `disk_usage_bytes` for all active sandboxes.
+1. **Process isolation** — git operations (cloning, file I/O) are fully isolated from the Spring Boot JVM
+2. **Native git** — faster than JGit for large repos, full feature parity, simpler blame/log parsing
+3. **Independent scaling** — sandbox-service can scale independently of the main app
+4. **Independent database** — sandbox data lifecycle decoupled from main app schema
+5. **Simpler resource management** — Go goroutines + channel semaphore for clone concurrency
 
 ---
 
-## 12. Frontend Implementation
+## 11. Frontend Implementation
 
-### New Hooks
+### Hooks
 
-**`useSandbox(clusterId)`** — TanStack React Query, follows `useClusters` pattern:
-- State: `sandbox`, `loading`, `error`
-- Mutations: `provision()`, `terminate()`, `pull()`, `checkout()`, `retry()`
+**`useSandbox(clusterId)`** (`lib/hooks/useSandbox.ts`):
+- State: `sandbox` (or null), `loading`
+- Mutations: `provision(body?)`, `terminate()`, `pull()`, `checkout(branch)`, `retry()`
 - Query key: `["sandbox", clusterId]`
+- **Polling:** `refetchInterval` returns 3000ms during transitional states (`cloning`, `indexing`, `terminating`) — replaces SSE
+- **Sidebar sync:** `useEffect` invalidates `["sandboxes"]` query when sandbox status changes
+- **Cascading invalidation:** on mutations, invalidates 8 query keys: sandbox, sandboxes, sandbox-tree, sandbox-file, sandbox-blame, sandbox-log, code-structure, neuron-anchors
 
-**`useSandboxList()`** — for sidebar:
-- State: `sandboxes`, `loading`
+**`useSandboxList()`** (`lib/hooks/useSandboxList.ts`):
+- State: `sandboxes` (array), `loading`
 - Query key: `["sandboxes"]`
 
-### Sidebar Integration
-
-Modify `web/src/components/layout/Sidebar.tsx`:
-- Add collapsible "Sandboxes" section using `useSandboxList()` hook
-- Only render when `sandboxes.length > 0`
-- Each entry: status indicator + repo name + brain name
-- Click navigates to project cluster page
-
-### TypeScript Types
+### TypeScript Types (`types/index.ts`)
 
 ```typescript
 type SandboxStatus = "cloning" | "indexing" | "active" | "error" | "terminating";
@@ -519,8 +514,8 @@ interface Sandbox {
   id: string;
   clusterId: string;
   brainId: string;
-  brainName: string;
-  clusterName: string;
+  brainName: string | null;
+  clusterName: string | null;
   repoUrl: string;
   currentBranch: string;
   currentCommit: string | null;
@@ -532,47 +527,35 @@ interface Sandbox {
   createdAt: string;
   updatedAt: string;
 }
-
-interface SandboxStats {
-  activeSandboxCount: number;
-  totalDiskUsageBytes: number;
-  maxDiskUsageBytes: number;
-}
-
-interface ProvisionSandboxRequest {
-  branch: string;
-  shallow: boolean;
-}
 ```
 
----
+Additional types: `PullResponse`, `GitCommit`, `BlameLine`, `FileTreeEntry`, `FileContent`, `CodeSymbol`, `CodeLocation`, `CodeStructureResponse`, `CodeDefinitionResponse`, `CodeReferencesResponse`.
 
-## 13. Implementation Sequence
+### Key Components
 
-| Phase | What | Dependencies |
-|-------|------|-------------|
-| 1 | Flyway migration (sandboxes table) | Project cluster V26 migration |
-| 2 | JPA entity: `Sandbox`, `SandboxStatus` enum | Phase 1 |
-| 3 | `SandboxRepository` | Phase 2 |
-| 4 | Add JGit dependency to `build.gradle` | None |
-| 5 | `GitOperationService` (JGit wrapper) | Phase 4 |
-| 6 | `SandboxService` (lifecycle + file serving) | Phases 3, 5 |
-| 7 | `SandboxController` (REST endpoints) | Phase 6 |
-| 8 | SSE endpoint for sandbox events | Phase 7 |
-| 9 | Docker volume mount in compose files | Phase 6 |
-| 10 | `SandboxCleanupScheduler`, `SandboxDiskUsageScheduler` | Phase 6 |
-| 11 | Frontend types + `useSandbox` hook | Phase 7 |
-| 12 | Sandbox sidebar section + `useSandboxList` hook | Phase 11 |
-| 13 | Project cluster page integration (provision/terminate UI) | Phase 11 |
+- `ProvisionSandboxDialog` (`components/project/ProvisionSandboxDialog.tsx`) — branch input, shallow clone checkbox, error display
+- `SandboxStatusBar` — status indicator, branch, commit, pull/terminate buttons
+- `FileTreePanel` (`components/project/FileTreePanel.tsx`) — lazy-loading file tree with folder expansion
+- `CodeViewer` (`components/project/CodeViewer.tsx`) — CodeMirror 6, syntax highlighting, blame gutter, go-to-definition
+
+### API Client (`lib/api.ts`)
+
+14 sandbox endpoints + 3 code intelligence endpoints in the `api.sandbox` object. All lifecycle, git operations, file operations, and global listing endpoints are wired up.
 
 ---
 
-## 14. Future Enhancements
+## 12. Future Enhancements
 
-| Feature | Description |
-|---------|-------------|
-| **Private repo credentials** | `sandbox_credentials` table with AES-256-GCM encryption. Token and SSH key support. |
-| **Unshallow upgrade** | Convert shallow clone to full clone (`git fetch --unshallow`) without re-provisioning |
-| **Sandbox snapshots** | Save/restore sandbox state (branch, commit) for reproducible study sessions |
-| **Multi-user sandbox sharing** | Share a sandbox across users (requires auth system) |
-| **Sandbox resource dashboard** | Admin page showing all sandboxes, disk usage graphs, cleanup history |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Full-text codebase search** | Not implemented | Originally specced but no search RPC exists |
+| **Per-repo credentials** | Not implemented | Currently only one global GitHub PAT |
+| **SSH key support** | Not implemented | Only HTTPS + PAT supported |
+| **Unshallow upgrade** | Not implemented | `git fetch --unshallow` not exposed |
+| **Sandbox snapshots** | Not implemented | Save/restore sandbox state |
+| **Sandbox resource dashboard** | Not implemented | Admin page for disk usage, cleanup history |
+| **Disk usage refresh scheduler** | Not implemented | Disk usage only measured once after clone |
+| **Metrics / Micrometer** | Not implemented | Go service uses slog; no metrics exported |
+| **SSE / WebSocket for status** | Not implemented | Frontend uses 3-second polling instead |
+| **Submodule prevention** | Not implemented | `--no-recurse-submodules` not passed on clone |
+| **Host allowlist for SSRF** | Not implemented | Configurable allowed git hosting domains |
