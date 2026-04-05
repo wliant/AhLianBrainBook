@@ -39,7 +39,8 @@ RUN mkdir -p /data/sandboxes && chown -R app:app /data
 COPY --from=build /app/server /app/server
 
 # grpc_health_probe for Docker healthcheck
-ADD https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.35/grpc_health_probe-linux-amd64 /app/grpc_health_probe
+ARG TARGETARCH
+ADD https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.35/grpc_health_probe-linux-${TARGETARCH} /app/grpc_health_probe
 RUN chmod +x /app/grpc_health_probe
 
 USER app
