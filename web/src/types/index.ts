@@ -101,7 +101,6 @@ export interface BlameLine {
 
 export interface PullResponse {
   newCommit: string;
-  renamedAnchors: number;
 }
 
 // Project Cluster types

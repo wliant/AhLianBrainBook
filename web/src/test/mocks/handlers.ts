@@ -283,7 +283,6 @@ export const handlers = [
   http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/pull`, () =>
     HttpResponse.json({
       newCommit: 'def789abc012',
-      renamedAnchors: 0,
     })
   ),
   http.post(`${API_BASE}/api/clusters/:clusterId/sandbox/checkout`, ({ params }) =>
