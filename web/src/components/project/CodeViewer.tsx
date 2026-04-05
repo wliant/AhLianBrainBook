@@ -58,6 +58,16 @@ const languageLoaders: Record<string, () => Promise<LanguageSupport>> = {
       const { StreamLanguage } = await import("@codemirror/language");
       return new LanguageSupport(StreamLanguage.define(m.shell));
     }),
+  groovy: () =>
+    import("@codemirror/legacy-modes/mode/groovy").then(async (m) => {
+      const { StreamLanguage } = await import("@codemirror/language");
+      return new LanguageSupport(StreamLanguage.define(m.groovy));
+    }),
+  kotlin: () =>
+    import("@codemirror/legacy-modes/mode/clike").then(async (m) => {
+      const { StreamLanguage } = await import("@codemirror/language");
+      return new LanguageSupport(StreamLanguage.define(m.kotlin));
+    }),
 };
 
 interface CodeViewerProps {
@@ -67,6 +77,7 @@ interface CodeViewerProps {
   onGoToDefinition?: GoToDefinitionHandler;
   blameData?: BlameLine[] | null;
   onCodeSelection?: (selection: CodeSelection | null) => void;
+  hideHeader?: boolean;
 }
 
 export function CodeViewer({
@@ -76,6 +87,7 @@ export function CodeViewer({
   onGoToDefinition,
   blameData,
   onCodeSelection,
+  hideHeader,
 }: CodeViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -235,9 +247,11 @@ export function CodeViewer({
   return (
     <div className="flex flex-col h-full">
       {/* File path header */}
-      <div className="px-3 py-1.5 border-b text-xs text-muted-foreground bg-muted/30">
-        <span className="truncate">{fileContent.path}</span>
-      </div>
+      {!hideHeader && (
+        <div className="px-3 py-1.5 border-b text-xs text-muted-foreground bg-muted/30">
+          <span className="truncate">{fileContent.path}</span>
+        </div>
+      )}
 
       {/* Editor */}
       <div

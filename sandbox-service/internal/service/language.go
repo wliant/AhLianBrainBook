@@ -34,11 +34,25 @@ var extToLang = map[string]string{
 	"sh":     "bash",
 	"bash":   "bash",
 	"kt":     "kotlin",
+	"kts":    "kotlin",
 	"gradle": "groovy",
 	"toml":   "toml",
+	// Images
+	"png":  "image",
+	"jpg":  "image",
+	"jpeg": "image",
+	"gif":  "image",
+	"svg":  "xml",
+	"ico":  "image",
+	"webp": "image",
+	"bmp":  "image",
 }
 
 func DetectLanguage(path string) string {
+	// Special case: .gradle.kts files are Kotlin DSL
+	if strings.HasSuffix(strings.ToLower(path), ".gradle.kts") {
+		return "kotlin"
+	}
 	ext := filepath.Ext(path)
 	if ext == "" {
 		return ""

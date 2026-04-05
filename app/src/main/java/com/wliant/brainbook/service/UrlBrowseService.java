@@ -56,8 +56,17 @@ public class UrlBrowseService {
             Map.entry("sh", "bash"),
             Map.entry("bash", "bash"),
             Map.entry("kt", "kotlin"),
+            Map.entry("kts", "kotlin"),
             Map.entry("gradle", "groovy"),
-            Map.entry("toml", "toml")
+            Map.entry("toml", "toml"),
+            Map.entry("png", "image"),
+            Map.entry("jpg", "image"),
+            Map.entry("jpeg", "image"),
+            Map.entry("gif", "image"),
+            Map.entry("svg", "xml"),
+            Map.entry("ico", "image"),
+            Map.entry("webp", "image"),
+            Map.entry("bmp", "image")
     );
 
     private final ProjectConfigRepository projectConfigRepository;
@@ -155,11 +164,19 @@ public class UrlBrowseService {
         }
 
         String base64Content = response.get("content").asText().replaceAll("\\s", "");
-        String content = new String(Base64.getDecoder().decode(base64Content));
-        long size = response.has("size") ? response.get("size").asLong() : content.length();
+        long size = response.has("size") ? response.get("size").asLong() : 0;
         String language = detectLanguage(path);
 
-        return new FileContentResponse(path, content, language, size);
+        // Image files: keep base64 content as-is
+        if ("image".equals(language)) {
+            return new FileContentResponse(path, base64Content, language, size, "base64");
+        }
+
+        String content = new String(Base64.getDecoder().decode(base64Content));
+        if (size == 0) {
+            size = content.length();
+        }
+        return new FileContentResponse(path, content, language, size, "utf-8");
     }
 
     @Cacheable(value = "githubTree", key = "'branches:' + #clusterId")
@@ -206,6 +223,10 @@ public class UrlBrowseService {
     }
 
     static String detectLanguageStatic(String path) {
+        // Special case: .gradle.kts files are Kotlin DSL
+        if (path.toLowerCase().endsWith(".gradle.kts")) {
+            return "kotlin";
+        }
         int dotIndex = path.lastIndexOf('.');
         if (dotIndex < 0 || dotIndex == path.length() - 1) {
             return null;
