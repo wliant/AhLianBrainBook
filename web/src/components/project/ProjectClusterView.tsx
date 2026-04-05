@@ -60,7 +60,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     queryFn: () => api.sandbox.tree(cluster.id, ""),
     enabled: isSandboxActive,
   });
-  const { entries: browseEntries, loading: browseTreeLoading } = useFileTree(
+  const { entries: browseEntries, loading: browseTreeLoading, isError: browseTreeError } = useFileTree(
     !isSandboxActive && config ? cluster.id : null,
     ref
   );
@@ -274,10 +274,12 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
             <FileTreePanel
               entries={entries}
               loading={treeLoading}
+              isError={!isSandboxActive && browseTreeError}
               selectedPath={selectedPath}
               onSelectFile={handleSelectFile}
               onLoadChildren={isSandboxActive ? handleLoadChildren : undefined}
               onOpenSearch={() => setQuickOpenOpen(true)}
+              onProvisionSandbox={!sandbox ? () => setProvisionDialogOpen(true) : undefined}
             />
           </div>
           {structurePanelOpen && isSandboxActive && selectedPath && (

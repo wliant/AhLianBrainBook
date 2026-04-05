@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown, Loader2, Search } from "lucide-react";
+import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown, Loader2, Search, Lock, Box } from "lucide-react";
 import type { FileTreeEntry } from "@/types";
 
 interface TreeNode {
@@ -197,13 +197,15 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren,
 interface FileTreePanelProps {
   entries: FileTreeEntry[];
   loading: boolean;
+  isError?: boolean;
   selectedPath: string | null;
   onSelectFile: (path: string) => void;
   onLoadChildren?: (path: string) => Promise<FileTreeEntry[]>;
   onOpenSearch?: () => void;
+  onProvisionSandbox?: () => void;
 }
 
-export function FileTreePanel({ entries, loading, selectedPath, onSelectFile, onLoadChildren, onOpenSearch }: FileTreePanelProps) {
+export function FileTreePanel({ entries, loading, isError, selectedPath, onSelectFile, onLoadChildren, onOpenSearch, onProvisionSandbox }: FileTreePanelProps) {
   const initialTree = useMemo(() => buildTree(entries), [entries]);
   const [tree, setTree] = useState<TreeNode[]>(initialTree);
 
@@ -244,6 +246,25 @@ export function FileTreePanel({ entries, loading, selectedPath, onSelectFile, on
       <div className="overflow-y-auto flex-1 py-1">
         {loading ? (
           <div className="p-4 text-sm text-muted-foreground">Loading file tree...</div>
+        ) : isError ? (
+          <div className="flex flex-col items-center gap-3 p-4 text-center">
+            <Lock className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Could not load files</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                This repository may be private. Provision a sandbox to browse files.
+              </p>
+            </div>
+            {onProvisionSandbox && (
+              <button
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                onClick={onProvisionSandbox}
+              >
+                <Box className="h-3 w-3" />
+                Provision Sandbox
+              </button>
+            )}
+          </div>
         ) : entries.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">No files found.</div>
         ) : (
