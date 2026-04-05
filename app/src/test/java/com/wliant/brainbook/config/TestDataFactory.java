@@ -68,6 +68,23 @@ public class TestDataFactory {
         return tagService.create(new TagRequest(name, "#0000FF"));
     }
 
+    public ClusterResponse createTodoCluster(UUID brainId) {
+        return clusterService.create(new CreateClusterRequest("Tasks", brainId, "todo", null, null));
+    }
+
+    public ClusterResponse createProjectCluster(UUID brainId, String repoUrl) {
+        return clusterService.create(new CreateClusterRequest("Project", brainId, "project", repoUrl, null));
+    }
+
+    public NeuronResponse createNeuronWithContent(UUID brainId, UUID clusterId) {
+        NeuronResponse neuron = createNeuron("Content Neuron", brainId, clusterId);
+        neuronService.updateContent(neuron.id(),
+                new com.wliant.brainbook.dto.NeuronContentRequest(
+                        "{\"version\":2,\"sections\":[{\"id\":\"s1\",\"type\":\"richtext\",\"order\":0,\"content\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Hello world\"}]}]}}]}",
+                        "Hello world", 1));
+        return neuronService.getById(neuron.id());
+    }
+
     public record BrainClusterNeuron(BrainResponse brain, ClusterResponse cluster, NeuronResponse neuron) {}
 
     public BrainClusterNeuron createFullChain() {

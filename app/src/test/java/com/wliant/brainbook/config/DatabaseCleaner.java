@@ -13,11 +13,19 @@ public class DatabaseCleaner {
     }
 
     public void clean() {
+        jdbcTemplate.execute("TRUNCATE TABLE neuron_shares CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE todo_metadata CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE link_suggestions CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE neuron_embeddings CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE neuron_anchors CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE sandboxes CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE research_topics CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE spaced_repetition_items CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE brains CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE tags CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE templates CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE thoughts CASCADE");
+        // Reset app_settings singleton to defaults (do NOT truncate — seeded by Flyway)
+        jdbcTemplate.execute("UPDATE app_settings SET display_name = 'user', max_reminders_per_neuron = 10, timezone = 'Asia/Singapore'");
     }
 }

@@ -535,3 +535,50 @@ class BrainBookAPI:
         r = self.client.patch(f"/api/neurons/{neuron_id}/todo", json=kwargs)
         r.raise_for_status()
         return r.json()
+
+    def get_cluster_todo_metadata(self, cluster_id: str) -> dict:
+        r = self.client.get(f"/api/clusters/{cluster_id}/todo")
+        r.raise_for_status()
+        return r.json()
+
+    def create_task_from_neuron(self, brain_id: str, source_neuron_id: str, title: str) -> dict:
+        body = {"sourceNeuronId": source_neuron_id, "title": title}
+        r = self.client.post(f"/api/brains/{brain_id}/tasks", json=body)
+        r.raise_for_status()
+        return r.json()
+
+    # ── Sharing ──
+
+    def create_share(self, neuron_id: str, expires_in_hours: int | None = None) -> dict:
+        body = {"expiresInHours": expires_in_hours} if expires_in_hours else None
+        r = self.client.post(f"/api/neurons/{neuron_id}/share", json=body)
+        r.raise_for_status()
+        return r.json()
+
+    def get_shares(self, neuron_id: str) -> list[dict]:
+        r = self.client.get(f"/api/neurons/{neuron_id}/shares")
+        r.raise_for_status()
+        return r.json()
+
+    def get_shared_neuron(self, token: str) -> dict | None:
+        r = self.client.get(f"/api/shares/{token}")
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()
+
+    def revoke_share(self, share_id: str):
+        r = self.client.delete(f"/api/shares/{share_id}")
+        assert r.status_code == 204
+
+    # ── Markdown Export ──
+
+    def export_neuron_markdown(self, neuron_id: str) -> str:
+        r = self.client.get(f"/api/neurons/{neuron_id}/export/markdown")
+        r.raise_for_status()
+        return r.text
+
+    def export_brain_markdown(self, brain_id: str) -> bytes:
+        r = self.client.get(f"/api/brains/{brain_id}/export/markdown")
+        r.raise_for_status()
+        return r.content
