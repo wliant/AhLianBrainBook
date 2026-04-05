@@ -157,6 +157,30 @@ class ImportExportServiceTest {
     }
 
     @Test
+    void importBrain_existingTag_reusesTag() {
+        // Pre-create a tag that will also be referenced in the import
+        TagResponse existingTag = testDataFactory.createTag("Python");
+        long tagCountBefore = tagService.getAll().size();
+
+        BrainImportDto dto = new BrainImportDto(
+                "Brain with existing tag",
+                null,
+                List.of(new BrainImportDto.ImportCluster(
+                        "c1", "Cluster", 0,
+                        List.of(new BrainImportDto.ImportNeuron("n1", "Note", null, null, 0, List.of("Python")))
+                )),
+                List.of(new BrainImportDto.ImportTag("Python", "#00FF00")),
+                null
+        );
+
+        importExportService.importBrain(dto);
+
+        // Tag count should not increase — existing "Python" tag should be reused
+        long tagCountAfter = tagService.getAll().size();
+        assertThat(tagCountAfter).isEqualTo(tagCountBefore);
+    }
+
+    @Test
     void roundTrip_exportThenImport() {
         // Create a brain with data
         var chain = testDataFactory.createFullChain();
