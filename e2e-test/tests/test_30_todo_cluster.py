@@ -1,5 +1,7 @@
 """E2E tests for todo cluster (GAP-002)."""
 
+import os
+
 import pytest
 from helpers.api_client import BrainBookAPI
 from helpers.page_helpers import unique_name
@@ -59,14 +61,16 @@ class TestTodoClusterAPI:
 
     def test_get_cluster_todo_metadata(self, api: BrainBookAPI):
         brain = api.create_brain(unique_name("Todo Batch Brain"))
+        cluster = api.create_cluster("Tasks", brain["id"], cluster_type="todo")
+        n1 = api.create_neuron("Task 1", brain["id"], cluster["id"])
         try:
-            cluster = api.create_cluster("Tasks", brain["id"], cluster_type="todo")
-            n1 = api.create_neuron("Task 1", brain["id"], cluster["id"])
             api.get_todo_metadata(n1["id"])
 
             batch = api.get_cluster_todo_metadata(cluster["id"])
             assert n1["id"] in batch
         finally:
+            api.permanent_delete_neuron(n1["id"])
+            api.delete_cluster(cluster["id"])
             api.delete_brain(brain["id"])
 
 
@@ -76,16 +80,19 @@ class TestTodoClusterBrowser:
 
     def test_todo_cluster_view_loads(self, page, api):
         brain = api.create_brain(unique_name("Todo View Brain"))
+        cluster = api.create_cluster("Tasks", brain["id"], cluster_type="todo")
+        n1 = api.create_neuron("Buy groceries", brain["id"], cluster["id"])
         try:
-            cluster = api.create_cluster("Tasks", brain["id"], cluster_type="todo")
-            n1 = api.create_neuron("Buy groceries", brain["id"], cluster["id"])
             api.get_todo_metadata(n1["id"])
 
-            page.goto(f"{page.context.browser.contexts[0].pages[0].url.split('/')[0]}//{page.context.browser.contexts[0].pages[0].url.split('/')[2]}/brain/{brain['id']}/cluster/{cluster['id']}")
+            base_url = os.environ["BASE_URL"]
+            page.goto(f"{base_url}/brain/{brain['id']}/cluster/{cluster['id']}")
             page.wait_for_load_state("networkidle")
 
             # The todo quick-add input should be visible
             assert page.get_by_test_id("todo-quick-add").is_visible() or \
                    page.get_by_placeholder("Add a task").is_visible()
         finally:
+            api.permanent_delete_neuron(n1["id"])
+            api.delete_cluster(cluster["id"])
             api.delete_brain(brain["id"])
