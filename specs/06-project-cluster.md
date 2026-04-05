@@ -1046,3 +1046,53 @@ The following improvements were made after the initial project cluster implement
 
 ### Sandbox Error State
 - **Terminate button:** The `SandboxStatusBar` now shows the Terminate button when sandbox is in `error` state (not just `active`), allowing users to clean up a failed sandbox and re-provision.
+
+---
+
+## 15. File Browser Enhancements
+
+The following features were added after initial project cluster implementation to improve the file browsing and content viewing experience.
+
+### 15.1 File-Type Icons
+
+Every file entry in the `FileTreePanel` renders a color-coded icon based on its extension. Icons use SVG sprites with per-extension accent colors (e.g., `.ts` → blue, `.py` → yellow, `.go` → cyan, `.java` → orange, `.md` → gray, `.json` → amber). Directories retain the folder chevron icon. Unknown extensions fall back to a generic file icon. Implementation: `FileTreePanel.tsx` uses an extension-to-icon/color lookup map.
+
+### 15.2 Image Viewer
+
+When the user opens a file whose extension matches a known image type (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.svg`), the content area renders an `ImageViewer` component instead of `CodeViewer`. The image is fetched via the same GitHub API or sandbox file-content endpoint and displayed centered within the panel with zoom-to-fit behavior. SVG files are also detected and rendered as images (not source code).
+
+### 15.3 Markdown Preview
+
+When the user opens a `.md` file, a toggle button appears in the content area toolbar:
+- **Rendered** (default) — the markdown source is parsed and rendered as HTML using a lightweight Markdown library, matching GitHub-flavored markdown with code block syntax highlighting.
+- **Source** — the raw markdown text is shown in the standard `CodeViewer` with syntax highlighting.
+
+The toggle state is local to the component and resets to Rendered on each file open.
+
+### 15.4 Folder Neuron Linking
+
+Previously, the `NeuronPanel` only allowed anchoring a neuron to a specific file and line range. Now, users can also anchor a neuron to a **directory** (folder). When the user selects a folder node in the file tree and creates a neuron from the panel:
+- `filePath` stores the directory path (e.g., `src/main/java/com/example/`)
+- `startLine` and `endLine` are stored as `0` to signal a folder-level anchor
+- The neuron panel "This File" tab matches neurons whose `filePath` equals the selected path for file anchors, or whose `filePath` starts with the path for folder anchors
+
+This enables notes that describe a package or module rather than a specific file.
+
+### 15.5 Groovy / Kotlin Syntax Highlighting
+
+The `CodeViewer` language detection logic was extended to cover Gradle build files and Kotlin source:
+
+| Extension | Language |
+|-----------|----------|
+| `.kt` | Kotlin |
+| `.kts` / `.gradle.kts` | Kotlin |
+| `.gradle` | Groovy |
+| `.groovy` | Groovy |
+
+### 15.6 Private Repository Support
+
+#### Indicator
+When the GitHub API returns an authentication or authorization error for a repository URL, the `FileTreePanel` displays a private-repo warning indicator instead of an empty tree. The indicator explains that the repository may be private and prompts the user to configure a GitHub Personal Access Token (PAT) in the project settings.
+
+#### GitHub PAT Configuration
+A Personal Access Token can be stored per-project-cluster in `ProjectConfig`. When set, it is passed as the `Authorization: token <pat>` header on all GitHub API calls for that cluster. The PAT is also used as the git credential during sandbox provisioning (clone URL is rewritten to include the token). The PAT is stored encrypted at rest and never exposed in API responses.

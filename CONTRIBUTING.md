@@ -92,6 +92,12 @@ AhLianBrainBook/
 │       ├── schemas/            # Pydantic models
 │       └── config.py           # Settings (pydantic-settings)
 │
+├── sandbox-service/            # Go gRPC service for sandbox management
+│   └── (git clone, branch switch, pull, file serving via gRPC)
+│
+├── proto/                      # Protocol Buffer definitions (gRPC)
+│   └── sandbox/v1/             # Sandbox service proto schema
+│
 ├── e2e-test/                   # Playwright + pytest E2E tests
 ├── scripts/                    # Dev setup scripts
 └── docker-compose.*.yml        # Docker Compose files

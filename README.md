@@ -1,6 +1,6 @@
 # BrainBook
 
-**A self-hosted personal knowledge base** with AI-assisted writing, spaced repetition learning, and knowledge graph visualization.
+**A self-hosted personal knowledge base** with AI-assisted writing, spaced repetition learning, code-anchored notes, and knowledge graph visualization.
 
 ![Java 21](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
@@ -28,6 +28,10 @@
 |--------------------------|-----------------|
 | ![Review](docs/screenshots/07-review.png) | ![Search](docs/screenshots/08-search.png) |
 
+| Project Cluster | Todo Cluster |
+|----------------|--------------|
+| ![Project Cluster](docs/screenshots/09-project-cluster.png) | ![Todo Cluster](docs/screenshots/10-todo-cluster.png) |
+
 ---
 
 ## Features
@@ -50,6 +54,19 @@
 - **Quality ratings** — rate each review as Again / Hard / Good / Easy to adapt the schedule
 - **Per-neuron configuration** — enable/disable quiz mode and set question count per neuron
 
+### Project Clusters (Code-Anchored Notes)
+- **File tree browser** — explore any GitHub repository with syntax-highlighted code viewing and color-coded file-type icons
+- **Image & Markdown preview** — images render inline; Markdown files show a rendered/source toggle
+- **Anchor neurons to code** — link a note to a specific file, line range, or folder; anchors track drift across commits
+- **Sandbox mode** — provision a server-side git clone for full IDE-level navigation: branch switching, blame, diff, commit log, and tree-sitter code intelligence
+- **Private repository support** — configure a GitHub Personal Access Token to browse and clone private repos
+
+### Task Management (Todo Clusters)
+- **Quick-add task bar** — create tasks inline without leaving the view
+- **Priority levels** — mark tasks as Critical, Important, or Normal
+- **Due dates & completion** — track deadlines with visual badges; toggle completion inline
+- **Auto-recurring reminders** — overdue tasks automatically generate a daily reminder at 7 pm local time until resolved
+
 ### Discovery & Navigation
 - **Interactive knowledge graph** — visualize all neurons and their connections in a zoomable graph, colour-coded by cluster
 - **Full-text search** — search across all neurons with highlighted context snippets
@@ -70,6 +87,7 @@
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, TipTap, Radix UI, Tailwind CSS |
 | Backend | Spring Boot 3.5, Java 21, Flyway, JPA |
 | Intelligence | FastAPI, LangGraph, Ollama / Anthropic Claude |
+| Sandbox Service | Go, gRPC |
 | Database | PostgreSQL 16 |
 | Storage | MinIO (S3-compatible) |
 | Infrastructure | Docker Compose |

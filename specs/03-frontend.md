@@ -64,7 +64,12 @@ Renders different views based on cluster type:
 - **`knowledge`** (default): Lists neurons with title, content preview (first 100 chars), `lastEditedAt`, tags, and complexity badge. "New Neuron" button creates a neuron with title "Untitled" and navigates to the editor.
 - **`todo`**: Renders `TodoClusterView` — task-oriented list with quick-add bar, show/hide completed toggle, sorted by: incomplete first → due date ascending (nulls last) → priority (critical > important > normal). Each task row shows completion checkbox, title (link to neuron), priority/effort/due-date badges, and delete button (on hover). See `08-todo-cluster.md`.
 - **`ai-research`**: Renders `ResearchClusterView` (see below).
-- **`project`**: Renders `ProjectClusterView` — three-panel code viewer with file tree, code display, and neuron panel. See `06-project-cluster.md`.
+- **`project`**: Renders `ProjectClusterView` — three-panel code viewer with file tree, code display, and neuron panel. Key capabilities:
+  - **File tree** (`FileTreePanel`) with color-coded file-type icons per extension
+  - **Content area** — code files render in `CodeViewer` with syntax highlighting (28+ languages incl. Kotlin/Groovy); image files (`.png`, `.jpg`, `.gif`, `.svg`, etc.) render in `ImageViewer`; `.md` files render with a rendered/source toggle
+  - **Neuron panel** (`NeuronPanel`) — link neurons to files, line ranges, or folders; tabs for "This File" and "All Neurons"
+  - **Private repo** — PAT configuration and private-repo indicator when access fails
+  - See `06-project-cluster.md` for full spec.
 
 ### Research Cluster View (`/brain/[brainId]/cluster/[clusterId]` when type=ai-research)
 

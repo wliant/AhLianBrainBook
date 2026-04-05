@@ -71,6 +71,9 @@ Standard layered Spring Boot: `controller/` → `service/` → `repository/` →
 ### Intelligence Service (`intelligence-service/src/`)
 Stateless FastAPI service for AI agent workflows. Uses LangGraph for agent orchestration and Ollama for local LLM inference. Structure: `routers/` (API endpoints) → `agents/` (LangGraph graphs) → `schemas/` (Pydantic models). Config via `pydantic-settings` in `config.py`.
 
+### Sandbox Service (`sandbox-service/`)
+Go microservice that provisions and manages git sandboxes for Project clusters. Communicates with the Spring Boot backend over gRPC. Handles repo cloning, branch switching, pull operations, file serving, and sandbox cleanup. Proto definitions live in `proto/sandbox/v1/`. Runs as a sidecar container in Docker Compose.
+
 ### Web (`web/src/`)
 Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/neuron/[neuronId]/`. API client in `lib/api.ts` wraps fetch. Custom hooks in `lib/hooks/` (useBrains, useClusters, useNeurons, useTodoMetadata). Rich text editor uses TipTap (`components/editor/`). Cluster-type-specific views: `components/research/` (AI research), `components/project/` (code sandbox), `components/todo/` (task management — TodoClusterView, TodoTaskRow, TodoMetadataEditor, TasksPanel). UI built with Radix primitives + Tailwind CSS (`components/ui/`).
 
