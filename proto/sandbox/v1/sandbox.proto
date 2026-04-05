@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+package sandbox.v1;
+
+option go_package = "brainbook/sandbox-service/gen/sandbox/v1;sandboxv1";
+option java_multiple_files = true;
+option java_package = "com.wliant.brainbook.sandbox.grpc";
+
+import "google/protobuf/timestamp.proto";
+
+service SandboxService {
+  // Lifecycle
+  rpc Provision(ProvisionRequest) returns (SandboxInfo);
+  rpc GetStatus(GetStatusRequest) returns (SandboxInfo);
+  rpc Terminate(TerminateRequest) returns (TerminateResponse);
+  rpc TerminateByBrain(TerminateByBrainRequest) returns (TerminateByBrainResponse);
+  rpc Retry(RetryRequest) returns (SandboxInfo);
+  rpc ListActive(ListActiveRequest) returns (ListActiveResponse);
+
+  // Git operations (require active sandbox)
+  rpc Pull(PullRequest) returns (PullResponse);
+  rpc Checkout(CheckoutRequest) returns (SandboxInfo);
+  rpc ListBranches(ListBranchesRequest) returns (ListBranchesResponse);
+  rpc GetLog(GetLogRequest) returns (GetLogResponse);
+  rpc GetBlame(GetBlameRequest) returns (GetBlameResponse);
+  rpc GetDiff(GetDiffRequest) returns (GetDiffResponse);
+
+  // Stateless git (no sandbox needed)
+  rpc DetectDefaultBranch(DetectDefaultBranchRequest) returns (DetectDefaultBranchResponse);
+
+  // File operations (require active sandbox)
+  rpc GetFileTree(GetFileTreeRequest) returns (GetFileTreeResponse);
+  rpc GetFileContent(GetFileContentRequest) returns (GetFileContentResponse);
+}
+
+// --- Common ---
+
+message SandboxInfo {
+  string id = 1;
+  string cluster_id = 2;
+  string brain_id = 3;
+  string repo_url = 4;
+  string current_branch = 5;
+  string current_commit = 6;
+  bool is_shallow = 7;
+  string status = 8;
+  int64 disk_usage_bytes = 9;
+  string error_message = 10;
+  google.protobuf.Timestamp last_accessed_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// --- Lifecycle ---
+
+message ProvisionRequest {
+  string cluster_id = 1;
+  string brain_id = 2;
+  string repo_url = 3;
+  string branch = 4;
+  bool shallow = 5;
+}
+
+message GetStatusRequest {
+  string cluster_id = 1;
+}
+
+message TerminateRequest {
+  string cluster_id = 1;
+}
+
+message TerminateResponse {}
+
+message TerminateByBrainRequest {
+  string brain_id = 1;
+}
+
+message TerminateByBrainResponse {
+  int32 terminated_count = 1;
+}
+
+message RetryRequest {
+  string cluster_id = 1;
+}
+
+message ListActiveRequest {}
+
+message ListActiveResponse {
+  repeated SandboxInfo sandboxes = 1;
+}
+
+// --- Git Operations ---
+
+message PullRequest {
+  string cluster_id = 1;
+}
+
+message PullResponse {
+  string new_commit = 1;
+}
+
+message CheckoutRequest {
+  string cluster_id = 1;
+  string branch = 2;
+}
+
+message ListBranchesRequest {
+  string cluster_id = 1;
+}
+
+message ListBranchesResponse {
+  repeated string branches = 1;
+}
+
+message GetLogRequest {
+  string cluster_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GitCommit {
+  string sha = 1;
+  string author = 2;
+  string author_email = 3;
+  google.protobuf.Timestamp date = 4;
+  string message = 5;
+}
+
+message GetLogResponse {
+  repeated GitCommit commits = 1;
+}
+
+message GetBlameRequest {
+  string cluster_id = 1;
+  string path = 2;
+}
+
+message BlameLine {
+  int32 line = 1;
+  string commit_sha = 2;
+  string author = 3;
+  google.protobuf.Timestamp date = 4;
+  string content = 5;
+}
+
+message GetBlameResponse {
+  repeated BlameLine lines = 1;
+}
+
+message GetDiffRequest {
+  string cluster_id = 1;
+  string from_ref = 2;
+  string to_ref = 3;
+}
+
+message GetDiffResponse {
+  string unified_diff = 1;
+}
+
+message DetectDefaultBranchRequest {
+  string repo_url = 1;
+}
+
+message DetectDefaultBranchResponse {
+  string branch = 1;
+}
+
+// --- File Operations ---
+
+message GetFileTreeRequest {
+  string cluster_id = 1;
+  string path = 2;
+}
+
+message FileTreeEntry {
+  string name = 1;
+  string path = 2;
+  string type = 3;
+  int64 size = 4;
+}
+
+message GetFileTreeResponse {
+  repeated FileTreeEntry entries = 1;
+}
+
+message GetFileContentRequest {
+  string cluster_id = 1;
+  string path = 2;
+}
+
+message GetFileContentResponse {
+  string path = 1;
+  string content = 2;
+  string language = 3;
+  int64 size = 4;
+}
