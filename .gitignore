@@ -44,6 +44,13 @@ scripts/setup.sh
 
 # Claude Code
 .claude/settings.local.json
+.claude/agent-memory/
 
 # Playwright MCP
 .playwright-mcp/
+
+# Screenshots
+*.png
+
+# Test results
+web/test-results/
