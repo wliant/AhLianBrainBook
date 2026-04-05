@@ -249,6 +249,7 @@ func (s *SandboxServer) GetFileContent(ctx context.Context, req *pb.GetFileConte
 		Content:  fc.Content,
 		Language: fc.Language,
 		Size:     fc.Size,
+		Encoding: fc.Encoding,
 	}, nil
 }
 

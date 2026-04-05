@@ -135,6 +135,7 @@ export interface FileContent {
   content: string;
   language: string | null;
   size: number;
+  encoding?: "utf-8" | "base64";
 }
 
 // --- Code Intelligence ---

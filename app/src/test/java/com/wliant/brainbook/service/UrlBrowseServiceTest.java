@@ -165,6 +165,7 @@ class UrlBrowseServiceTest {
         assertThat(result.content()).isEqualTo(originalContent);
         assertThat(result.language()).isEqualTo("java");
         assertThat(result.size()).isEqualTo(originalContent.length());
+        assertThat(result.encoding()).isEqualTo("utf-8");
     }
 
     @Test

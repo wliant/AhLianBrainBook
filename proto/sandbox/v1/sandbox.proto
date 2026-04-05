@@ -193,4 +193,5 @@ message GetFileContentResponse {
   string content = 2;
   string language = 3;
   int64 size = 4;
+  string encoding = 5;  // "utf-8" or "base64"
 }

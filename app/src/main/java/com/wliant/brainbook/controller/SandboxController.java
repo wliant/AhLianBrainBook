@@ -136,7 +136,8 @@ public class SandboxController {
             @RequestParam String path) {
         validatePath(path);
         GetFileContentResponse resp = grpcClient.getFileContent(clusterId, path);
-        return ResponseEntity.ok(new FileContentResponse(resp.getPath(), resp.getContent(), resp.getLanguage(), resp.getSize()));
+        String encoding = resp.getEncoding().isEmpty() ? "utf-8" : resp.getEncoding();
+        return ResponseEntity.ok(new FileContentResponse(resp.getPath(), resp.getContent(), resp.getLanguage(), resp.getSize(), encoding));
     }
 
     @GetMapping("/api/clusters/{clusterId}/sandbox/log")

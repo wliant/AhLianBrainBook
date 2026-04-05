@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,6 +85,22 @@ type FileContent struct {
 	Content  string
 	Language string
 	Size     int64
+	Encoding string // "utf-8" or "base64"
+}
+
+// isBinaryFile checks if data contains null bytes in the first 512 bytes,
+// indicating binary content.
+func isBinaryFile(data []byte) bool {
+	limit := len(data)
+	if limit > 512 {
+		limit = 512
+	}
+	for i := 0; i < limit; i++ {
+		if data[i] == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func ReadFileContent(repoDir, requestedPath string) (*FileContent, error) {
@@ -108,10 +125,24 @@ func ReadFileContent(repoDir, requestedPath string) (*FileContent, error) {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
+	language := DetectLanguage(requestedPath)
+
+	// Binary files (including images) are base64-encoded
+	if language == "image" || isBinaryFile(data) {
+		return &FileContent{
+			Path:     requestedPath,
+			Content:  base64.StdEncoding.EncodeToString(data),
+			Language: language,
+			Size:     info.Size(),
+			Encoding: "base64",
+		}, nil
+	}
+
 	return &FileContent{
 		Path:     requestedPath,
 		Content:  string(data),
-		Language: DetectLanguage(requestedPath),
+		Language: language,
 		Size:     info.Size(),
+		Encoding: "utf-8",
 	}, nil
 }

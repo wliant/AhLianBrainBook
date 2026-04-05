@@ -4,6 +4,7 @@ public record FileContentResponse(
         String path,
         String content,
         String language,
-        long size
+        long size,
+        String encoding
 ) {
 }
