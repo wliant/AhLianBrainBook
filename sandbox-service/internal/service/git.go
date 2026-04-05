@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -14,10 +15,29 @@ import (
 	"time"
 )
 
-type GitService struct{}
+type GitService struct {
+	githubPAT string
+}
 
-func NewGitService() *GitService {
-	return &GitService{}
+func NewGitService(githubPAT string) *GitService {
+	return &GitService{githubPAT: githubPAT}
+}
+
+// injectToken rewrites github.com URLs to embed the PAT for private repo access.
+// Returns the original URL unchanged for non-GitHub hosts or when no PAT is configured.
+func (g *GitService) injectToken(repoURL string) string {
+	if g.githubPAT == "" {
+		return repoURL
+	}
+	u, err := url.Parse(repoURL)
+	if err != nil {
+		return repoURL
+	}
+	if !strings.EqualFold(u.Hostname(), "github.com") {
+		return repoURL
+	}
+	u.User = url.UserPassword("x-access-token", g.githubPAT)
+	return u.String()
 }
 
 func (g *GitService) Clone(ctx context.Context, repoURL, branch, targetDir string, shallow bool, timeoutSec int) error {
@@ -29,10 +49,9 @@ func (g *GitService) Clone(ctx context.Context, repoURL, branch, targetDir strin
 	if shallow {
 		args = append(args, "--depth", "1")
 	}
-	args = append(args, repoURL, targetDir)
-
 	slog.Info("cloning repository", "url", repoURL, "branch", branch, "shallow", shallow, "dir", targetDir)
 
+	args = append(args, g.injectToken(repoURL), targetDir)
 	cmd := exec.CommandContext(ctx, "git", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -246,7 +265,7 @@ func (g *GitService) HeadCommit(ctx context.Context, repoDir string) (string, er
 }
 
 func (g *GitService) DetectDefaultBranch(ctx context.Context, repoURL string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--symref", repoURL, "HEAD")
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--symref", g.injectToken(repoURL), "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
 		slog.Warn("git ls-remote failed, falling back to 'main'", "url", repoURL, "error", err)

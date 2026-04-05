@@ -71,7 +71,7 @@ func main() {
 
 	// Wire services
 	st := store.New(pool)
-	gitSvc := service.NewGitService()
+	gitSvc := service.NewGitService(cfg.GitHubPAT)
 	sandboxSvc := service.NewSandboxService(ctx, st, gitSvc, cfg)
 	cleanup := service.NewCleanupScheduler(st, cfg)
 

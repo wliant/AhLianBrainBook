@@ -15,6 +15,7 @@ type Config struct {
 	MaxConcurrentClones int
 	MaxCount            int
 	StaleDays           int
+	GitHubPAT           string
 }
 
 func (c *Config) MaxRepoSizeBytes() int64 {
@@ -36,6 +37,7 @@ func Load() (*Config, error) {
 		MaxConcurrentClones: envInt("SANDBOX_MAX_CONCURRENT_CLONES", 2),
 		MaxCount:            envInt("SANDBOX_MAX_COUNT", 10),
 		StaleDays:           envInt("SANDBOX_STALE_DAYS", 30),
+		GitHubPAT:           envStr("GITHUB_PAT", ""),
 	}, nil
 }
 
