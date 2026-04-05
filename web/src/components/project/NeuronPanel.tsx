@@ -56,7 +56,7 @@ export function NeuronPanel({
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const neuronMap = new Map(neurons.map((n) => [n.id, n]));
+  const neuronMap = useMemo(() => new Map(neurons.map((n) => [n.id, n])), [neurons]);
 
   const filteredNeurons = useMemo(() => {
     if (!clusterSearch.trim()) return neurons;

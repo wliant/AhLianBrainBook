@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Folder, FolderOpen, ChevronRight, ChevronDown, Loader2, Search, Lock, Box, Home } from "lucide-react";
 import { getFileIcon } from "@/lib/fileIcons";
 import type { FileTreeEntry } from "@/types";
@@ -220,11 +220,10 @@ interface FileTreePanelProps {
 }
 
 export function FileTreePanel({ entries, loading, isError, selectedPath, onSelectFile, onSelectFolder, onLoadChildren, onOpenSearch, onProvisionSandbox }: FileTreePanelProps) {
-  const initialTree = useMemo(() => buildTree(entries), [entries]);
-  const [tree, setTree] = useState<TreeNode[]>(initialTree);
+  const [tree, setTree] = useState<TreeNode[]>(() => buildTree(entries));
 
   // Sync tree when entries change (e.g. switching between sandbox/browse mode)
-  useMemo(() => {
+  useEffect(() => {
     setTree(buildTree(entries));
   }, [entries]);
 
