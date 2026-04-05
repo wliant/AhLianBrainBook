@@ -111,21 +111,20 @@ class TestReminderDescriptionBrowser:
         title_input = pg.get_by_test_id("reminder-form").locator("input[type='text']")
         expect(title_input).to_be_visible(timeout=3000)
 
-    def test_sidebar_reminders_section_shows_after_creating_reminder(
+    def test_reminder_panel_shows_after_creating_reminder(
         self, page: Page, api: BrainBookAPI, neuron_in_cluster
     ):
-        """After creating a reminder via API, the sidebar reminders section shows it."""
+        """After creating a reminder via API, the reminder panel on the neuron page shows it."""
         brain, cluster, neuron = neuron_in_cluster
-        title = unique_name("sidebar-reminder")
+        title = unique_name("panel-reminder")
         reminder = api.create_reminder(
             neuron["id"], future_iso(24), "ONCE", title=title
         )
         try:
             navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
-            # The sidebar reminders section should show the count badge (≥1)
-            reminders_btn = page.locator("button", has_text="Reminders")
-            expect(reminders_btn).to_be_visible(timeout=5000)
-            # The reminder title should appear in the expanded list
-            expect(page.get_by_text(title)).to_be_visible(timeout=5000)
+            page.get_by_test_id("toggle-reminder").click()
+            expect(page.get_by_test_id("reminder-panel")).to_be_visible(timeout=5000)
+            # The reminder should appear in the panel list
+            expect(page.get_by_test_id(f"reminder-{reminder['id']}")).to_be_visible(timeout=5000)
         finally:
             api.delete_reminder(neuron["id"], reminder["id"])

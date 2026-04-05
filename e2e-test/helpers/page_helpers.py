@@ -5,7 +5,8 @@ import time
 
 from playwright.sync_api import Page, expect
 
-BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
+def _base_url() -> str:
+    return os.environ.get("BASE_URL", "http://localhost:3000")
 
 
 def unique_name(prefix: str) -> str:
@@ -15,7 +16,7 @@ def unique_name(prefix: str) -> str:
 
 def navigate(page: Page, path: str):
     """Navigate to a path using page.goto for reliable Next.js routing."""
-    url = f"{BASE_URL}{path}" if path.startswith("/") else path
+    url = f"{_base_url()}{path}" if path.startswith("/") else path
     page.goto(url)
     page.wait_for_load_state("networkidle")
 

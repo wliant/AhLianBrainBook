@@ -136,7 +136,7 @@ class TestSpacedRepetitionBrowser:
         navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
         open_sr_panel(page)
 
-        expect(page.get_by_text("Now")).to_be_visible(timeout=5000)
+        expect(page.get_by_text("Now", exact=True)).to_be_visible(timeout=5000)
 
     def test_sr_panel_mutual_exclusivity_with_history(self, neuron_on_page):
         page, brain, cluster, neuron = neuron_on_page
