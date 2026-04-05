@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { Folder, FolderOpen, FileCode, FileText, ChevronRight, ChevronDown, Loader2, Search, Lock, Box } from "lucide-react";
+import { Folder, FolderOpen, ChevronRight, ChevronDown, Loader2, Search, Lock, Box, Home } from "lucide-react";
+import { getFileIcon } from "@/lib/fileIcons";
 import type { FileTreeEntry } from "@/types";
 
 interface TreeNode {
@@ -91,38 +92,26 @@ function findNode(nodes: TreeNode[], path: string): TreeNode | null {
   return null;
 }
 
-const CODE_EXTENSIONS = new Set([
-  "java", "py", "js", "jsx", "ts", "tsx", "go", "rs", "cpp", "c", "h",
-  "cs", "rb", "kt", "swift", "sql", "sh", "bash", "yml", "yaml", "json",
-  "xml", "html", "css", "scss", "toml", "gradle",
-]);
-
-function isCodeFile(name: string): boolean {
-  const dot = name.lastIndexOf(".");
-  if (dot < 0) return false;
-  return CODE_EXTENSIONS.has(name.substring(dot + 1).toLowerCase());
-}
 
 interface TreeNodeItemProps {
   node: TreeNode;
   depth: number;
   selectedPath: string | null;
   onSelectFile: (path: string) => void;
+  onSelectFolder?: (path: string) => void;
   onLoadChildren?: (path: string) => Promise<FileTreeEntry[]>;
   onChildrenLoaded: (parentPath: string, children: TreeNode[]) => void;
 }
 
-function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren, onChildrenLoaded }: TreeNodeItemProps) {
+function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onSelectFolder, onLoadChildren, onChildrenLoaded }: TreeNodeItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleToggle = useCallback(async () => {
+  const loadAndExpand = useCallback(async () => {
     if (!expanded && !node.childrenLoaded && onLoadChildren) {
       setLoading(true);
       try {
         const entries = await onLoadChildren(node.path);
-        // buildTree creates a full tree from paths — extract only the
-        // direct children of this node to avoid duplicating the parent.
         const fullTree = buildTree(entries);
         const parentInTree = findNode(fullTree, node.path);
         const children = parentInTree ? parentInTree.children : fullTree;
@@ -133,31 +122,54 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren,
         setLoading(false);
       }
     }
-    setExpanded(!expanded);
   }, [expanded, node.childrenLoaded, node.path, onLoadChildren, onChildrenLoaded]);
 
+  const handleChevronClick = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await loadAndExpand();
+    setExpanded(!expanded);
+  }, [loadAndExpand, expanded]);
+
+  const handleFolderClick = useCallback(async () => {
+    onSelectFolder?.(node.path);
+    if (!expanded) {
+      await loadAndExpand();
+      setExpanded(true);
+    }
+  }, [onSelectFolder, node.path, expanded, loadAndExpand]);
+
   if (node.type === "directory") {
+    const isFolderSelected = selectedPath === node.path;
     return (
       <div>
-        <button
-          className={`flex items-center gap-1 w-full text-left px-2 py-1 text-sm hover:bg-accent rounded-sm transition-colors`}
+        <div
+          className={`flex items-center gap-1 w-full text-left px-2 py-1 text-sm rounded-sm transition-colors cursor-pointer ${
+            isFolderSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+          }`}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={handleToggle}
+          onClick={handleFolderClick}
         >
-          {loading ? (
-            <Loader2 className="h-3 w-3 shrink-0 text-muted-foreground animate-spin" />
-          ) : expanded ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-          )}
+          <span
+            className="shrink-0 flex items-center"
+            onClick={handleChevronClick}
+            role="button"
+            tabIndex={-1}
+          >
+            {loading ? (
+              <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
+            ) : expanded ? (
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            )}
+          </span>
           {expanded ? (
             <FolderOpen className="h-4 w-4 shrink-0 text-yellow-500" />
           ) : (
             <Folder className="h-4 w-4 shrink-0 text-yellow-500" />
           )}
           <span className="truncate">{node.name}</span>
-        </button>
+        </div>
         {expanded && (
           <div>
             {node.children.map((child) => (
@@ -167,6 +179,7 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren,
                 depth={depth + 1}
                 selectedPath={selectedPath}
                 onSelectFile={onSelectFile}
+                onSelectFolder={onSelectFolder}
                 onLoadChildren={onLoadChildren}
                 onChildrenLoaded={onChildrenLoaded}
               />
@@ -178,7 +191,7 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren,
   }
 
   const isSelected = selectedPath === node.path;
-  const Icon = isCodeFile(node.name) ? FileCode : FileText;
+  const { icon: Icon, className: iconColor } = getFileIcon(node.name);
 
   return (
     <button
@@ -188,7 +201,7 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onLoadChildren,
       style={{ paddingLeft: `${depth * 16 + 24}px` }}
       onClick={() => onSelectFile(node.path)}
     >
-      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
       <span className="truncate">{node.name}</span>
     </button>
   );
@@ -200,12 +213,13 @@ interface FileTreePanelProps {
   isError?: boolean;
   selectedPath: string | null;
   onSelectFile: (path: string) => void;
+  onSelectFolder?: (path: string) => void;
   onLoadChildren?: (path: string) => Promise<FileTreeEntry[]>;
   onOpenSearch?: () => void;
   onProvisionSandbox?: () => void;
 }
 
-export function FileTreePanel({ entries, loading, isError, selectedPath, onSelectFile, onLoadChildren, onOpenSearch, onProvisionSandbox }: FileTreePanelProps) {
+export function FileTreePanel({ entries, loading, isError, selectedPath, onSelectFile, onSelectFolder, onLoadChildren, onOpenSearch, onProvisionSandbox }: FileTreePanelProps) {
   const initialTree = useMemo(() => buildTree(entries), [entries]);
   const [tree, setTree] = useState<TreeNode[]>(initialTree);
 
@@ -268,17 +282,33 @@ export function FileTreePanel({ entries, loading, isError, selectedPath, onSelec
         ) : entries.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">No files found.</div>
         ) : (
-          tree.map((node) => (
-            <TreeNodeItem
-              key={node.path}
-              node={node}
-              depth={0}
-              selectedPath={selectedPath}
-              onSelectFile={onSelectFile}
-              onLoadChildren={onLoadChildren}
-              onChildrenLoaded={handleChildrenLoaded}
-            />
-          ))
+          <>
+            {/* Project Root row */}
+            {onSelectFolder && (
+              <button
+                className={`flex items-center gap-1 w-full text-left px-2 py-1 text-sm rounded-sm transition-colors ${
+                  selectedPath === "" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                }`}
+                style={{ paddingLeft: "8px" }}
+                onClick={() => onSelectFolder("")}
+              >
+                <Home className="h-4 w-4 shrink-0 text-yellow-500" />
+                <span className="truncate font-medium">Project Root</span>
+              </button>
+            )}
+            {tree.map((node) => (
+              <TreeNodeItem
+                key={node.path}
+                node={node}
+                depth={0}
+                selectedPath={selectedPath}
+                onSelectFile={onSelectFile}
+                onSelectFolder={onSelectFolder}
+                onLoadChildren={onLoadChildren}
+                onChildrenLoaded={handleChildrenLoaded}
+              />
+            ))}
+          </>
         )}
       </div>
     </div>

@@ -5,7 +5,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { FileCode, FileText } from "lucide-react";
+import { getFileIcon } from "@/lib/fileIcons";
 import type { FileTreeEntry } from "@/types";
 
 interface QuickOpenDialogProps {
@@ -23,18 +23,6 @@ function fuzzyMatch(query: string, target: string): boolean {
     if (lower[i] === q[qi]) qi++;
   }
   return qi === q.length;
-}
-
-const CODE_EXTENSIONS = new Set([
-  "java", "py", "js", "jsx", "ts", "tsx", "go", "rs", "cpp", "c", "h",
-  "cs", "rb", "kt", "swift", "sql", "sh", "bash", "yml", "yaml", "json",
-  "xml", "html", "css", "scss", "toml", "gradle",
-]);
-
-function isCodeFile(name: string): boolean {
-  const dot = name.lastIndexOf(".");
-  if (dot < 0) return false;
-  return CODE_EXTENSIONS.has(name.substring(dot + 1).toLowerCase());
 }
 
 export function QuickOpenDialog({ open, onOpenChange, entries, onSelectFile }: QuickOpenDialogProps) {
@@ -120,7 +108,7 @@ export function QuickOpenDialog({ open, onOpenChange, entries, onSelectFile }: Q
             </div>
           ) : (
             filtered.map((entry, i) => {
-              const Icon = isCodeFile(entry.name) ? FileCode : FileText;
+              const { icon: Icon, className: iconColor } = getFileIcon(entry.name);
               return (
                 <button
                   key={entry.path}
@@ -130,7 +118,7 @@ export function QuickOpenDialog({ open, onOpenChange, entries, onSelectFile }: Q
                   onClick={() => handleSelect(entry.path)}
                   onMouseEnter={() => setSelectedIndex(i)}
                 >
-                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
                   <span className="truncate">{entry.path}</span>
                 </button>
               );
