@@ -144,6 +144,12 @@ export const api = {
       request<import("@/types").CodeReferencesResponse>(`/api/clusters/${clusterId}/sandbox/references?path=${encodeURIComponent(path)}&line=${line}&col=${col}`),
   },
 
+  // Neuron endpoints
+  neurons: {
+    reorder: (orderedIds: string[]) =>
+      request<void>("/api/neurons/reorder", { method: "POST", body: { orderedIds } }),
+  },
+
   // NeuronLink endpoints
   neuronLinks: {
     getForNeuron: <T>(neuronId: string) =>

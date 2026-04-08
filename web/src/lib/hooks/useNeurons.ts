@@ -29,9 +29,30 @@ export function useNeurons(clusterId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
   };
 
+  const reorderNeurons = async (orderedIds: string[]) => {
+    const previous = queryClient.getQueryData<Neuron[]>(["neurons", clusterId]);
+
+    if (previous) {
+      const neuronMap = new Map(previous.map((n) => [n.id, n]));
+      const reordered = orderedIds
+        .map((id) => neuronMap.get(id))
+        .filter(Boolean) as Neuron[];
+      queryClient.setQueryData(["neurons", clusterId], reordered);
+    }
+
+    try {
+      await api.neurons.reorder(orderedIds);
+    } catch (err) {
+      if (previous) {
+        queryClient.setQueryData(["neurons", clusterId], previous);
+      }
+      console.error("Failed to reorder neurons:", err);
+    }
+  };
+
   const refetch = () => {
     queryClient.invalidateQueries({ queryKey: ["neurons", clusterId] });
   };
 
-  return { neurons, loading, createNeuron, deleteNeuron, refetch };
+  return { neurons, loading, createNeuron, deleteNeuron, reorderNeurons, refetch };
 }
