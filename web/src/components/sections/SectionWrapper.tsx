@@ -1,8 +1,15 @@
 "use client";
 
+import type { DraggableAttributes } from "@dnd-kit/core";
+import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 import type { Section } from "@/types";
 import { ChevronUp, ChevronDown, Trash2, GripVertical, Eye, Pencil, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface DragHandleProps {
+  attributes: DraggableAttributes;
+  listeners: SyntheticListenerMap | undefined;
+}
 
 const TYPE_LABELS: Record<string, string> = {
   "rich-text": "Rich Text",
@@ -26,6 +33,7 @@ interface SectionWrapperProps {
   onTogglePreview?: () => void;
   onAiAssist?: () => void;
   viewMode?: boolean;
+  dragHandleProps?: DragHandleProps;
   children: React.ReactNode;
 }
 
@@ -39,6 +47,7 @@ export function SectionWrapper({
   onTogglePreview,
   onAiAssist,
   viewMode,
+  dragHandleProps,
   children,
 }: SectionWrapperProps) {
   const isPreview = !!section.meta?.preview;
@@ -53,7 +62,14 @@ export function SectionWrapper({
             section.type === "divider" && "top-1/2 -translate-y-1/2"
           )}
         >
-          <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+          <button
+            type="button"
+            className="cursor-grab active:cursor-grabbing"
+            {...(dragHandleProps?.attributes ?? {})}
+            {...(dragHandleProps?.listeners ?? {})}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
           {section.type !== "divider" && onTogglePreview && (
             <button
               onClick={onTogglePreview}
