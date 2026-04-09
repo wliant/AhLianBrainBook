@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class SiblingSectionSummary(BaseModel):
@@ -6,6 +6,15 @@ class SiblingSectionSummary(BaseModel):
     section_type: str
     order: int
     preview: str
+
+
+class KnowledgeContextItem(BaseModel):
+    neuron_id: str
+    title: str
+    content_preview: str
+    tags: list[str] = []
+    relationship: str
+    score: float
 
 
 class NeuronContext(BaseModel):
@@ -16,6 +25,8 @@ class NeuronContext(BaseModel):
     cluster_name: str | None = None
     tags: list[str] = []
     sibling_sections_summary: list[SiblingSectionSummary] = []
+    knowledge_context: list[KnowledgeContextItem] = []
+    brain_id: str = ""
 
 
 class QuestionItem(BaseModel):
@@ -37,12 +48,15 @@ class ConversationTurn(BaseModel):
 
 
 class SectionAuthorRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     section_type: str
     current_content: dict | None = None
     user_message: str = ""
     conversation_history: list[ConversationTurn] = []
     question_answers: list[QuestionAnswer] | None = None
     regenerate: bool = False
+    tools_enabled: bool = False
     context: NeuronContext
 
 

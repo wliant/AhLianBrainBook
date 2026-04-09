@@ -20,13 +20,17 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.web.client.RestClientException;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Import(TestContainersConfig.class)
@@ -75,7 +79,7 @@ class IntelligenceServiceTest {
                 "response_type", "content",
                 "section_content", Map.of("code", "# generated", "language", "python"),
                 "explanation", "Generated code"
-        )).when(intelligenceService).callIntelligenceService(any());
+        )).when(intelligenceService).callAgent(eq("/api/agents/section-author"), any());
 
         AiAssistRequest request = new AiAssistRequest(
                 "code",
@@ -94,8 +98,9 @@ class IntelligenceServiceTest {
     }
 
     @Test
-    void aiAssist_appendsConversationHistory() {
-        doReturn(Map.of(
+    void aiAssist_appendsConversationHistory() throws Exception {
+        Thread.sleep(2000); // Wait for async embedding computation to finish
+        Map<String, Object> questionsResponse = new HashMap<>(Map.of(
                 "response_type", "questions",
                 "questions", List.of(Map.of(
                         "id", "q1",
@@ -105,7 +110,8 @@ class IntelligenceServiceTest {
                         "required", true
                 )),
                 "explanation", "Need clarification"
-        )).when(intelligenceService).callIntelligenceService(any());
+        ));
+        doReturn(questionsResponse).when(intelligenceService).callAgent(eq("/api/agents/section-author"), any());
 
         AiAssistRequest request = new AiAssistRequest(
                 "code", null, "Write code", List.of(), null, false
@@ -124,7 +130,7 @@ class IntelligenceServiceTest {
     @Test
     void aiAssist_returnsErrorWhenIntelligenceServiceUnavailable() {
         doThrow(new RestClientException("Connection refused"))
-                .when(intelligenceService).callIntelligenceService(any());
+                .when(intelligenceService).callAgent(eq("/api/agents/section-author"), any());
 
         AiAssistRequest request = new AiAssistRequest(
                 "code", null, "Write code", List.of(), null, false
@@ -146,5 +152,49 @@ class IntelligenceServiceTest {
         assertThat(summaries.get(0).get("section_id")).isEqualTo("s1");
         assertThat(summaries.get(0).get("section_type")).isEqualTo("rich-text");
         assertThat((String) summaries.get(0).get("preview")).contains("Hello world");
+    }
+
+    @Test
+    void aiAssist_includesExplanationInConversationHistory() {
+        doReturn(Map.of(
+                "response_type", "content",
+                "section_content", Map.of("code", "# test", "language", "python"),
+                "explanation", "Here is why I generated this"
+        )).when(intelligenceService).callAgent(eq("/api/agents/section-author"), any());
+
+        AiAssistRequest request = new AiAssistRequest(
+                "code", null, "Write code", List.of(), null, false
+        );
+
+        AiAssistResponse response = intelligenceService.aiAssist(neuron.id(), "s2", request);
+
+        // Verify explanation is in the assistant turn content
+        var assistantTurn = response.conversationHistory().get(1);
+        assertThat(assistantTurn.role()).isEqualTo("assistant");
+        @SuppressWarnings("unchecked")
+        var content = (Map<String, Object>) assistantTurn.content();
+        assertThat(content).containsEntry("explanation", "Here is why I generated this");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aiAssist_passesKnowledgeContextToIntelligenceService() {
+        doReturn(Map.of(
+                "response_type", "content",
+                "section_content", Map.of("code", "# context-aware", "language", "python"),
+                "explanation", "Used context"
+        )).when(intelligenceService).callAgent(eq("/api/agents/section-author"), any());
+
+        AiAssistRequest request = new AiAssistRequest(
+                "code", null, "Write code", List.of(), null, false
+        );
+
+        intelligenceService.aiAssist(neuron.id(), "s2", request);
+
+        // Verify the enriched request contains knowledge_context key
+        verify(intelligenceService).callAgent(eq("/api/agents/section-author"), argThat(enrichedRequest -> {
+            Map<String, Object> context = (Map<String, Object>) enrichedRequest.get("context");
+            return context != null && context.containsKey("knowledge_context");
+        }));
     }
 }

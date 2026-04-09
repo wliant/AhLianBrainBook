@@ -12,8 +12,11 @@ class Settings(BaseSettings):
     embedding_ollama_base_url: str = "http://ollama:11434"
     embedding_ollama_model: str = "nomic-embed-text"
     brainbook_api_url: str = "http://app:8080"
+    llm_max_tokens: int = 4096
     agent_timeout: int = 600
     log_level: str = "INFO"
+    tavily_api_key: str = ""
+    internal_api_key: str = ""
 
 
 settings = Settings()

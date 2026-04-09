@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type {
   AiAssistQuestionAnswer,
+  AiAssistRequest,
   AiAssistResponse,
   ConversationTurn,
   SectionType,
@@ -21,6 +22,8 @@ export function useAiAssist(
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const currentContent = contentStack[contentStack.length - 1];
 
@@ -38,12 +41,41 @@ export function useAiAssist(
     [],
   );
 
+  const invokeWithStream = useCallback(
+    async (body: AiAssistRequest, controller: AbortController) => {
+      // Try streaming first, fall back to blocking invoke
+      try {
+        for await (const event of api.aiAssist.stream(
+          neuronId, sectionId, body, controller.signal,
+        )) {
+          if (controller.signal.aborted) return;
+          if (event.stage === "complete" && event.data) {
+            handleResponse(event.data);
+            return;
+          } else if (event.stage === "error") {
+            setError(event.message || "AI service error");
+            return;
+          } else {
+            setStage(event.stage);
+          }
+        }
+      } catch {
+        if (controller.signal.aborted) return;
+        // Stream failed — fall back to blocking invoke
+        const resp = await api.aiAssist.invoke(
+          neuronId, sectionId, body, controller.signal,
+        );
+        handleResponse(resp);
+      }
+    },
+    [neuronId, sectionId, handleResponse],
+  );
+
   const sendMessage = useCallback(
     async (
       userMessage: string,
       questionAnswers?: AiAssistQuestionAnswer[],
     ) => {
-      // Optimistically show user message immediately
       const userTurn: ConversationTurn = {
         role: "user",
         content: questionAnswers
@@ -53,22 +85,32 @@ export function useAiAssist(
       setConversationHistory((prev) => [...prev, userTurn]);
       setLoading(true);
       setError(null);
+      setStage(null);
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
-        const resp = await api.aiAssist.invoke(neuronId, sectionId, {
+        await invokeWithStream({
           sectionType,
           currentContent,
           userMessage,
           conversationHistory,
           questionAnswers,
-        });
-        handleResponse(resp);
+        }, controller);
       } catch (e) {
+        if (controller.signal.aborted) {
+          setConversationHistory((prev) => prev.slice(0, -1));
+          return;
+        }
         setError(e instanceof Error ? e.message : "Failed to communicate with AI service");
       } finally {
+        abortControllerRef.current = null;
         setLoading(false);
+        setStage(null);
       }
     },
-    [neuronId, sectionId, sectionType, currentContent, conversationHistory, handleResponse],
+    [neuronId, sectionId, sectionType, currentContent, conversationHistory, invokeWithStream],
   );
 
   const regenerate = useCallback(async () => {
@@ -78,21 +120,36 @@ export function useAiAssist(
     ]);
     setLoading(true);
     setError(null);
+    setStage(null);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const resp = await api.aiAssist.invoke(neuronId, sectionId, {
+      await invokeWithStream({
         sectionType,
         currentContent,
         userMessage: "",
         conversationHistory,
         regenerate: true,
-      });
-      handleResponse(resp);
+      }, controller);
     } catch (e) {
+      if (controller.signal.aborted) {
+        setConversationHistory((prev) => prev.slice(0, -1));
+        return;
+      }
       setError(e instanceof Error ? e.message : "Failed to communicate with AI service");
     } finally {
+      abortControllerRef.current = null;
       setLoading(false);
+      setStage(null);
     }
-  }, [neuronId, sectionId, sectionType, currentContent, conversationHistory, handleResponse]);
+  }, [neuronId, sectionId, sectionType, currentContent, conversationHistory, invokeWithStream]);
+
+  const cancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, []);
 
   const undo = useCallback(() => {
     if (contentStack.length > 1) {
@@ -103,9 +160,12 @@ export function useAiAssist(
   const canUndo = contentStack.length > 1;
 
   const reset = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setConversationHistory([]);
     setContentStack([initialContent]);
     setError(null);
+    setStage(null);
   }, [initialContent]);
 
   return {
@@ -113,8 +173,10 @@ export function useAiAssist(
     currentContent,
     loading,
     error,
+    stage,
     sendMessage,
     regenerate,
+    cancel,
     undo,
     canUndo,
     reset,

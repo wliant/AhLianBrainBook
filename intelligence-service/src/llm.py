@@ -17,6 +17,7 @@ def get_llm(**kwargs) -> BaseChatModel:
         return ChatAnthropic(
             model=settings.anthropic_model,
             api_key=settings.anthropic_api_key,
+            max_tokens=settings.llm_max_tokens,
             **kwargs,
         )
 

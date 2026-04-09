@@ -25,6 +25,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
 public class IntelligenceService {
@@ -35,77 +38,34 @@ public class IntelligenceService {
     private final BrainRepository brainRepository;
     private final ClusterRepository clusterRepository;
     private final TagService tagService;
+    private final ContextAssemblyService contextAssemblyService;
+    private final SettingsService settingsService;
     private final RestClient intelligenceRestClient;
+    private final String intelligenceBaseUrl;
     private final ObjectMapper objectMapper;
 
     public IntelligenceService(NeuronRepository neuronRepository,
                                BrainRepository brainRepository,
                                ClusterRepository clusterRepository,
                                TagService tagService,
+                               ContextAssemblyService contextAssemblyService,
+                               SettingsService settingsService,
                                RestClient intelligenceRestClient,
+                               com.wliant.brainbook.config.IntelligenceConfig intelligenceConfig,
                                ObjectMapper objectMapper) {
         this.neuronRepository = neuronRepository;
         this.brainRepository = brainRepository;
         this.clusterRepository = clusterRepository;
         this.tagService = tagService;
+        this.contextAssemblyService = contextAssemblyService;
+        this.settingsService = settingsService;
         this.intelligenceRestClient = intelligenceRestClient;
+        this.intelligenceBaseUrl = intelligenceConfig.getBaseUrl();
         this.objectMapper = objectMapper;
     }
 
     public AiAssistResponse aiAssist(UUID neuronId, String sectionId, AiAssistRequest request) {
-        Neuron neuron = neuronRepository.findById(neuronId)
-                .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
-
-        Brain brain = brainRepository.findById(neuron.getBrainId())
-                .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + neuron.getBrainId()));
-
-        String clusterName = null;
-        if (neuron.getClusterId() != null) {
-            clusterName = clusterRepository.findById(neuron.getClusterId())
-                    .map(Cluster::getName)
-                    .orElse(null);
-        }
-
-        List<String> tagNames = tagService.getTagsForNeuron(neuronId).stream()
-                .map(t -> t.name())
-                .toList();
-
-        List<Map<String, Object>> siblingsSummary = extractSiblingSummaries(
-                neuron.getContentJson(), sectionId);
-
-        // Build context
-        Map<String, Object> context = new HashMap<>();
-        context.put("neuron_id", neuronId.toString());
-        context.put("neuron_title", neuron.getTitle() != null ? neuron.getTitle() : "Untitled");
-        context.put("section_id", sectionId);
-        context.put("brain_name", brain.getName());
-        context.put("cluster_name", clusterName);
-        context.put("tags", tagNames);
-        context.put("sibling_sections_summary", siblingsSummary);
-
-        // Build enriched request for intelligence service
-        Map<String, Object> enrichedRequest = new HashMap<>();
-        enrichedRequest.put("section_type", request.sectionType());
-        enrichedRequest.put("current_content", request.currentContent());
-        enrichedRequest.put("user_message", request.userMessage() != null ? request.userMessage() : "");
-        enrichedRequest.put("conversation_history", request.conversationHistory() != null
-                ? request.conversationHistory() : List.of());
-        // Convert questionAnswers from camelCase to snake_case for Python service
-        if (request.questionAnswers() != null) {
-            List<Map<String, Object>> snakeAnswers = request.questionAnswers().stream()
-                    .map(qa -> {
-                        Map<String, Object> m = new HashMap<>();
-                        m.put("question_id", qa.questionId());
-                        m.put("value", qa.value());
-                        return m;
-                    })
-                    .toList();
-            enrichedRequest.put("question_answers", snakeAnswers);
-        } else {
-            enrichedRequest.put("question_answers", null);
-        }
-        enrichedRequest.put("regenerate", request.regenerate());
-        enrichedRequest.put("context", context);
+        Map<String, Object> enrichedRequest = buildEnrichedRequest(neuronId, sectionId, request);
 
         // Call intelligence service
         Map<String, Object> agentResponse;
@@ -182,6 +142,207 @@ public class IntelligenceService {
                 (String) agentResponse.get("explanation"),
                 updatedHistory
         );
+    }
+
+    public SseEmitter aiAssistStream(UUID neuronId, String sectionId, AiAssistRequest request) {
+        Map<String, Object> enrichedRequest = buildEnrichedRequest(neuronId, sectionId, request);
+        SseEmitter emitter = new SseEmitter(620_000L);
+        var stopped = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+        emitter.onCompletion(() -> stopped.set(true));
+        emitter.onError(e -> stopped.set(true));
+        emitter.onTimeout(() -> stopped.set(true));
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                String jsonBody = objectMapper.writeValueAsString(enrichedRequest);
+                logger.info("SSE relay request body: {}", jsonBody.substring(0, Math.min(500, jsonBody.length())));
+
+                var httpClient = java.net.http.HttpClient.newBuilder()
+                        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                        .build();
+                var httpRequest = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(intelligenceBaseUrl + "/api/agents/section-author/stream"))
+                        .header("Content-Type", "application/json")
+                        .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .timeout(java.time.Duration.ofSeconds(620))
+                        .build();
+
+                var httpResponse = httpClient.send(httpRequest,
+                        java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+
+                if (httpResponse.statusCode() != 200) {
+                    String errorBody = new String(httpResponse.body().readAllBytes());
+                    logger.error("Stream endpoint returned {}: {}", httpResponse.statusCode(), errorBody);
+                    throw new RuntimeException("Intelligence service stream returned " + httpResponse.statusCode());
+                }
+
+                try (var reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(httpResponse.body()))) {
+                    String line;
+                    StringBuilder eventData = new StringBuilder();
+                    while ((line = reader.readLine()) != null && !stopped.get()) {
+                        if (line.startsWith("data: ")) {
+                            eventData.append(line.substring(6));
+                        } else if (line.isEmpty() && !eventData.isEmpty()) {
+                            String data = eventData.toString();
+                            eventData.setLength(0);
+
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> stageEvent = objectMapper.readValue(data, Map.class);
+                            String stage = (String) stageEvent.get("stage");
+
+                            if ("complete".equals(stage)) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> responseData = (Map<String, Object>) stageEvent.get("data");
+                                AiAssistResponse fullResponse = buildStreamResponse(responseData, request);
+                                // Wrap in the stage event format the frontend expects
+                                Map<String, Object> completeEvent = new HashMap<>();
+                                completeEvent.put("stage", "complete");
+                                completeEvent.put("data", fullResponse);
+                                emitter.send(SseEmitter.event()
+                                        .data(objectMapper.writeValueAsString(completeEvent), org.springframework.http.MediaType.APPLICATION_JSON));
+                            } else {
+                                // Forward stage events as-is (already in correct format)
+                                emitter.send(SseEmitter.event()
+                                        .data(data, org.springframework.http.MediaType.APPLICATION_JSON));
+                            }
+                        }
+                    }
+                }
+                emitter.complete();
+            } catch (Exception e) {
+                logger.error("SSE relay error", e);
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data("{\"stage\":\"error\",\"message\":\"" + e.getMessage() + "\"}"));
+                } catch (Exception ignored) {
+                }
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
+    }
+
+    private AiAssistResponse buildStreamResponse(Map<String, Object> responseData, AiAssistRequest request) {
+        String responseType = (String) responseData.getOrDefault("response_type", "message");
+
+        List<AiAssistRequest.ConversationTurn> updatedHistory = new ArrayList<>(
+                request.conversationHistory() != null ? request.conversationHistory() : List.of()
+        );
+
+        Map<String, Object> userContent;
+        if (request.questionAnswers() != null && !request.questionAnswers().isEmpty()) {
+            userContent = Map.of("type", "answers", "answers", request.questionAnswers());
+        } else if (request.regenerate()) {
+            userContent = Map.of("type", "text", "text", "[Regenerate]");
+        } else {
+            userContent = Map.of("type", "text", "text",
+                    request.userMessage() != null ? request.userMessage() : "");
+        }
+        updatedHistory.add(new AiAssistRequest.ConversationTurn("user", userContent));
+
+        Map<String, Object> assistantContent = buildAssistantContent(responseType, responseData);
+        updatedHistory.add(new AiAssistRequest.ConversationTurn("assistant", assistantContent));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> questions = (List<Map<String, Object>>) responseData.get("questions");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> sectionContent = (Map<String, Object>) responseData.get("section_content");
+
+        List<AiAssistResponse.QuestionItem> questionItems = null;
+        if (questions != null) {
+            questionItems = questions.stream()
+                    .map(q -> new AiAssistResponse.QuestionItem(
+                            (String) q.get("id"),
+                            (String) q.get("text"),
+                            (String) q.get("input_type"),
+                            q.get("options") != null ? ((List<?>) q.get("options")).stream()
+                                    .map(Object::toString).toList() : null,
+                            q.get("required") == null || (boolean) q.get("required")
+                    ))
+                    .toList();
+        }
+
+        return new AiAssistResponse(
+                responseType,
+                questionItems,
+                sectionContent,
+                (String) responseData.get("message"),
+                (String) responseData.get("message_severity"),
+                (String) responseData.get("explanation"),
+                updatedHistory
+        );
+    }
+
+    private Map<String, Object> buildEnrichedRequest(UUID neuronId, String sectionId, AiAssistRequest request) {
+        Neuron neuron = neuronRepository.findById(neuronId)
+                .orElseThrow(() -> new ResourceNotFoundException("Neuron not found: " + neuronId));
+
+        Brain brain = brainRepository.findById(neuron.getBrainId())
+                .orElseThrow(() -> new ResourceNotFoundException("Brain not found: " + neuron.getBrainId()));
+
+        String clusterName = null;
+        if (neuron.getClusterId() != null) {
+            clusterName = clusterRepository.findById(neuron.getClusterId())
+                    .map(Cluster::getName)
+                    .orElse(null);
+        }
+
+        List<String> tagNames = tagService.getTagsForNeuron(neuronId).stream()
+                .map(t -> t.name())
+                .toList();
+
+        List<Map<String, Object>> siblingsSummary = extractSiblingSummaries(
+                neuron.getContentJson(), sectionId);
+
+        Map<String, Object> context = new HashMap<>();
+        context.put("neuron_id", neuronId.toString());
+        context.put("neuron_title", neuron.getTitle() != null ? neuron.getTitle() : "Untitled");
+        context.put("section_id", sectionId);
+        context.put("brain_name", brain.getName());
+        context.put("cluster_name", clusterName);
+        context.put("tags", tagNames);
+        context.put("sibling_sections_summary", siblingsSummary);
+
+        List<Map<String, Object>> knowledgeContext = List.of();
+        try {
+            knowledgeContext = contextAssemblyService.assembleKnowledgeContext(
+                    neuronId, neuron.getBrainId(), neuron.getClusterId(),
+                    request.userMessage());
+        } catch (Exception e) {
+            logger.warn("Failed to assemble knowledge context for neuron {}: {}",
+                    neuronId, e.getMessage());
+        }
+        context.put("knowledge_context", knowledgeContext);
+        context.put("brain_id", neuron.getBrainId().toString());
+
+        Map<String, Object> enrichedRequest = new HashMap<>();
+        enrichedRequest.put("section_type", request.sectionType());
+        enrichedRequest.put("current_content", request.currentContent());
+        enrichedRequest.put("user_message", request.userMessage() != null ? request.userMessage() : "");
+        enrichedRequest.put("conversation_history", request.conversationHistory() != null
+                ? request.conversationHistory() : List.of());
+        if (request.questionAnswers() != null) {
+            List<Map<String, Object>> snakeAnswers = request.questionAnswers().stream()
+                    .map(qa -> {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("question_id", qa.questionId());
+                        m.put("value", qa.value());
+                        return m;
+                    })
+                    .toList();
+            enrichedRequest.put("question_answers", snakeAnswers);
+        } else {
+            enrichedRequest.put("question_answers", null);
+        }
+        enrichedRequest.put("regenerate", request.regenerate());
+        enrichedRequest.put("tools_enabled", settingsService.isAiToolsEnabled());
+        enrichedRequest.put("context", context);
+
+        return enrichedRequest;
     }
 
     public String generateResearchGoal(String brainName, String brainDescription) {
@@ -318,12 +479,18 @@ public class IntelligenceService {
                 } else {
                     c.put("questions", List.of());
                 }
+                if (agentResponse.get("explanation") != null) {
+                    c.put("explanation", agentResponse.get("explanation"));
+                }
                 yield c;
             }
             case "content" -> {
                 Map<String, Object> c = new HashMap<>();
                 c.put("type", "section_content");
                 c.put("sectionContent", agentResponse.get("section_content"));
+                if (agentResponse.get("explanation") != null) {
+                    c.put("explanation", agentResponse.get("explanation"));
+                }
                 yield c;
             }
             case "reply" -> {
