@@ -6,7 +6,7 @@ Intelligent features beyond the existing per-section AI Assist. These operate at
 
 | Level     | Existing Features                                        | AI Features                        |
 |-----------|----------------------------------------------------------|------------------------------------|
-| Neuron    | Rich editor, sections, tags, links, revisions, complexity | AI Assist (per-section authoring)  |
+| Neuron    | Rich editor, sections, tags, links, revisions, complexity | AI Assist (per-section authoring with RAG context, tool use, SSE streaming, rich-text preview) |
 | Cluster   | Neuron list with previews, breadcrumbs                   | None                               |
 | Brain     | Stats, knowledge graph, description, tags, export        | None                               |
 
