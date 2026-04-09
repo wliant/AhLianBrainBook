@@ -46,7 +46,7 @@ class SettingsServiceTest {
     @Test
     void updateSettings_displayNameOnly() {
         AppSettingsResponse response = settingsService.updateSettings(
-                new AppSettingsRequest("Alice", null, null));
+                new AppSettingsRequest("Alice", null, null, null));
 
         assertThat(response.displayName()).isEqualTo("Alice");
         assertThat(response.maxRemindersPerNeuron()).isEqualTo(10);
@@ -56,7 +56,7 @@ class SettingsServiceTest {
     @Test
     void updateSettings_maxRemindersOnly() {
         AppSettingsResponse response = settingsService.updateSettings(
-                new AppSettingsRequest(null, 5, null));
+                new AppSettingsRequest(null, 5, null, null));
 
         assertThat(response.maxRemindersPerNeuron()).isEqualTo(5);
         assertThat(response.displayName()).isEqualTo("user");
@@ -65,7 +65,7 @@ class SettingsServiceTest {
     @Test
     void updateSettings_timezoneOnly() {
         AppSettingsResponse response = settingsService.updateSettings(
-                new AppSettingsRequest(null, null, "America/New_York"));
+                new AppSettingsRequest(null, null, "America/New_York", null));
 
         assertThat(response.timezone()).isEqualTo("America/New_York");
     }
@@ -79,7 +79,7 @@ class SettingsServiceTest {
 
     @Test
     void getDisplayName_afterUpdate_returnsNewValue() {
-        settingsService.updateSettings(new AppSettingsRequest("Bob", null, null));
+        settingsService.updateSettings(new AppSettingsRequest("Bob", null, null, null));
 
         String displayName = settingsService.getDisplayName();
 
@@ -98,5 +98,33 @@ class SettingsServiceTest {
         String tz = settingsService.getTimezone();
 
         assertThat(tz).isEqualTo("Asia/Singapore");
+    }
+
+    @Test
+    void aiToolsEnabled_defaultFalse() {
+        AppSettingsResponse response = settingsService.getSettings();
+
+        assertThat(response.aiToolsEnabled()).isFalse();
+    }
+
+    @Test
+    void updateSettings_togglesAiToolsEnabled() {
+        settingsService.updateSettings(new AppSettingsRequest(null, null, null, true));
+
+        assertThat(settingsService.isAiToolsEnabled()).isTrue();
+        assertThat(settingsService.getSettings().aiToolsEnabled()).isTrue();
+
+        settingsService.updateSettings(new AppSettingsRequest(null, null, null, false));
+
+        assertThat(settingsService.isAiToolsEnabled()).isFalse();
+    }
+
+    @Test
+    void updateSettings_nullAiToolsEnabled_doesNotChange() {
+        settingsService.updateSettings(new AppSettingsRequest(null, null, null, true));
+        settingsService.updateSettings(new AppSettingsRequest("NewName", null, null, null));
+
+        assertThat(settingsService.isAiToolsEnabled()).isTrue();
+        assertThat(settingsService.getSettings().displayName()).isEqualTo("NewName");
     }
 }

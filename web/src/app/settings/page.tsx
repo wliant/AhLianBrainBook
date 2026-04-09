@@ -7,7 +7,7 @@ import { useSettings } from "@/lib/hooks/useSettings";
 import { CheckCircle, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone } = useSettings();
+  const { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone, updateAiToolsEnabled } = useSettings();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -17,12 +17,16 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState("Asia/Singapore");
   const [timezoneSaving, setTimezoneSaving] = useState(false);
   const [timezoneSaved, setTimezoneSaved] = useState(false);
+  const [aiToolsEnabled, setAiToolsEnabled] = useState(false);
+  const [aiToolsSaving, setAiToolsSaving] = useState(false);
+  const [aiToolsSaved, setAiToolsSaved] = useState(false);
 
   useEffect(() => {
     if (settings) {
       setDisplayName(settings.displayName);
       setMaxReminders(settings.maxRemindersPerNeuron);
       setTimezone(settings.timezone);
+      setAiToolsEnabled(settings.aiToolsEnabled);
     }
   }, [settings]);
 
@@ -152,6 +156,46 @@ export default function SettingsPage() {
             </select>
             {timezoneSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             {timezoneSaved && <CheckCircle className="h-4 w-4 text-green-500" />}
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <label htmlFor="aiToolsEnabled" className="block text-sm font-medium mb-1.5">
+            AI Tools (Search &amp; Retrieval)
+          </label>
+          <p className="text-xs text-muted-foreground mb-2">
+            When enabled, the AI assistant can search your notes and the web for relevant
+            information while generating content. This may increase response time.
+          </p>
+          <div className="flex gap-2 items-center">
+            <button
+              id="aiToolsEnabled"
+              role="switch"
+              aria-checked={aiToolsEnabled}
+              onClick={async () => {
+                const next = !aiToolsEnabled;
+                setAiToolsEnabled(next);
+                setAiToolsSaving(true);
+                setAiToolsSaved(false);
+                await updateAiToolsEnabled(next);
+                setAiToolsSaving(false);
+                setAiToolsSaved(true);
+                setTimeout(() => setAiToolsSaved(false), 2000);
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                aiToolsEnabled ? "bg-primary" : "bg-muted"
+              }`}
+              data-testid="ai-tools-toggle"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  aiToolsEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <span className="text-sm">{aiToolsEnabled ? "Enabled" : "Disabled"}</span>
+            {aiToolsSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {aiToolsSaved && <CheckCircle className="h-4 w-4 text-green-500" />}
           </div>
         </div>
       </div>

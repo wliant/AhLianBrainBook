@@ -53,7 +53,7 @@ class SettingsControllerIntegrationTest {
 
     @Test
     void updateSettings_returns200() {
-        AppSettingsRequest request = new AppSettingsRequest("Alice", 20, "UTC");
+        AppSettingsRequest request = new AppSettingsRequest("Alice", 20, "UTC", null);
 
         ResponseEntity<AppSettingsResponse> response = restTemplate.exchange(
                 "/api/settings", HttpMethod.PATCH,
@@ -67,7 +67,7 @@ class SettingsControllerIntegrationTest {
 
     @Test
     void updateSettings_invalidMaxReminders_returns400() {
-        AppSettingsRequest request = new AppSettingsRequest(null, 0, null);
+        AppSettingsRequest request = new AppSettingsRequest(null, 0, null, null);
 
         ResponseEntity<String> response = restTemplate.exchange(
                 "/api/settings", HttpMethod.PATCH,
@@ -79,7 +79,7 @@ class SettingsControllerIntegrationTest {
     @Test
     void updateSettings_tooLongDisplayName_returns400() {
         String longName = "A".repeat(101);
-        AppSettingsRequest request = new AppSettingsRequest(longName, null, null);
+        AppSettingsRequest request = new AppSettingsRequest(longName, null, null, null);
 
         ResponseEntity<String> response = restTemplate.exchange(
                 "/api/settings", HttpMethod.PATCH,

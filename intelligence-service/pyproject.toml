@@ -20,12 +20,13 @@ dependencies = [
     "tree-sitter-rust>=0.23",
     "tree-sitter-c>=0.23",
     "tree-sitter-cpp>=0.23",
+    "httpx>=0.28",
+    "duckduckgo-search>=7.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "httpx>=0.28",
     "pytest-asyncio>=0.24",
 ]
 
