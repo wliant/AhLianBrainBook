@@ -3,6 +3,9 @@
 .vscode/
 *.iml
 
+# Understand Anything
+.understand-anything/
+
 # Java / Gradle
 app/build/
 app/.gradle/

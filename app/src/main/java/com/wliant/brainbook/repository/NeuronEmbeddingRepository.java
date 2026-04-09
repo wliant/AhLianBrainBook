@@ -30,6 +30,13 @@ public interface NeuronEmbeddingRepository extends JpaRepository<NeuronEmbedding
                                     @Param("brainId") UUID brainId,
                                     @Param("lim") int limit);
 
+    @Query(value = """
+            SELECT ne.embedding::text
+            FROM neuron_embeddings ne
+            WHERE ne.neuron_id = :neuronId
+            """, nativeQuery = true)
+    String findEmbeddingVectorByNeuronId(@Param("neuronId") UUID neuronId);
+
     @Modifying
     @Query(value = """
             INSERT INTO neuron_embeddings (neuron_id, embedding, model_name, updated_at)

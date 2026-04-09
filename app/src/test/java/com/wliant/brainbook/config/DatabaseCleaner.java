@@ -25,6 +25,6 @@ public class DatabaseCleaner {
         jdbcTemplate.execute("TRUNCATE TABLE templates CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE thoughts CASCADE");
         // Reset app_settings singleton to defaults (do NOT truncate — seeded by Flyway)
-        jdbcTemplate.execute("UPDATE app_settings SET display_name = 'user', max_reminders_per_neuron = 10, timezone = 'Asia/Singapore'");
+        jdbcTemplate.execute("UPDATE app_settings SET display_name = 'user', max_reminders_per_neuron = 10, timezone = 'Asia/Singapore', ai_tools_enabled = false");
     }
 }

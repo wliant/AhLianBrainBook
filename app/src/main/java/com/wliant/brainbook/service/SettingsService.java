@@ -47,6 +47,10 @@ public class SettingsService {
             settings.setTimezone(req.timezone());
             log.info("Timezone changed to {}", req.timezone());
         }
+        if (req.aiToolsEnabled() != null) {
+            settings.setAiToolsEnabled(req.aiToolsEnabled());
+            log.info("AI tools enabled changed to {}", req.aiToolsEnabled());
+        }
         AppSettings saved = appSettingsRepository.save(settings);
         return toResponse(saved);
     }
@@ -59,11 +63,16 @@ public class SettingsService {
         return appSettingsRepository.findAll().getFirst().getTimezone();
     }
 
+    public boolean isAiToolsEnabled() {
+        return appSettingsRepository.findAll().getFirst().isAiToolsEnabled();
+    }
+
     private AppSettingsResponse toResponse(AppSettings settings) {
         return new AppSettingsResponse(
                 settings.getDisplayName(),
                 settings.getMaxRemindersPerNeuron(),
                 settings.getTimezone(),
+                settings.isAiToolsEnabled(),
                 settings.getCreatedAt(),
                 settings.getUpdatedAt()
         );

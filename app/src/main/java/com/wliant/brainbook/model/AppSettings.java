@@ -32,6 +32,9 @@ public class AppSettings {
     @Column(name = "timezone", nullable = false, length = 50)
     private String timezone = "Asia/Singapore";
 
+    @Column(name = "ai_tools_enabled", nullable = false)
+    private boolean aiToolsEnabled = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -62,4 +65,6 @@ public class AppSettings {
     public void setMaxRemindersPerNeuron(int maxRemindersPerNeuron) { this.maxRemindersPerNeuron = maxRemindersPerNeuron; }
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
+    public boolean isAiToolsEnabled() { return aiToolsEnabled; }
+    public void setAiToolsEnabled(boolean aiToolsEnabled) { this.aiToolsEnabled = aiToolsEnabled; }
 }

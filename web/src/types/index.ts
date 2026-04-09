@@ -193,6 +193,7 @@ export interface AppSettings {
   displayName: string;
   maxRemindersPerNeuron: number;
   timezone: string;
+  aiToolsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -468,9 +469,13 @@ export interface AiAssistQuestionAnswer {
 
 export type ConversationTurnContent =
   | { type: "text"; text: string }
-  | { type: "questions"; questions: AiAssistQuestion[] }
+  | { type: "questions"; questions: AiAssistQuestion[]; explanation?: string }
   | { type: "answers"; answers: AiAssistQuestionAnswer[] }
-  | { type: "section_content"; sectionContent: Record<string, unknown> }
+  | {
+      type: "section_content";
+      sectionContent: Record<string, unknown>;
+      explanation?: string;
+    }
   | { type: "reply"; text: string }
   | { type: "message"; text: string; severity: "info" | "warning" | "error" };
 
@@ -496,4 +501,12 @@ export interface AiAssistResponse {
   messageSeverity?: "info" | "warning" | "error";
   explanation?: string;
   conversationHistory: ConversationTurn[];
+}
+
+export interface AiAssistStageEvent {
+  stage: string;
+  tool?: string;
+  query?: string;
+  data?: AiAssistResponse;
+  message?: string;
 }

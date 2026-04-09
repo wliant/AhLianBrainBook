@@ -9,10 +9,11 @@ type RequestOptions = {
   body?: unknown;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, headers = {}, timeoutMs = REQUEST_TIMEOUT_MS } = options;
+  const { method = "GET", body, headers = {}, timeoutMs = REQUEST_TIMEOUT_MS, signal: externalSignal } = options;
 
   let lastError: Error | undefined;
 
@@ -23,6 +24,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
+    }
 
     const config: RequestInit = {
       method,
@@ -68,8 +76,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
       // Only retry on fetch-level network errors (not HTTP errors or abort/timeout)
       const isAbort = lastError.name === "AbortError";
+      const isExternalAbort = externalSignal?.aborted;
       const isFetchNetworkError = lastError instanceof TypeError;
-      if (isFetchNetworkError && !isAbort && attempt < MAX_RETRIES) {
+      if (isFetchNetworkError && !isAbort && !isExternalAbort && attempt < MAX_RETRIES) {
         continue;
       }
       throw lastError;
@@ -252,7 +261,7 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName?: string; maxRemindersPerNeuron?: number; timezone?: string }) =>
+    update: (body: { displayName?: string; maxRemindersPerNeuron?: number; timezone?: string; aiToolsEnabled?: boolean }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
   },
 
@@ -314,11 +323,68 @@ export const api = {
   },
 
   aiAssist: {
-    invoke: (neuronId: string, sectionId: string, body: import("@/types").AiAssistRequest) =>
+    invoke: (neuronId: string, sectionId: string, body: import("@/types").AiAssistRequest, signal?: AbortSignal) =>
       request<import("@/types").AiAssistResponse>(
         `/api/neurons/${neuronId}/sections/${sectionId}/ai-assist`,
-        { method: "POST", body, timeoutMs: 620_000 },
+        { method: "POST", body, timeoutMs: 620_000, signal },
       ),
+    stream: async function* (
+      neuronId: string,
+      sectionId: string,
+      body: import("@/types").AiAssistRequest,
+      signal?: AbortSignal,
+    ): AsyncGenerator<import("@/types").AiAssistStageEvent> {
+      const response = await fetch(
+        `${API_BASE}/api/neurons/${neuronId}/sections/${sectionId}/ai-assist/stream`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal,
+        },
+      );
+      if (!response.ok || !response.body) {
+        throw new Error(`Stream request failed: ${response.status}`);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const dataPrefix = line.startsWith("data:") ? "data:" : "";
+            if (dataPrefix) {
+              const json = line.slice(dataPrefix.length).trimStart();
+              if (json) {
+                try {
+                  yield JSON.parse(json);
+                } catch {
+                  // skip malformed JSON
+                }
+              }
+            }
+          }
+        }
+        // Process remaining buffer
+        if (buffer.startsWith("data:")) {
+          const json = buffer.slice(5).trimStart();
+          if (json) {
+            try {
+              yield JSON.parse(json);
+            } catch {
+              // skip
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
   },
 
   // Project Config endpoints

@@ -18,6 +18,8 @@ import type {
 } from "@/types";
 import { extractTiptapText } from "./sectionUtils";
 import { Loader2, Undo2, RefreshCw, Send } from "lucide-react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 
 const TYPE_LABELS: Record<string, string> = {
   "rich-text": "Rich Text",
@@ -48,8 +50,10 @@ export function AiAssistDialog({
     currentContent,
     loading,
     error,
+    stage,
     sendMessage,
     regenerate,
+    cancel,
     undo,
     canUndo,
     reset,
@@ -153,7 +157,7 @@ export function AiAssistDialog({
           <div className="flex-1 flex flex-col overflow-hidden min-h-0" data-testid="ai-assist-chat">
             <div className="flex-1 overflow-auto space-y-3 mb-3 pr-1">
               {conversationHistory.map((turn, i) => (
-                <ChatMessage key={i} turn={turn} />
+                <ChatMessage key={i} turn={turn} history={conversationHistory} index={i} />
               ))}
               {error && (
                 <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3" data-testid="ai-assist-error">
@@ -163,7 +167,14 @@ export function AiAssistDialog({
               {loading && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="ai-assist-loading">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Thinking...
+                  <StageIndicator stage={stage} />
+                  <button
+                    onClick={cancel}
+                    className="ml-2 px-2 py-0.5 text-xs border rounded hover:bg-muted"
+                    data-testid="ai-assist-cancel"
+                  >
+                    Cancel
+                  </button>
                 </div>
               )}
               <div ref={chatEndRef} />
@@ -268,7 +279,32 @@ function getPendingQuestions(history: ConversationTurn[]): AiAssistQuestion[] | 
   return null;
 }
 
-function ChatMessage({ turn }: { turn: ConversationTurn }) {
+function ExplanationToggle({ explanation }: { explanation: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-xs text-muted-foreground hover:underline"
+      >
+        {open ? "Hide explanation" : "Why?"}
+      </button>
+      {open && (
+        <p className="text-xs text-muted-foreground mt-1 italic">{explanation}</p>
+      )}
+    </div>
+  );
+}
+
+function ChatMessage({
+  turn,
+  history,
+  index,
+}: {
+  turn: ConversationTurn;
+  history: ConversationTurn[];
+  index: number;
+}) {
   const isUser = turn.role === "user";
   const content = turn.content;
 
@@ -290,19 +326,39 @@ function ChatMessage({ turn }: { turn: ConversationTurn }) {
                 • {q.text}
               </p>
             ))}
+            {content.explanation && (
+              <ExplanationToggle explanation={content.explanation} />
+            )}
           </div>
         )}
         {content.type === "answers" && (
           <div>
-            {content.answers.map((a) => (
-              <p key={a.questionId}>
-                {Array.isArray(a.value) ? a.value.join(", ") : a.value}
-              </p>
-            ))}
+            {content.answers.map((a) => {
+              const prevTurn = index > 0 ? history[index - 1] : null;
+              const questions =
+                prevTurn?.role === "assistant" &&
+                prevTurn.content.type === "questions"
+                  ? prevTurn.content.questions
+                  : [];
+              const question = questions.find((q) => q.id === a.questionId);
+              return (
+                <p key={a.questionId}>
+                  {question?.text && (
+                    <span className="font-medium">{question.text}: </span>
+                  )}
+                  {Array.isArray(a.value) ? a.value.join(", ") : a.value}
+                </p>
+              );
+            })}
           </div>
         )}
         {content.type === "section_content" && (
-          <p className="italic text-muted-foreground">✓ Content generated</p>
+          <div>
+            <p className="italic text-muted-foreground">✓ Content generated</p>
+            {content.explanation && (
+              <ExplanationToggle explanation={content.explanation} />
+            )}
+          </div>
         )}
         {content.type === "reply" && <p>{content.text}</p>}
         {content.type === "message" && (
@@ -321,6 +377,49 @@ function ChatMessage({ turn }: { turn: ConversationTurn }) {
       </div>
     </div>
   );
+}
+
+const STAGE_LABELS: Record<string, string> = {
+  building_context: "Building context...",
+  analyzing_intent: "Analyzing your request...",
+  generating: "Generating content...",
+  searching_notes: "Searching your notes...",
+  searching_web: "Searching the web...",
+  reading_note: "Reading a note...",
+  fetching_page: "Fetching a webpage...",
+  validating: "Validating output...",
+};
+
+function ReadOnlyRichText({ content }: { content: Record<string, unknown> }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editor = useEditor({
+    content: content as any,
+    editable: false,
+    extensions: [StarterKit],
+    editorProps: {
+      attributes: {
+        class: "text-sm prose prose-sm max-w-none dark:prose-invert",
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (editor && content) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      editor.commands.setContent(content as any);
+    }
+  }, [editor, content]);
+
+  if (!editor) {
+    const text = extractTiptapText(content);
+    return text.trim() ? <div className="text-sm whitespace-pre-wrap">{text}</div> : null;
+  }
+
+  return <EditorContent editor={editor} />;
+}
+
+function StageIndicator({ stage }: { stage: string | null }) {
+  return <span>{stage ? (STAGE_LABELS[stage] ?? "Thinking...") : "Thinking..."}</span>;
 }
 
 function ContentPreview({
@@ -382,11 +481,8 @@ function ContentPreview({
         </table>
       );
     }
-    case "rich-text": {
-      const text = extractTiptapText(content);
-      if (!text.trim()) return null;
-      return <div className="text-sm whitespace-pre-wrap">{text}</div>;
-    }
+    case "rich-text":
+      return <ReadOnlyRichText content={content} />;
     default:
       return <p className="text-sm text-muted-foreground">Preview not available</p>;
   }

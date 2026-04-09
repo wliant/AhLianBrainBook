@@ -63,19 +63,19 @@ uv run pytest             # run all tests
 ## Architecture
 
 ### Domain Model
-Brain → Cluster (nested tree via parent_id) → Neuron (rich text notes). Cluster types: `knowledge` (default), `ai-research` (one per brain, AI-generated topics), `project` (code-anchored notes with sandbox), `todo` (one per brain, lightweight task management). Neurons support tags, attachments (MinIO), revisions (autosave/snapshot), links between neurons (manual + wiki-link `[[` syntax), favorites, pinning, and soft delete (trash). Todo neurons have separate `todo_metadata` (due date, priority, effort, completion) with auto-generated RECURRING DAILY reminders at 7pm local time for overdue tasks. Cross-cutting features: Thoughts (tag-based filtered collections), Templates, Reminders, Notifications, AppSettings (display name, max reminders, timezone). Slash command menu (`/`) for inserting sections. Knowledge graph visualization. Import/export brains as JSON.
+Brain → Cluster (nested tree via parent_id) → Neuron (rich text notes). Cluster types: `knowledge` (default), `ai-research` (one per brain, AI-generated topics), `project` (code-anchored notes with sandbox), `todo` (one per brain, lightweight task management). Neurons support tags, attachments (MinIO), revisions (autosave/snapshot), links between neurons (manual + wiki-link `[[` syntax), favorites, pinning, and soft delete (trash). Todo neurons have separate `todo_metadata` (due date, priority, effort, completion) with auto-generated RECURRING DAILY reminders at 7pm local time for overdue tasks. Cross-cutting features: Thoughts (tag-based filtered collections), Templates, Reminders, Notifications, AppSettings (display name, max reminders, timezone, AI tools toggle). Slash command menu (`/`) for inserting sections. Knowledge graph visualization. Import/export brains as JSON.
 
 ### App (`app/src/main/java/com/wliant/brainbook/`)
-Standard layered Spring Boot: `controller/` → `service/` → `repository/` → `model/`. DTOs in `dto/`, config in `config/` (CORS, MinIO client). Database migrations via Flyway in `src/main/resources/db/migration/`. Neuron content stored as JSONB with a separate plain-text column for full-text search indexing.
+Standard layered Spring Boot: `controller/` → `service/` → `repository/` → `model/`. DTOs in `dto/`, config in `config/` (CORS, MinIO client). Database migrations via Flyway in `src/main/resources/db/migration/`. Neuron content stored as JSONB with a separate plain-text column for full-text search indexing. Internal API at `/api/internal/*` for intelligence service tool callbacks (search, similar, neuron content), secured via `X-Internal-Key` header. `ContextAssemblyService` for RAG retrieval (embeddings + links + cluster siblings). SSE streaming via `SseEmitter` relay for AI assist stage indicators.
 
 ### Intelligence Service (`intelligence-service/src/`)
-Stateless FastAPI service for AI agent workflows. Uses LangGraph for agent orchestration and Ollama for local LLM inference. Structure: `routers/` (API endpoints) → `agents/` (LangGraph graphs) → `schemas/` (Pydantic models). Config via `pydantic-settings` in `config.py`.
+Stateless FastAPI service for AI agent workflows. Uses LangGraph for agent orchestration and Ollama for local LLM inference. Structure: `routers/` (API endpoints) → `agents/` (LangGraph graphs) → `schemas/` (Pydantic models) → `tools/` (LangChain tools for KB search and web search). Config via `pydantic-settings` in `config.py`. Section author agent has two graph variants: linear (JSON mode, no tools) and tool-enabled (with tool loop, max 3 iterations). SSE streaming endpoint at `/api/agents/section-author/stream` for real-time stage indicators.
 
 ### Sandbox Service (`sandbox-service/`)
 Go microservice that provisions and manages git sandboxes for Project clusters. Communicates with the Spring Boot backend over gRPC. Handles repo cloning, branch switching, pull operations, file serving, and sandbox cleanup. Proto definitions live in `proto/sandbox/v1/`. Runs as a sidecar container in Docker Compose.
 
 ### Web (`web/src/`)
-Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/neuron/[neuronId]/`. API client in `lib/api.ts` wraps fetch. Custom hooks in `lib/hooks/` (useBrains, useClusters, useNeurons, useTodoMetadata). Rich text editor uses TipTap (`components/editor/`). Cluster-type-specific views: `components/research/` (AI research), `components/project/` (code sandbox), `components/todo/` (task management — TodoClusterView, TodoTaskRow, TodoMetadataEditor, TasksPanel). UI built with Radix primitives + Tailwind CSS (`components/ui/`).
+Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/neuron/[neuronId]/`. API client in `lib/api.ts` wraps fetch (includes SSE stream parser for AI assist). Custom hooks in `lib/hooks/` (useBrains, useClusters, useNeurons, useTodoMetadata, useAiAssist with streaming + cancellation). Rich text editor uses TipTap (`components/editor/`). AI assist dialog (`components/sections/AiAssistDialog.tsx`) with side-by-side preview, stage indicators, read-only TipTap rich-text preview, explanation toggles, and cancel button. Cluster-type-specific views: `components/research/` (AI research), `components/project/` (code sandbox), `components/todo/` (task management — TodoClusterView, TodoTaskRow, TodoMetadataEditor, TasksPanel). UI built with Radix primitives + Tailwind CSS (`components/ui/`).
 
 ### Testing
 - **App**: JUnit 5 + Spring Boot Test + TestContainers (PostgreSQL). Classical-school unit tests for services (real DB, only MinIO mocked). Integration tests for controllers (`@SpringBootTest` with `RANDOM_PORT` + `TestRestTemplate`). Requires Docker for TestContainers.
@@ -88,6 +88,9 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 - Backend port: 8080, Frontend port: 3000, Intelligence Service port: 8001
 - MinIO API: 9000, Console: 9001
 - Ollama: external (configured via `OLLAMA_BASE_URL` in `.env`)
+- LLM max tokens: configurable via `LLM_MAX_TOKENS` (default 4096)
+- AI tools: Tavily web search (optional, `TAVILY_API_KEY`), DuckDuckGo fallback
+- Internal API auth: `INTERNAL_API_KEY` (blank = dev mode, no auth)
 - Max upload: 50MB
 - Neuron optimistic locking via `version` field
 - Frontend output mode: `standalone` (for Docker)

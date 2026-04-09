@@ -29,5 +29,10 @@ export function useSettings() {
     queryClient.invalidateQueries({ queryKey: ["settings"] });
   }, [queryClient]);
 
-  return { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone };
+  const updateAiToolsEnabled = useCallback(async (aiToolsEnabled: boolean) => {
+    await api.settings.update({ aiToolsEnabled });
+    queryClient.invalidateQueries({ queryKey: ["settings"] });
+  }, [queryClient]);
+
+  return { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone, updateAiToolsEnabled };
 }
