@@ -172,6 +172,15 @@ public class NeuronController {
         return ResponseEntity.ok(intelligenceService.aiAssist(id, sectionId, request));
     }
 
+    @PostMapping(value = "/{id}/sections/{sectionId}/ai-assist/stream",
+                 produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter aiAssistStream(
+            @PathVariable UUID id,
+            @PathVariable String sectionId,
+            @RequestBody AiAssistRequest request) {
+        return intelligenceService.aiAssistStream(id, sectionId, request);
+    }
+
     // Reminder endpoints
 
     @PostMapping("/{id}/reminders")

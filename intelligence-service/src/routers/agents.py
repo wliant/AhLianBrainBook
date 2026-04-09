@@ -2,9 +2,10 @@ import logging
 import time
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from src.agents.placeholder import invoke_placeholder_agent
-from src.agents.section_author import invoke_section_author
+from src.agents.section_author import invoke_section_author, stream_section_author
 from src.agents.research_goal_generator import invoke_research_goal_generator
 from src.agents.research_topic_generator import invoke_research_topic_generator
 from src.agents.research_topic_scorer import invoke_research_topic_scorer
@@ -55,6 +56,17 @@ async def section_author(request: SectionAuthorRequest):
     except Exception:
         logger.exception("agent=section-author status=error duration=%.2fs", time.time() - start)
         raise
+
+
+@router.post("/agents/section-author/stream")
+async def section_author_stream(request: SectionAuthorRequest):
+    neuron_title = getattr(request.context, "neuron_title", "?") if request.context else "?"
+    logger.info("agent=section-author-stream section_type=%s neuron=%s", request.section_type, neuron_title[:80])
+    return StreamingResponse(
+        stream_section_author(request),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/agents/research-goal-generator", response_model=GenerateGoalResponse)
