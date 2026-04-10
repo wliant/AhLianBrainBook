@@ -11,7 +11,7 @@ Stateless FastAPI service providing AI agent capabilities for BrainBook via Lang
 | API Framework   | FastAPI             | HTTP endpoints, OpenAPI docs   |
 | Agent Runtime   | LangGraph           | Agent workflow orchestration   |
 | LLM Provider    | Ollama / Anthropic  | LLM inference (local via Ollama or cloud via Anthropic API) |
-| LLM Abstraction | `src/llm.py`        | `get_llm()` factory returns ChatOllama or ChatAnthropic based on config |
+| LLM Abstraction | `src/llm.py`        | `get_llm(temperature?, max_tokens?)` factory returns ChatOllama or ChatAnthropic based on config |
 | Package Manager | uv                  | Dependency management          |
 
 ### Project Structure
@@ -239,47 +239,51 @@ State: `section_type, current_content, user_message, conversation_history, quest
 Generates a research goal string for a new AI Research cluster.
 
 ```
-START → build_prompt → invoke_llm → validate → END
+START → build_prompt → invoke_llm → END
 ```
 
-- **Input** (`GenerateGoalRequest`): `{ brain_name, neurons: NeuronSummary[] }`
+- **Input** (`GenerateGoalRequest`): `{ brain_name, brain_description }`
 - **Output** (`GenerateGoalResponse`): `{ research_goal }`
-- Single LLM call. Produces a 1-2 sentence research goal based on the brain's name and existing knowledge neuron summaries.
+- Single LLM call at temperature 0.7. Produces a 1-2 sentence research goal with SPECIFIC/SCOPED/MEASURABLE quality criteria. Includes good/bad examples in prompt and adapts tone based on beginner/advanced cues in the brain description.
 
 ### Research Topic Generator
 
 Generates a structured bullet tree for a research topic.
 
 ```
-START → build_prompt → invoke_llm → validate → END
+START → build_prompt → invoke_llm → self_critique → validate_output → END
 ```
 
 - **Input** (`GenerateTopicRequest`): `{ prompt, context: BrainContext }`
 - **Output** (`GenerateTopicResponse`): `{ title, items: BulletItem[], overall_completeness }`
-- Uses brain context (name, research goal, neuron summaries) to generate relevant bullet points with initial completeness scores and linked neuron IDs.
+- Uses brain context (name, research goal, neuron summaries with tags, existing topic titles) to generate 3-10 bullet points with initial completeness scores and linked neuron IDs. Temperature 0.4.
+- **Prompt quality**: Chain-of-thought preamble, anti-pattern warnings (no filler like "Introduction"/"Overview"), deduplication against existing topics, quality criteria per bullet.
+- **Self-critique step**: A second LLM call at temperature 0.2 reviews the initial output for vague bullets, overlaps, missing subtopics, and short explanations, then outputs a corrected version.
+- **Validation**: Programmatic deduplication (>80% word overlap removal), semantic quality checks (filler detection, short explanation warnings), minimum viable output warning (<3 items or all empty explanations).
 
 ### Research Topic Scorer
 
 Re-scores completeness levels and discovers new neuron links for existing bullet trees.
 
 ```
-START → build_prompt → invoke_llm → validate → END
+START → build_prompt → invoke_llm → validate_output → END
 ```
 
 - **Input** (`ScoreTopicRequest`): `{ items: BulletItem[], context: BrainContext }`
 - **Output** (`ScoreTopicResponse`): `{ items: BulletItem[], overall_completeness }`
-- AI re-scans brain's knowledge neurons, updates completeness levels, and discovers new linked neuron IDs.
+- AI re-scans brain's knowledge neurons (2000-char previews), updates completeness levels, and discovers new linked neuron IDs. Temperature 0.1 for deterministic scoring. Detailed calibration guidance in prompt (e.g., "when in doubt, choose the LOWER level"). Only links neurons that directly discuss a concept, not passing mentions.
 
 ### Research Bullet Expander
 
 Expands a single bullet point into finer sub-points.
 
 ```
-START → build_prompt → invoke_llm → validate → END
+START → build_prompt → invoke_llm → validate_output → END
 ```
 
 - **Input** (`ExpandBulletRequest`): `{ bullet: BulletItem, parent_context, context: BrainContext }`
 - **Output** (`ExpandBulletResponse`): `{ children: BulletItem[] }`
+- Temperature 0.4. Prompt includes specificity requirements with good/bad examples and foundational-to-advanced ordering.
 
 ### Shared Research Types
 
@@ -287,12 +291,14 @@ START → build_prompt → invoke_llm → validate → END
 class NeuronSummary:
     neuron_id: str
     title: str
-    content_preview: str  # first 500 chars of contentText
+    content_preview: str  # first 1500 chars (2000 for scorer)
+    tags: list[str]       # neuron tags for semantic signal
 
 class BrainContext:
     brain_name: str
     research_goal: str
     neurons: list[NeuronSummary]
+    existing_topic_titles: list[str]  # for deduplication
 
 class BulletItem:
     id: str
@@ -444,9 +450,18 @@ Finds all references to the symbol at the given line/column.
 | EMBEDDING_OLLAMA_MODEL    | No                        | nomic-embed-text           | Ollama model for vector embeddings    |
 | ANTHROPIC_API_KEY         | When provider=anthropic   | (empty)                    | Anthropic API key                     |
 | ANTHROPIC_MODEL           | No                        | claude-sonnet-4-20250514   | Anthropic model name                  |
+| LLM_MAX_TOKENS            | No                        | 4096                       | Default max output tokens for LLM     |
 | BRAINBOOK_API_URL         | No                        | http://app:8080            | Backend API URL (for agent tool use)  |
 | AGENT_TIMEOUT             | No                        | 600                        | Agent execution timeout in seconds    |
 | LOG_LEVEL                 | No                        | INFO                       | Logging level                         |
+| TEMPERATURE_GOAL_GENERATOR | No                       | 0.7                        | LLM temperature for goal generator    |
+| TEMPERATURE_TOPIC_GENERATOR | No                      | 0.4                        | LLM temperature for topic generator   |
+| TEMPERATURE_TOPIC_SCORER  | No                        | 0.1                        | LLM temperature for topic scorer      |
+| TEMPERATURE_BULLET_EXPANDER | No                      | 0.4                        | LLM temperature for bullet expander   |
+| MAX_TOKENS_GOAL_GENERATOR | No                        | 256                        | Max tokens for goal generator         |
+| MAX_TOKENS_TOPIC_GENERATOR | No                       | 4096                       | Max tokens for topic generator        |
+| MAX_TOKENS_TOPIC_SCORER   | No                        | 4096                       | Max tokens for topic scorer           |
+| MAX_TOKENS_BULLET_EXPANDER | No                       | 2048                       | Max tokens for bullet expander        |
 
 ## Infrastructure
 

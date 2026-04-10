@@ -69,7 +69,7 @@ Brain → Cluster (nested tree via parent_id) → Neuron (rich text notes). Clus
 Standard layered Spring Boot: `controller/` → `service/` → `repository/` → `model/`. DTOs in `dto/`, config in `config/` (CORS, MinIO client). Database migrations via Flyway in `src/main/resources/db/migration/`. Neuron content stored as JSONB with a separate plain-text column for full-text search indexing. Internal API at `/api/internal/*` for intelligence service tool callbacks (search, similar, neuron content), secured via `X-Internal-Key` header. `ContextAssemblyService` for RAG retrieval (embeddings + links + cluster siblings). SSE streaming via `SseEmitter` relay for AI assist stage indicators.
 
 ### Intelligence Service (`intelligence-service/src/`)
-Stateless FastAPI service for AI agent workflows. Uses LangGraph for agent orchestration and Ollama for local LLM inference. Structure: `routers/` (API endpoints) → `agents/` (LangGraph graphs) → `schemas/` (Pydantic models) → `tools/` (LangChain tools for KB search and web search). Config via `pydantic-settings` in `config.py`. Section author agent has two graph variants: linear (JSON mode, no tools) and tool-enabled (with tool loop, max 3 iterations). SSE streaming endpoint at `/api/agents/section-author/stream` for real-time stage indicators.
+Stateless FastAPI service for AI agent workflows. Uses LangGraph for agent orchestration and Ollama for local LLM inference. Structure: `routers/` (API endpoints) → `agents/` (LangGraph graphs) → `schemas/` (Pydantic models) → `tools/` (LangChain tools for KB search and web search). Config via `pydantic-settings` in `config.py`. `get_llm(temperature?, max_tokens?)` factory in `llm.py` returns ChatOllama or ChatAnthropic with per-agent tuning. Section author agent has two graph variants: linear (JSON mode, no tools) and tool-enabled (with tool loop, max 3 iterations). SSE streaming endpoint at `/api/agents/section-author/stream` for real-time stage indicators. Research agents: goal generator (temp 0.7), topic generator (temp 0.4, with self-critique step at temp 0.2, dedup, quality validation), topic scorer (temp 0.1, 2000-char previews), bullet expander (temp 0.4). Context includes neuron tags and existing topic titles for deduplication.
 
 ### Sandbox Service (`sandbox-service/`)
 Go microservice that provisions and manages git sandboxes for Project clusters. Communicates with the Spring Boot backend over gRPC. Handles repo cloning, branch switching, pull operations, file serving, and sandbox cleanup. Proto definitions live in `proto/sandbox/v1/`. Runs as a sidecar container in Docker Compose.
@@ -88,7 +88,7 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 - Backend port: 8080, Frontend port: 3000, Intelligence Service port: 8001
 - MinIO API: 9000, Console: 9001
 - Ollama: external (configured via `OLLAMA_BASE_URL` in `.env`)
-- LLM max tokens: configurable via `LLM_MAX_TOKENS` (default 4096)
+- LLM max tokens: configurable via `LLM_MAX_TOKENS` (default 4096); per-agent overrides via `MAX_TOKENS_*` and `TEMPERATURE_*` env vars
 - AI tools: Tavily web search (optional, `TAVILY_API_KEY`), DuckDuckGo fallback
 - Internal API auth: `INTERNAL_API_KEY` (blank = dev mode, no auth)
 - Max upload: 50MB
