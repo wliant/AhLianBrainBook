@@ -3,6 +3,7 @@ package com.wliant.brainbook.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wliant.brainbook.dto.TagResponse;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.ClusterStatus;
 import com.wliant.brainbook.model.CompletenessLevel;
@@ -32,7 +33,8 @@ import java.util.stream.Collectors;
 public class ResearchAsyncService {
 
     private static final Logger logger = LoggerFactory.getLogger(ResearchAsyncService.class);
-    private static final int CONTENT_PREVIEW_LENGTH = 500;
+    private static final int DEFAULT_CONTENT_PREVIEW_LENGTH = 1500;
+    private static final int SCORER_CONTENT_PREVIEW_LENGTH = 2000;
 
     private final ClusterRepository clusterRepository;
     private final BrainRepository brainRepository;
@@ -41,6 +43,7 @@ public class ResearchAsyncService {
     private final IntelligenceService intelligenceService;
     private final ResearchSseService researchSseService;
     private final SettingsService settingsService;
+    private final TagService tagService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -52,6 +55,7 @@ public class ResearchAsyncService {
                                  IntelligenceService intelligenceService,
                                  ResearchSseService researchSseService,
                                  SettingsService settingsService,
+                                 TagService tagService,
                                  ObjectMapper objectMapper,
                                  TransactionTemplate transactionTemplate,
                                  Clock clock) {
@@ -62,6 +66,7 @@ public class ResearchAsyncService {
         this.intelligenceService = intelligenceService;
         this.researchSseService = researchSseService;
         this.settingsService = settingsService;
+        this.tagService = tagService;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
@@ -73,7 +78,8 @@ public class ResearchAsyncService {
     private record GoalContext(UUID clusterId, String brainName, String brainDescription) {}
 
     private record TopicContext(UUID topicId, UUID clusterId, String brainName, String researchGoal,
-                                 List<Map<String, Object>> neuronSummaries, String existingContentJson) {}
+                                 List<Map<String, Object>> neuronSummaries, String existingContentJson,
+                                 List<String> existingTopicTitles) {}
 
     @Async("aiTaskExecutor")
     @CacheEvict(value = "clustersByBrain", allEntries = true)
@@ -123,7 +129,12 @@ public class ResearchAsyncService {
             if (cluster == null) return null;
             String brainName = cluster.getBrain().getName();
             List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(cluster.getBrain().getId());
-            return new TopicContext(topicId, clusterId, brainName, cluster.getResearchGoal(), neuronSummaries, null);
+            List<String> existingTopicTitles = researchTopicRepository
+                    .findByClusterIdOrderBySortOrder(clusterId).stream()
+                    .map(ResearchTopic::getTitle)
+                    .collect(Collectors.toList());
+            return new TopicContext(topicId, clusterId, brainName, cluster.getResearchGoal(),
+                    neuronSummaries, null, existingTopicTitles);
         });
 
         if (ctx == null) return;
@@ -132,7 +143,8 @@ public class ResearchAsyncService {
         Map<String, Object> generated;
         try {
             generated = intelligenceService.generateResearchTopic(
-                    prompt != null ? prompt : "", ctx.researchGoal(), ctx.brainName(), ctx.neuronSummaries());
+                    prompt != null ? prompt : "", ctx.researchGoal(), ctx.brainName(),
+                    ctx.neuronSummaries(), ctx.existingTopicTitles());
         } catch (Exception e) {
             logger.error("Failed to generate research topic {}", topicId, e);
             transactionTemplate.executeWithoutResult(status -> {
@@ -184,9 +196,10 @@ public class ResearchAsyncService {
             Cluster cluster = clusterRepository.findById(clusterId).orElse(null);
             if (cluster == null) return null;
             String brainName = cluster.getBrain().getName();
-            List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(cluster.getBrain().getId());
+            List<Map<String, Object>> neuronSummaries = buildNeuronSummaries(
+                    cluster.getBrain().getId(), SCORER_CONTENT_PREVIEW_LENGTH);
             return new TopicContext(topicId, clusterId, brainName, cluster.getResearchGoal(),
-                    neuronSummaries, topic.getContentJson());
+                    neuronSummaries, topic.getContentJson(), List.of());
         });
 
         if (ctx == null) return;
@@ -240,17 +253,26 @@ public class ResearchAsyncService {
     }
 
     List<Map<String, Object>> buildNeuronSummaries(UUID brainId) {
+        return buildNeuronSummaries(brainId, DEFAULT_CONTENT_PREVIEW_LENGTH);
+    }
+
+    List<Map<String, Object>> buildNeuronSummaries(UUID brainId, int previewLength) {
         List<Neuron> neurons = neuronRepository.findByBrainIdAndIsDeletedFalse(brainId);
+        List<UUID> neuronIds = neurons.stream().map(Neuron::getId).collect(Collectors.toList());
+        Map<UUID, List<TagResponse>> tagsByNeuron = tagService.getTagsForNeurons(neuronIds);
         return neurons.stream()
                 .map(n -> {
                     Map<String, Object> summary = new HashMap<>();
                     summary.put("neuron_id", n.getId().toString());
                     summary.put("title", n.getTitle() != null ? n.getTitle() : "Untitled");
                     String contentText = n.getContentText() != null ? n.getContentText() : "";
-                    if (contentText.length() > CONTENT_PREVIEW_LENGTH) {
-                        contentText = contentText.substring(0, CONTENT_PREVIEW_LENGTH);
+                    if (contentText.length() > previewLength) {
+                        contentText = contentText.substring(0, previewLength);
                     }
                     summary.put("content_preview", contentText);
+                    List<String> tags = tagsByNeuron.getOrDefault(n.getId(), List.of()).stream()
+                            .map(TagResponse::name).toList();
+                    summary.put("tags", tags);
                     return summary;
                 })
                 .collect(Collectors.toList());

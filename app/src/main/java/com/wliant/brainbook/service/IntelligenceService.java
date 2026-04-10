@@ -355,12 +355,13 @@ public class IntelligenceService {
     }
 
     public Map<String, Object> generateResearchTopic(String prompt, String researchGoal,
-                                                      String brainName, List<Map<String, Object>> neuronSummaries) {
-        Map<String, Object> context = Map.of(
-                "brain_name", brainName,
-                "research_goal", researchGoal != null ? researchGoal : "",
-                "neurons", neuronSummaries
-        );
+                                                      String brainName, List<Map<String, Object>> neuronSummaries,
+                                                      List<String> existingTopicTitles) {
+        Map<String, Object> context = new HashMap<>();
+        context.put("brain_name", brainName);
+        context.put("research_goal", researchGoal != null ? researchGoal : "");
+        context.put("neurons", neuronSummaries);
+        context.put("existing_topic_titles", existingTopicTitles != null ? existingTopicTitles : List.of());
         Map<String, Object> request = Map.of("prompt", prompt, "context", context);
         return callAgent("/api/agents/research-topic-generator", request);
     }
