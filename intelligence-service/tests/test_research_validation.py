@@ -9,6 +9,10 @@ from src.agents.research_topic_generator import (
     self_critique,
     build_prompt,
 )
+from src.agents.research_goal_generator import build_prompt as goal_build_prompt
+from src.agents.research_topic_scorer import build_prompt as scorer_build_prompt
+from src.agents.research_bullet_expander import build_prompt as expander_build_prompt
+from src.schemas.research import NeuronSummary, BrainContext
 
 
 # --- _validate_quality ---
@@ -270,3 +274,110 @@ def test_build_prompt_includes_tags_in_neurons():
     result = build_prompt(state)
     prompt = result["system_prompt"]
     assert "[tags: testing, quality]" in prompt
+
+
+# --- Goal generator build_prompt ---
+
+
+def test_goal_prompt_includes_quality_criteria():
+    state = {"brain_name": "Rust Programming", "brain_description": "Systems programming language"}
+    result = goal_build_prompt(state)
+    prompt = result["system_prompt"]
+    assert "SPECIFIC" in prompt
+    assert "SCOPED" in prompt
+    assert "MEASURABLE" in prompt
+
+
+def test_goal_prompt_includes_examples():
+    state = {"brain_name": "Rust Programming", "brain_description": ""}
+    result = goal_build_prompt(state)
+    prompt = result["system_prompt"]
+    assert "Good example" in prompt
+    assert "Bad example" in prompt
+
+
+# --- Scorer build_prompt ---
+
+
+def test_scorer_prompt_includes_calibration():
+    state = {
+        "items": [{"id": "item-1", "text": "Test", "completeness": "none"}],
+        "context": {
+            "brain_name": "CS",
+            "research_goal": "Master CS",
+            "neurons": [],
+        },
+    }
+    result = scorer_build_prompt(state)
+    prompt = result["system_prompt"]
+    assert "Scoring calibration" in prompt
+    assert "choose the LOWER" in prompt
+    assert "DIRECTLY discusses" in prompt
+
+
+def test_scorer_prompt_renders_tags():
+    state = {
+        "items": [],
+        "context": {
+            "brain_name": "CS",
+            "research_goal": "Master CS",
+            "neurons": [
+                {"neuron_id": "n1", "title": "Note", "content_preview": "...", "tags": ["algo", "sort"]},
+            ],
+        },
+    }
+    result = scorer_build_prompt(state)
+    prompt = result["system_prompt"]
+    assert "[tags: algo, sort]" in prompt
+
+
+# --- Bullet expander build_prompt ---
+
+
+def test_expander_prompt_includes_specificity_requirements():
+    state = {
+        "bullet": {"id": "item-1", "text": "Memory Management", "explanation": "How memory works", "children": []},
+        "parent_context": "Systems Programming",
+        "context": {
+            "brain_name": "CS",
+            "research_goal": "Master low-level",
+            "neurons": [],
+        },
+    }
+    result = expander_build_prompt(state)
+    prompt = result["system_prompt"]
+    assert "Concrete enough" in prompt
+    assert "Distinct from siblings" in prompt
+    assert "foundational to advanced" in prompt
+
+
+def test_expander_prompt_includes_good_bad_examples():
+    state = {
+        "bullet": {"id": "item-1", "text": "Memory Management", "explanation": "How memory works", "children": []},
+        "parent_context": "Systems Programming",
+        "context": {
+            "brain_name": "CS",
+            "research_goal": "Master low-level",
+            "neurons": [],
+        },
+    }
+    result = expander_build_prompt(state)
+    prompt = result["system_prompt"]
+    assert "Bad sub-points" in prompt
+    assert "Good sub-points" in prompt
+
+
+# --- Schema backward compatibility ---
+
+
+def test_neuron_summary_defaults_without_tags():
+    summary = NeuronSummary(neuron_id="n1", title="Test")
+    assert summary.tags == []
+    assert summary.content_preview == ""
+
+
+def test_brain_context_defaults_without_existing_topics():
+    ctx = BrainContext(brain_name="Test Brain")
+    assert ctx.existing_topic_titles == []
+    assert ctx.neurons == []
+    assert ctx.research_goal == ""
