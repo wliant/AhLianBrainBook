@@ -156,6 +156,10 @@ class ResearchTopicServiceTest {
         ResearchTopicResponse t3 = researchTopicService.create(
                 aiResearchClusterId, new CreateResearchTopicRequest("C"));
 
+        // Wait for async generateTopicAsync tasks to finish before reordering,
+        // otherwise the async save overwrites the sort_order set by reorder
+        databaseCleaner.drainAsyncTasks();
+
         researchTopicService.reorder(new ReorderRequest(List.of(t3.id(), t1.id(), t2.id())));
 
         List<ResearchTopicResponse> reordered = researchTopicService.list(aiResearchClusterId);

@@ -71,6 +71,13 @@ class ContextAssemblyServiceTest {
     @BeforeEach
     void setUp() {
         databaseCleaner.clean();
+
+        // Prevent async embedding computation from leaking across tests.
+        // The spy's real computeEmbedding makes HTTP calls to the intelligence service;
+        // if that service happens to be running (e.g., from Docker), embeddings would be
+        // stored and cause non-deterministic similarity search results.
+        doReturn(null).when(intelligenceService).computeEmbedding(any());
+
         brain = testDataFactory.createBrain("Context Test Brain");
         cluster = testDataFactory.createCluster("Context Cluster", brain.id());
         neuron1 = testDataFactory.createNeuron("Main Neuron", brain.id(), cluster.id());
