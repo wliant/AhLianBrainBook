@@ -135,6 +135,8 @@ function TreeNodeItem({ node, depth, selectedPath, onSelectFile, onSelectFolder,
     if (!expanded) {
       await loadAndExpand();
       setExpanded(true);
+    } else {
+      setExpanded(false);
     }
   }, [onSelectFolder, node.path, expanded, loadAndExpand]);
 

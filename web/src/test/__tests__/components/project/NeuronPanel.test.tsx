@@ -99,7 +99,7 @@ describe('NeuronPanel', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByText('Select a file to see anchored neurons.')).toBeInTheDocument();
+      expect(screen.getByText('Select a file or folder to see anchored neurons.')).toBeInTheDocument();
     });
   });
 
