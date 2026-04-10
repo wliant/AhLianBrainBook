@@ -110,6 +110,7 @@ def test_research_topic_generator(client):
                         "brain_name": "Legacy Systems",
                         "research_goal": "Master legacy modernization",
                         "neurons": [],
+                        "existing_topic_titles": ["Code Smells"],
                     },
                 },
             )
@@ -154,6 +155,7 @@ def test_research_topic_scorer(client):
                                 "neuron_id": "neuron-1",
                                 "title": "Refactoring Notes",
                                 "content_preview": "Extract method is useful...",
+                                "tags": ["refactoring", "java"],
                             }
                         ],
                     },

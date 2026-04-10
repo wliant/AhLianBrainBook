@@ -23,7 +23,9 @@ def build_prompt(state: dict) -> dict:
     context = state["context"]
     bullet = state["bullet"]
     neurons_text = "\n".join(
-        f"- [{n['neuron_id']}] {n['title']}: {n['content_preview']}"
+        f"- [{n['neuron_id']}] {n['title']}"
+        + (f" [tags: {', '.join(n.get('tags', []))}]" if n.get("tags") else "")
+        + f": {n['content_preview']}"
         for n in context.get("neurons", [])
     ) if context.get("neurons") else "No existing knowledge notes."
 
@@ -32,6 +34,19 @@ def build_prompt(state: dict) -> dict:
     prompt = (
         "You are an AI learning advisor. Break the given bullet point into 3-5 finer "
         "sub-points that the user should learn.\n\n"
+        "Each sub-point should be:\n"
+        "- Concrete enough that the user knows exactly what to study\n"
+        "- Distinct from siblings (no overlapping concepts)\n"
+        "- Ordered from foundational to advanced when a natural progression exists\n\n"
+        "Bad sub-points for \"Memory Management\":\n"
+        "  - \"Understanding memory\" (too vague)\n"
+        "  - \"Memory concepts\" (restates parent)\n"
+        "  - \"Advanced memory topics\" (filler)\n\n"
+        "Good sub-points for \"Memory Management\":\n"
+        "  - \"Stack vs heap allocation and when each is used\"\n"
+        "  - \"Reference counting and its cycle problem\"\n"
+        "  - \"Mark-and-sweep garbage collection algorithm\"\n"
+        "  - \"Manual memory management with malloc/free and common pitfalls\"\n\n"
         "Completeness levels:\n"
         '- "none": not covered at all\n'
         '- "partial": mentioned or touched on\n'
@@ -67,7 +82,11 @@ def build_prompt(state: dict) -> dict:
 
 
 def invoke_llm(state: dict) -> dict:
-    llm = get_llm(format="json")
+    llm = get_llm(
+        temperature=settings.temperature_bullet_expander,
+        max_tokens=settings.max_tokens_bullet_expander,
+        format="json",
+    )
     messages = [
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Expand this bullet into sub-points."),

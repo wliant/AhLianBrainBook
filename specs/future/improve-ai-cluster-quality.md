@@ -497,24 +497,24 @@ This is a performance optimization that also improves quality by focusing the LL
 
 ## Prioritized Roadmap
 
-| # | Proposal | Priority | Complexity | Impact | Key Files |
-|---|----------|----------|------------|--------|-----------|
-| A | Prompt Engineering | High | Low | High | `research_*.py` (4 agent files) |
-| B1 | Per-Agent Temperature | High | Low | Medium | `config.py`, `llm.py`, 4 agent files |
-| C3 | Pass Existing Topic Titles | High | Low | Medium | `ResearchAsyncService.java`, `research.py` |
-| C4 | Pass Tag Information | High | Low | Medium | `ResearchAsyncService.java`, `research.py` |
-| C1 | Increase Preview Length | High | Low | Medium | `ResearchAsyncService.java` |
-| B2 | Max Tokens Guard | High | Low | Low | `config.py`, 4 agent files |
-| E1 | Semantic Quality Checks | Medium | Low | Medium | `research_topic_generator.py` |
-| E2 | Minimum Viable Output | Medium | Low | Low | `research_topic_generator.py` |
-| D1 | Self-Critique Step | Medium | Medium | High | `research_topic_generator.py` |
-| D2 | Deduplication Check | Medium | Low | Low | `research_topic_generator.py` |
-| C2 | Relevance-Based Filtering | Medium | Medium | High | `ResearchAsyncService.java`, embeddings |
-| G1 | Dedicated Scorer Context | Medium | Low | Medium | `ResearchAsyncService.java` |
-| G2 | Confidence Scores | Medium | Medium | Medium | `research.py`, scorer agent, frontend |
-| F1 | Thumbs Up/Down | Medium | Medium | Medium | Full stack (DB, backend, frontend) |
-| F2 | Regenerate with Feedback | Medium | Medium | Medium | Full stack |
-| G3 | Incremental Scoring | Lower | High | Low | `ResearchAsyncService.java`, scorer agent |
+| # | Proposal | Priority | Complexity | Impact | Key Files | Status |
+|---|----------|----------|------------|--------|-----------|--------|
+| A | Prompt Engineering | High | Low | High | `research_*.py` (4 agent files) | DONE |
+| B1 | Per-Agent Temperature | High | Low | Medium | `config.py`, `llm.py`, 4 agent files | DONE |
+| C3 | Pass Existing Topic Titles | High | Low | Medium | `ResearchAsyncService.java`, `research.py` | DONE |
+| C4 | Pass Tag Information | High | Low | Medium | `ResearchAsyncService.java`, `research.py` | DONE |
+| C1 | Increase Preview Length | High | Low | Medium | `ResearchAsyncService.java` | DONE |
+| B2 | Max Tokens Guard | High | Low | Low | `config.py`, 4 agent files | DONE |
+| E1 | Semantic Quality Checks | Medium | Low | Medium | `research_topic_generator.py` | DONE |
+| E2 | Minimum Viable Output | Medium | Low | Low | `research_topic_generator.py` | DONE |
+| D1 | Self-Critique Step | Medium | Medium | High | `research_topic_generator.py` | DONE |
+| D2 | Deduplication Check | Medium | Low | Low | `research_topic_generator.py` | DONE |
+| G1 | Dedicated Scorer Context | Medium | Low | Medium | `ResearchAsyncService.java` | DONE |
+| C2 | Relevance-Based Filtering | Medium | Medium | High | `ResearchAsyncService.java`, embeddings | |
+| G2 | Confidence Scores | Medium | Medium | Medium | `research.py`, scorer agent, frontend | |
+| F1 | Thumbs Up/Down | Medium | Medium | Medium | Full stack (DB, backend, frontend) | |
+| F2 | Regenerate with Feedback | Medium | Medium | Medium | Full stack | |
+| G3 | Incremental Scoring | Lower | High | Low | `ResearchAsyncService.java`, scorer agent | |
 
 **Recommended implementation order:** A → B1 → C3+C4 → C1 → B2 → E1 → D1 → C2 → F1+F2 → G
 

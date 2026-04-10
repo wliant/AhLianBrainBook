@@ -22,7 +22,9 @@ VALID_COMPLETENESS = {"none", "partial", "good", "complete"}
 def build_prompt(state: dict) -> dict:
     context = state["context"]
     neurons_text = "\n".join(
-        f"- [{n['neuron_id']}] {n['title']}: {n['content_preview']}"
+        f"- [{n['neuron_id']}] {n['title']}"
+        + (f" [tags: {', '.join(n.get('tags', []))}]" if n.get("tags") else "")
+        + f": {n['content_preview']}"
         for n in context.get("neurons", [])
     ) if context.get("neurons") else "No existing knowledge notes."
 
@@ -31,13 +33,19 @@ def build_prompt(state: dict) -> dict:
     prompt = (
         "You are an AI learning advisor. Re-evaluate the completeness of each bullet point "
         "based on the user's current knowledge notes.\n\n"
-        "Completeness levels:\n"
-        '- "none": not covered at all in the knowledge notes\n'
-        '- "partial": mentioned or touched on, but lacking depth\n'
-        '- "good": explained with reasonable depth, examples present\n'
-        '- "complete": thoroughly covered with depth, examples, and connections\n\n'
-        "Also discover which knowledge neurons (by neuron_id from the list below) are "
-        "relevant to each bullet point. Only use neuron_ids from the provided list.\n\n"
+        "Scoring calibration:\n"
+        '- "none": No neuron mentions this concept at all. Not even a passing reference.\n'
+        '- "partial": A neuron touches on this but doesn\'t explain it. E.g., the concept '
+        "appears in a list or is mentioned as a prerequisite without elaboration.\n"
+        '- "good": At least one neuron explains this concept with examples or depth. '
+        "The user could teach someone the basics from their notes.\n"
+        '- "complete": Multiple neurons cover this with depth, examples, edge cases, '
+        "and connections to related concepts. Production-ready understanding.\n\n"
+        "When in doubt between two levels, choose the LOWER one — it's better to "
+        "motivate the user to study more than to give false confidence.\n\n"
+        "Only link a neuron_id if the neuron DIRECTLY discusses the bullet's concept. "
+        "Do not link neurons that merely mention a keyword in passing. "
+        "Only use neuron_ids from the provided list.\n\n"
         f"Brain: {context.get('brain_name', '')}\n"
         f"Research goal: {context.get('research_goal', '')}\n\n"
         f"Knowledge neurons:\n{neurons_text}\n\n"
@@ -52,7 +60,11 @@ def build_prompt(state: dict) -> dict:
 
 
 def invoke_llm(state: dict) -> dict:
-    llm = get_llm(format="json")
+    llm = get_llm(
+        temperature=settings.temperature_topic_scorer,
+        max_tokens=settings.max_tokens_topic_scorer,
+        format="json",
+    )
     messages = [
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Score the completeness of each bullet."),

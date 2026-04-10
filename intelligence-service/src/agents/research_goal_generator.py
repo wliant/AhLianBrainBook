@@ -3,6 +3,7 @@ import logging
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph
 
+from src.config import settings
 from src.llm import get_llm, get_provider_name
 from src.schemas.research import GenerateGoalRequest, GenerateGoalResponse
 
@@ -14,7 +15,19 @@ def build_prompt(state: dict) -> dict:
         "You are an AI learning advisor. Given a brain (subject domain) name and description, "
         "generate a concise research goal (1-2 sentences) that describes what the user should "
         "aim to learn in this domain.\n\n"
-        "The goal should be specific enough to guide learning but broad enough to cover the domain.\n\n"
+        "Quality criteria for the research goal:\n"
+        "- SPECIFIC: Reference 2-3 concrete subtopics the user should master\n"
+        "- SCOPED: Achievable within a focused study period, not \"learn everything about X\"\n"
+        "- MEASURABLE: The user should be able to tell when they've reached the goal\n\n"
+        "Good example (brain: \"Rust Programming\"):\n"
+        "  \"Master Rust's ownership model, lifetimes, and trait system to confidently\n"
+        "   write zero-cost abstractions and concurrent programs without data races.\"\n\n"
+        "Bad example:\n"
+        "  \"Learn about Rust programming and its features.\"\n"
+        "  (Too vague — no concrete subtopics, no success criteria)\n\n"
+        "Adapt the tone and depth based on context clues in the description. If the description "
+        "suggests a beginner, focus on foundational concepts. If it suggests advanced study, "
+        "target deeper or more specialized topics.\n\n"
         f"Brain name: {state['brain_name']}\n"
     )
     description = state.get("brain_description", "")
@@ -27,7 +40,10 @@ def build_prompt(state: dict) -> dict:
 
 
 def invoke_llm(state: dict) -> dict:
-    llm = get_llm()
+    llm = get_llm(
+        temperature=settings.temperature_goal_generator,
+        max_tokens=settings.max_tokens_goal_generator,
+    )
     messages = [
         SystemMessage(content=state["system_prompt"]),
         HumanMessage(content="Generate the research goal."),
