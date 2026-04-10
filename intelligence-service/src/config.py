@@ -18,5 +18,17 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     internal_api_key: str = ""
 
+    # Per-agent LLM tuning
+    temperature_goal_generator: float = 0.7
+    temperature_topic_generator: float = 0.4
+    temperature_topic_scorer: float = 0.1
+    temperature_bullet_expander: float = 0.4
+
+    # Per-agent max tokens
+    max_tokens_goal_generator: int = 256
+    max_tokens_topic_generator: int = 4096
+    max_tokens_topic_scorer: int = 4096
+    max_tokens_bullet_expander: int = 2048
+
 
 settings = Settings()

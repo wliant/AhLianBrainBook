@@ -5,12 +5,14 @@ class NeuronSummary(BaseModel):
     neuron_id: str
     title: str
     content_preview: str = ""
+    tags: list[str] = []
 
 
 class BrainContext(BaseModel):
     brain_name: str
     research_goal: str = ""
     neurons: list[NeuronSummary] = []
+    existing_topic_titles: list[str] = []
 
 
 class BulletItem(BaseModel):
