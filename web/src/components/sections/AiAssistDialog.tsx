@@ -500,7 +500,7 @@ function QuestionForm({
   onSubmit: () => void;
 }) {
   return (
-    <div className="space-y-3 border rounded-lg p-3 bg-muted/30" data-testid="ai-assist-questions">
+    <div className="space-y-3 border rounded-lg p-3 bg-muted/30 overflow-y-auto max-h-[50%] shrink-0" data-testid="ai-assist-questions">
       {questions.map((q) => (
         <div key={q.id}>
           <p className="text-sm font-medium mb-1">{q.text}</p>
