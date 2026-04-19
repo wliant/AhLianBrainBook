@@ -192,11 +192,11 @@ export function AiAssistDialog({
 
             {/* Input */}
             {!pendingQuestions && (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  className="flex-1 border rounded-lg px-3 py-2 text-sm bg-background"
-                  placeholder="Describe what you need..."
+              <div className="flex gap-2 items-end">
+                <textarea
+                  rows={2}
+                  className="flex-1 border rounded-lg px-3 py-2 text-sm bg-background resize-y min-h-[40px] max-h-48"
+                  placeholder="Describe what you need... (Shift+Enter for new line)"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
