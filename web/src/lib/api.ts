@@ -300,6 +300,8 @@ export const api = {
       request<Record<string, import("@/types").TodoMetadata>>(`/api/clusters/${clusterId}/todo`),
     createTaskFromNeuron: (brainId: string, body: { sourceNeuronId: string; title: string }) =>
       request<import("@/types").CreateTaskFromNeuronResponse>(`/api/brains/${brainId}/tasks`, { method: "POST", body }),
+    listAllTasks: () =>
+      request<import("@/types").TaskOverviewItem[]>("/api/tasks"),
   },
 
   // Notification endpoints
