@@ -90,6 +90,31 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   throw lastError;
 }
 
+async function requestText(path: string, options: RequestOptions = {}): Promise<string> {
+  const { method = "GET", body, headers = {}, timeoutMs = REQUEST_TIMEOUT_MS, signal: externalSignal } = options;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  if (externalSignal) {
+    externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json", ...headers },
+      signal: controller.signal,
+      cache: "no-cache",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.error || error.message || `Request failed: ${response.status}`);
+    }
+    return await response.text();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function uploadFile<T>(path: string, file: File): Promise<T> {
   const form = new FormData();
   form.append("file", file);
@@ -142,7 +167,7 @@ export const api = {
     blame: (clusterId: string, path: string) =>
       request<import("@/types").BlameLine[]>(`/api/clusters/${clusterId}/sandbox/blame?path=${encodeURIComponent(path)}`),
     diff: (clusterId: string, from: string, to: string) =>
-      request<string>(`/api/clusters/${clusterId}/sandbox/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+      requestText(`/api/clusters/${clusterId}/sandbox/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
     list: () =>
       request<import("@/types").Sandbox[]>("/api/sandboxes"),
     structure: (clusterId: string, path: string) =>
