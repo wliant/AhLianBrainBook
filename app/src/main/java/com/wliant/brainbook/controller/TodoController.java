@@ -2,6 +2,7 @@ package com.wliant.brainbook.controller;
 
 import com.wliant.brainbook.dto.CreateTaskFromNeuronRequest;
 import com.wliant.brainbook.dto.CreateTaskFromNeuronResponse;
+import com.wliant.brainbook.dto.TaskOverviewItem;
 import com.wliant.brainbook.dto.TodoMetadataRequest;
 import com.wliant.brainbook.dto.TodoMetadataResponse;
 import com.wliant.brainbook.model.Neuron;
@@ -47,6 +48,11 @@ public class TodoController {
             @PathVariable UUID neuronId,
             @Valid @RequestBody TodoMetadataRequest req) {
         return ResponseEntity.ok(todoMetadataService.update(neuronId, req));
+    }
+
+    @GetMapping("/api/tasks")
+    public ResponseEntity<List<TaskOverviewItem>> listAllTasks() {
+        return ResponseEntity.ok(todoMetadataService.listAllTasks());
     }
 
     @GetMapping("/api/clusters/{clusterId}/todo")

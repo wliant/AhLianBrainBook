@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -137,5 +138,61 @@ class TodoControllerIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody().clusterId()).isNotNull();
+    }
+
+    @Test
+    void listAllTasks_returnsTasksAcrossBrains() {
+        // Create a second brain with its own todo cluster + task
+        BrainResponse brain2 = restTemplate.postForEntity("/api/brains",
+                new BrainRequest("Second Brain", null, null, null), BrainResponse.class).getBody();
+        restTemplate.postForEntity(
+                "/api/brains/{brainId}/tasks",
+                new CreateTaskFromNeuronRequest(neuronId, "Task A"),
+                CreateTaskFromNeuronResponse.class, brainId);
+        // Create a neuron in brain2 and initialize todo metadata
+        ClusterResponse cluster2 = restTemplate.postForEntity("/api/clusters",
+                new CreateClusterRequest("Other Cluster", brain2.id(), null, null, null),
+                ClusterResponse.class).getBody();
+        NeuronResponse n2 = restTemplate.postForEntity("/api/neurons",
+                new NeuronRequest("Brain2 Neuron", brain2.id(), cluster2.id(), null, null, null, null, null),
+                NeuronResponse.class).getBody();
+        restTemplate.getForEntity("/api/neurons/{neuronId}/todo",
+                TodoMetadataResponse.class, n2.id());
+
+        ResponseEntity<List<TaskOverviewItem>> response = restTemplate.exchange(
+                "/api/tasks", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<TaskOverviewItem>>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody()).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(response.getBody())
+                .extracting(TaskOverviewItem::brainId)
+                .contains(brainId, brain2.id());
+        assertThat(response.getBody())
+                .allSatisfy(item -> {
+                    assertThat(item.title()).isNotNull();
+                    assertThat(item.brainName()).isNotBlank();
+                    assertThat(item.clusterName()).isNotBlank();
+                });
+    }
+
+    @Test
+    void listAllTasks_excludesDeletedNeurons() {
+        CreateTaskFromNeuronResponse created = restTemplate.postForEntity(
+                "/api/brains/{brainId}/tasks",
+                new CreateTaskFromNeuronRequest(neuronId, "Doomed"),
+                CreateTaskFromNeuronResponse.class, brainId).getBody();
+
+        restTemplate.delete("/api/neurons/{neuronId}", created.neuron().id());
+
+        ResponseEntity<List<TaskOverviewItem>> response = restTemplate.exchange(
+                "/api/tasks", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<TaskOverviewItem>>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .extracting(TaskOverviewItem::neuronId)
+                .doesNotContain(created.neuron().id());
     }
 }

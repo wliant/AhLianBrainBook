@@ -281,6 +281,11 @@ export function Sidebar({
                 )}
               </Button>
             </Link>
+            <Link href="/tasks">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <CheckSquare className="h-4 w-4" />
+              </Button>
+            </Link>
           </nav>
           <div className="flex-1" />
           <div className="flex flex-col items-center gap-1 border-t border-sidebar-border px-2 py-2">
@@ -335,6 +340,12 @@ export function Sidebar({
                     {queue.length}
                   </span>
                 )}
+              </Button>
+            </Link>
+            <Link href="/tasks">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                <CheckSquare className="h-4 w-4" />
+                Tasks
               </Button>
             </Link>
           </nav>

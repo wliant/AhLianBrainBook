@@ -38,3 +38,12 @@ export function useTodoClusterMetadata(clusterId: string | null) {
 
   return { metadataMap: data ?? {}, loading };
 }
+
+export function useAllTasks() {
+  const { data, isLoading: loading, refetch } = useQuery({
+    queryKey: ["all-tasks"],
+    queryFn: () => api.todo.listAllTasks(),
+  });
+
+  return { tasks: data ?? [], loading, refetch };
+}

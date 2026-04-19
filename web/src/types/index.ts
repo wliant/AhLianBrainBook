@@ -219,6 +219,24 @@ export interface CreateTaskFromNeuronResponse {
   brainId: string;
 }
 
+export interface TaskOverviewItem {
+  neuronId: string;
+  title: string;
+  dueDate: string | null;
+  completed: boolean;
+  completedAt: string | null;
+  effort: TodoEffort | null;
+  priority: TodoPriority;
+  brainId: string;
+  brainName: string;
+  brainColor: string | null;
+  brainIcon: string | null;
+  clusterId: string;
+  clusterName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Tag {
   id: string;
   name: string;

@@ -1,9 +1,12 @@
 package com.wliant.brainbook.service;
 
 import com.wliant.brainbook.config.TimeProvider;
+import com.wliant.brainbook.dto.TaskOverviewItem;
 import com.wliant.brainbook.dto.TodoMetadataRequest;
 import com.wliant.brainbook.dto.TodoMetadataResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
+import com.wliant.brainbook.model.Brain;
+import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.Neuron;
 import com.wliant.brainbook.model.TodoEffort;
 import com.wliant.brainbook.model.TodoMetadata;
@@ -102,6 +105,36 @@ public class TodoMetadataService {
     public Map<UUID, TodoMetadataResponse> getByNeuronIds(List<UUID> neuronIds) {
         return todoMetadataRepository.findByNeuronIdIn(neuronIds).stream()
                 .collect(Collectors.toMap(TodoMetadata::getNeuronId, this::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskOverviewItem> listAllTasks() {
+        return todoMetadataRepository.findAllActiveWithAssociations().stream()
+                .map(this::toOverviewItem)
+                .toList();
+    }
+
+    private TaskOverviewItem toOverviewItem(TodoMetadata meta) {
+        Neuron neuron = meta.getNeuron();
+        Cluster cluster = neuron.getCluster();
+        Brain brain = neuron.getBrain();
+        return new TaskOverviewItem(
+                meta.getNeuronId(),
+                neuron.getTitle(),
+                meta.getDueDate(),
+                meta.isCompleted(),
+                meta.getCompletedAt(),
+                meta.getEffort() != null ? meta.getEffort().getValue() : null,
+                meta.getPriority() != null ? meta.getPriority().getValue() : "normal",
+                brain.getId(),
+                brain.getName(),
+                brain.getColor(),
+                brain.getIcon(),
+                cluster.getId(),
+                cluster.getName(),
+                meta.getCreatedAt(),
+                meta.getUpdatedAt()
+        );
     }
 
     public TodoMetadataResponse toResponse(TodoMetadata meta) {
