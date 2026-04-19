@@ -102,10 +102,8 @@ public class NeuronService {
 
     @Transactional(readOnly = true)
     public List<NeuronSummary> searchByTitle(String title, UUID brainId, int limit) {
-        List<Neuron> neurons = neuronRepository.findByTitleContainingIgnoreCaseAndIsDeletedFalse(
-                title, PageRequest.of(0, limit));
+        List<Neuron> neurons = neuronRepository.findByTitleSearch(title, PageRequest.of(0, limit));
         return neurons.stream()
-                .filter(n -> brainId == null || brainId.equals(n.getBrainId()))
                 .map(n -> new NeuronSummary(n.getId(), n.getTitle(), n.getBrainId(), n.getClusterId()))
                 .collect(Collectors.toList());
     }

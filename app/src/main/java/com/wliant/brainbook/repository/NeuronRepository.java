@@ -32,7 +32,10 @@ public interface NeuronRepository extends JpaRepository<Neuron, UUID> {
 
     List<Neuron> findByBrainIdAndIsDeletedFalse(UUID brainId);
 
-    List<Neuron> findByTitleContainingIgnoreCaseAndIsDeletedFalse(String title, org.springframework.data.domain.Pageable pageable);
+    @Query("SELECT n FROM Neuron n WHERE LOWER(n.title) LIKE LOWER(CONCAT('%', :title, '%')) " +
+           "AND n.isDeleted = false AND n.isArchived = false " +
+           "AND n.title IS NOT NULL AND n.title <> ''")
+    List<Neuron> findByTitleSearch(@Param("title") String title, Pageable pageable);
 
     @Query(value = "SELECT * FROM neurons n " +
             "WHERE n.is_deleted = false " +

@@ -9,6 +9,7 @@ import com.wliant.brainbook.dto.MoveNeuronRequest;
 import com.wliant.brainbook.dto.NeuronContentRequest;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.NeuronSummary;
 import com.wliant.brainbook.dto.ReorderRequest;
 import com.wliant.brainbook.exception.ConflictException;
 import com.wliant.brainbook.repository.NeuronRepository;
@@ -271,5 +272,38 @@ class NeuronServiceTest {
 
         assertThat(trash).hasSize(1);
         assertThat(trash.get(0).title()).isEqualTo("Trash");
+    }
+
+    @Test
+    void searchByTitle_excludesDeletedNeurons() {
+        NeuronResponse created = neuronService.create(new NeuronRequest("Deleted Note", brainId, clusterId, null, null, null, null, null));
+        neuronService.delete(created.id());
+
+        List<NeuronSummary> results = neuronService.searchByTitle("Deleted Note", null, 10);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    void searchByTitle_excludesArchivedNeurons() {
+        NeuronResponse created = neuronService.create(new NeuronRequest("Archived Note", brainId, clusterId, null, null, null, null, null));
+        neuronService.archive(created.id());
+
+        List<NeuronSummary> results = neuronService.searchByTitle("Archived Note", null, 10);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    void searchByTitle_excludesBlankTitleNeurons() {
+        NeuronResponse created = neuronService.create(new NeuronRequest("Temp Title", brainId, clusterId, null, null, null, null, null));
+        neuronRepository.findById(created.id()).ifPresent(n -> {
+            n.setTitle("");
+            neuronRepository.save(n);
+        });
+
+        List<NeuronSummary> results = neuronService.searchByTitle("", null, 10);
+
+        assertThat(results).isEmpty();
     }
 }
