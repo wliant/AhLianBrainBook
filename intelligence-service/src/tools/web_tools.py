@@ -30,8 +30,9 @@ def create_web_tools() -> list:
     @tool
     def fetch_webpage(url: str) -> str:
         """Fetch and extract the main text content from a webpage.
-        Use this after web_search returns a relevant URL you want to read
-        in detail. Returns cleaned text content, truncated to 3000 characters."""
+        Use this when the user provides a URL directly in their message, or after
+        web_search returns a relevant URL you want to read in detail.
+        Returns cleaned text content, truncated to 3000 characters."""
         try:
             with httpx.Client(timeout=PAGE_FETCH_TIMEOUT) as client:
                 resp = client.get(

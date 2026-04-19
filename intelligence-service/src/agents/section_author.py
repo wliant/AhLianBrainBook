@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import create_react_agent
 
 from src.config import settings
 from src.utils import strip_code_fences
@@ -72,13 +73,8 @@ class SectionAuthorState(TypedDict):
     tools_enabled: bool
     # Intermediate
     system_prompt: str | None
-    intent_instructions: str | None
+    intent_instructions: str | None  # used by linear graph (classify_intent → invoke_llm)
     llm_raw_output: str | None
-    llm_response: Any | None
-    tool_results: list[Any]
-    tool_iteration: int
-    web_search_count: int
-    page_fetch_count: int
     # Output
     response_type: str | None
     questions: list[dict] | None
@@ -157,12 +153,18 @@ Do NOT wrap the JSON in markdown code fences. Return raw JSON only."""
     if state.get("tools_enabled"):
         prompt += """
 
-## Available Tools
-You have access to tools that can search the user's knowledge base and the web.
-Use tools when the user's request would benefit from additional context, research,
-or verification. After using tools, synthesize the results into your final response.
-When you are ready to provide your final answer, respond with the JSON format above.
-Do NOT call tools and provide the final JSON in the same response."""
+## Agent Instructions
+Before generating content, reason through the following:
+1. What is the user actually asking for? Is the request clear?
+2. If the request is ambiguous or lacks detail, think: what 1–2 questions would resolve it?
+   Then output {"action": "questions", ...} with those questions.
+3. If the user references a URL, call fetch_webpage before generating.
+4. If the user mentions "my notes", "my examples", or "my code", call list_cluster_notes
+   to discover relevant notes, then use read_note or search_notes to retrieve details.
+5. If the request requires current/external information, call web_search.
+6. If modifying existing content, call get_current_section first.
+
+Think step by step. Only generate your final JSON response after gathering sufficient context."""
 
     return {"system_prompt": prompt}
 
@@ -245,12 +247,9 @@ def classify_intent(state: SectionAuthorState) -> dict:
     return {"intent_instructions": None}
 
 
-def invoke_llm(state: SectionAuthorState) -> dict:
-    llm = get_llm(format="json")
-
-    messages = [SystemMessage(content=state["system_prompt"])]
-
-    # Replay conversation history
+def _build_history_messages(state: SectionAuthorState) -> list:
+    """Build LangChain message list from conversation history turns."""
+    messages = []
     for turn in state.get("conversation_history", []):
         content = turn.get("content", {})
         if turn["role"] == "user":
@@ -261,32 +260,26 @@ def invoke_llm(state: SectionAuthorState) -> dict:
                     f"- {a['questionId']}: {a['value']}"
                     for a in content.get("answers", [])
                 )
-                messages.append(
-                    HumanMessage(content=f"My answers:\n{formatted}")
-                )
+                messages.append(HumanMessage(content=f"My answers:\n{formatted}"))
         elif turn["role"] == "assistant":
             if content.get("type") == "questions":
-                messages.append(
-                    AIMessage(
-                        content=json.dumps(
-                            {
-                                "action": "questions",
-                                "questions": content["questions"],
-                            }
-                        )
-                    )
-                )
+                messages.append(AIMessage(content=json.dumps({
+                    "action": "questions",
+                    "questions": content["questions"],
+                })))
             elif content.get("type") == "section_content":
-                messages.append(
-                    AIMessage(
-                        content=json.dumps(
-                            {
-                                "action": "content",
-                                "section_content": content["sectionContent"],
-                            }
-                        )
-                    )
-                )
+                messages.append(AIMessage(content=json.dumps({
+                    "action": "content",
+                    "section_content": content["sectionContent"],
+                })))
+    return messages
+
+
+def invoke_llm(state: SectionAuthorState) -> dict:
+    llm = get_llm(format="json")
+
+    messages = [SystemMessage(content=state["system_prompt"])]
+    messages += _build_history_messages(state)
 
     # Add current turn (with intent instructions from classify_intent)
     intent = state.get("intent_instructions") or ""
@@ -418,14 +411,9 @@ def validate_output(state: SectionAuthorState) -> dict:
     }
 
 
-MAX_TOOL_ITERATIONS = 3
-MAX_TOOL_CALLS_PER_ITERATION = 2
-MAX_WEB_SEARCHES = 10
-MAX_PAGE_FETCHES = 5
-
-
 def _get_tools(state: SectionAuthorState) -> list:
-    """Create tools scoped to this request's brain_id."""
+    """Create tools scoped to this request's brain_id and context."""
+    from src.tools.context_tools import create_context_tools
     from src.tools.kb_tools import create_kb_tools
     from src.tools.web_tools import create_web_tools
 
@@ -433,205 +421,41 @@ def _get_tools(state: SectionAuthorState) -> list:
     brain_id = ctx.get("brain_id", "")
     kb = create_kb_tools(brain_id, settings.brainbook_api_url, settings.internal_api_key)
     web = create_web_tools()
-    return kb + web
+    context = create_context_tools(state.get("current_content"), ctx)
+    return kb + web + context
 
 
-def _build_tool_messages(state: SectionAuthorState, messages: list) -> list:
-    """Append tool call/result messages from previous iterations."""
-    for msg in state.get("tool_results", []):
-        messages.append(msg)
-    return messages
-
-
-def invoke_llm_with_tools(state: SectionAuthorState) -> dict:
-    """LLM node for tool-enabled path. No JSON mode — uses bind_tools."""
-    llm = get_llm()  # No format="json" — incompatible with tool use
+async def run_react_agent(state: SectionAuthorState) -> dict:
+    """Deep agent node: uses create_react_agent to reason and call tools."""
     tools = _get_tools(state)
-    llm_with_tools = llm.bind_tools(tools)
+    llm = get_llm()
+    agent = create_react_agent(llm, tools)
 
     messages = [SystemMessage(content=state["system_prompt"])]
+    messages += _build_history_messages(state)
 
-    # Replay conversation history (same as invoke_llm)
-    for turn in state.get("conversation_history", []):
-        content = turn.get("content", {})
-        if turn["role"] == "user":
-            if content.get("type") == "text":
-                messages.append(HumanMessage(content=content["text"]))
-            elif content.get("type") == "answers":
-                formatted = "\n".join(
-                    f"- {a['questionId']}: {a['value']}"
-                    for a in content.get("answers", [])
-                )
-                messages.append(HumanMessage(content=f"My answers:\n{formatted}"))
-        elif turn["role"] == "assistant":
-            if content.get("type") == "questions":
-                messages.append(AIMessage(content=json.dumps({
-                    "action": "questions", "questions": content["questions"],
-                })))
-            elif content.get("type") == "section_content":
-                messages.append(AIMessage(content=json.dumps({
-                    "action": "content", "section_content": content["sectionContent"],
-                })))
-
-    # Add current turn with intent instructions
-    intent = state.get("intent_instructions") or ""
-
+    # Add current turn
     if state.get("question_answers"):
         formatted = "\n".join(
             f"- {a['question_id']}: {a['value']}"
             for a in state["question_answers"]
         )
-        msg = f"Here are my answers:\n{formatted}\n\nPlease generate the content now."
-        if intent:
-            msg = f"{intent}\n\n{msg}"
-        messages.append(HumanMessage(content=msg))
+        messages.append(HumanMessage(
+            content=f"Here are my answers:\n{formatted}\n\nPlease generate the content now."
+        ))
     elif state.get("regenerate"):
-        msg = intent if intent else "Please regenerate the content with a different approach."
-        messages.append(HumanMessage(content=msg))
+        messages.append(HumanMessage(
+            content="Please regenerate the content with a different approach."
+        ))
     elif state.get("user_message", "").strip():
-        msg = state["user_message"]
-        if intent:
-            msg = f"{intent}\n\nUser request: {msg}"
-        messages.append(HumanMessage(content=msg))
+        messages.append(HumanMessage(content=state["user_message"]))
 
-    # Append tool results from previous iterations
-    messages = _build_tool_messages(state, messages)
+    logger.info("ReAct agent invoked with %d messages", len(messages))
+    result = await agent.ainvoke({"messages": messages})
 
-    logger.info("LLM (tools) request messages=%d iteration=%d", len(messages), state.get("tool_iteration", 0))
-    response = llm_with_tools.invoke(messages)
-    tc_count = len(response.tool_calls) if hasattr(response, "tool_calls") and response.tool_calls else 0
-    content_type = type(response.content).__name__ if response.content else "None"
-    logger.info("LLM (tools) response tool_calls=%d content_type=%s content=%r",
-                tc_count, content_type, str(response.content)[:300] if response.content else "")
-    return {"llm_response": response}
-
-
-def route_output(state: SectionAuthorState) -> str:
-    """Conditional edge: route to execute_tools or extract_raw_output."""
-    response = state.get("llm_response")
-    iteration = state.get("tool_iteration", 0)
-
-    if (response
-            and hasattr(response, "tool_calls")
-            and response.tool_calls
-            and iteration < MAX_TOOL_ITERATIONS):
-        return "execute_tools"
-    return "extract_raw_output"
-
-
-def execute_tools(state: SectionAuthorState) -> dict:
-    """Execute tool calls from the LLM response, with rate limiting."""
-    response = state["llm_response"]
-    tool_calls = response.tool_calls[:MAX_TOOL_CALLS_PER_ITERATION]
-    tools = _get_tools(state)
-    tool_map = {t.name: t for t in tools}
-
-    web_search_count = state.get("web_search_count", 0)
-    page_fetch_count = state.get("page_fetch_count", 0)
-
-    results = []
-    # Keep the AI message with tool_calls in the message history
-    results.append(response)
-
-    for tc in tool_calls:
-        tool_name = tc["name"]
-        tool_args = tc["args"]
-
-        # Rate limiting for web tools
-        if tool_name == "web_search" and web_search_count >= MAX_WEB_SEARCHES:
-            results.append(ToolMessage(
-                content="Rate limit reached: max web searches per session exceeded.",
-                tool_call_id=tc["id"],
-            ))
-            continue
-        if tool_name == "fetch_webpage" and page_fetch_count >= MAX_PAGE_FETCHES:
-            results.append(ToolMessage(
-                content="Rate limit reached: max page fetches per session exceeded.",
-                tool_call_id=tc["id"],
-            ))
-            continue
-
-        tool_fn = tool_map.get(tool_name)
-        if not tool_fn:
-            results.append(ToolMessage(
-                content=f"Unknown tool: {tool_name}",
-                tool_call_id=tc["id"],
-            ))
-            continue
-
-        try:
-            result = tool_fn.invoke(tool_args)
-            results.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
-            if tool_name == "web_search":
-                web_search_count += 1
-            elif tool_name == "fetch_webpage":
-                page_fetch_count += 1
-        except Exception as e:
-            logger.warning("Tool %s failed: %s", tool_name, e)
-            results.append(ToolMessage(
-                content=f"Tool error: {e}. Try generating without this information.",
-                tool_call_id=tc["id"],
-            ))
-
-    return {
-        "tool_results": results,
-        "tool_iteration": state.get("tool_iteration", 0) + 1,
-        "web_search_count": web_search_count,
-        "page_fetch_count": page_fetch_count,
-    }
-
-
-def extract_raw_output(state: SectionAuthorState) -> dict:
-    """Extract text content from the LLM response for validate_output.
-
-    If the LLM only returned tool_calls (no text), make one final call
-    without tools to force a text response.
-    """
-    response = state.get("llm_response")
-    if not response or not response.content:
-        logger.warning("extract_raw_output: no response content")
-        return {"llm_raw_output": ""}
-
-    content = response.content
-    raw = ""
-
-    if isinstance(content, list):
-        text_parts = []
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "tool_use":
-                continue
-            if isinstance(block, dict) and "text" in block:
-                text_parts.append(block["text"])
-            elif isinstance(block, str):
-                text_parts.append(block)
-        raw = "\n".join(text_parts).strip()
-    elif isinstance(content, str):
-        raw = content.strip()
-
-    # If we got no text (LLM only returned tool_calls), force a final call without tools
-    if not raw:
-        logger.info("extract_raw_output: no text in response, forcing final LLM call without tools")
-        llm = get_llm(format="json")
-        messages = [SystemMessage(content=state["system_prompt"])]
-        # Add a summary of tool results as context
-        tool_results = state.get("tool_results", [])
-        tool_context = []
-        for msg in tool_results:
-            if hasattr(msg, "content") and isinstance(msg.content, str):
-                tool_context.append(msg.content[:500])
-        if tool_context:
-            context_text = "\n---\n".join(tool_context)
-            messages.append(HumanMessage(
-                content=f"Here is research context I gathered:\n{context_text}\n\n"
-                        f"Now generate your final response as JSON."
-            ))
-        else:
-            messages.append(HumanMessage(content="Please generate your final response as JSON."))
-
-        final_response = llm.invoke(messages)
-        raw = final_response.content if isinstance(final_response.content, str) else str(final_response.content)
-        logger.info("extract_raw_output: forced final call returned %d chars", len(raw))
-
+    final_msg = result["messages"][-1]
+    raw = final_msg.content if isinstance(final_msg.content, str) else str(final_msg.content)
+    logger.info("ReAct agent finished, output length=%d", len(raw))
     return {"llm_raw_output": raw}
 
 
@@ -651,24 +475,14 @@ def _build_linear_graph():
 
 
 def _build_tool_graph():
-    """Tool-enabled graph — LLM can call tools in a loop."""
+    """Deep agent graph — create_react_agent handles tool use internally."""
     graph = StateGraph(SectionAuthorState)
     graph.add_node("build_system_prompt", build_system_prompt)
-    graph.add_node("classify_intent", classify_intent)
-    graph.add_node("invoke_llm_with_tools", invoke_llm_with_tools)
-    graph.add_node("execute_tools", execute_tools)
-    graph.add_node("extract_raw_output", extract_raw_output)
+    graph.add_node("run_react_agent", run_react_agent)
     graph.add_node("validate_output", validate_output)
-
     graph.add_edge(START, "build_system_prompt")
-    graph.add_edge("build_system_prompt", "classify_intent")
-    graph.add_edge("classify_intent", "invoke_llm_with_tools")
-    graph.add_conditional_edges("invoke_llm_with_tools", route_output, {
-        "execute_tools": "execute_tools",
-        "extract_raw_output": "extract_raw_output",
-    })
-    graph.add_edge("execute_tools", "invoke_llm_with_tools")
-    graph.add_edge("extract_raw_output", "validate_output")
+    graph.add_edge("build_system_prompt", "run_react_agent")
+    graph.add_edge("run_react_agent", "validate_output")
     graph.add_edge("validate_output", END)
     return graph.compile()
 
@@ -708,11 +522,6 @@ async def invoke_section_author(request: SectionAuthorRequest) -> SectionAuthorR
         "system_prompt": None,
         "intent_instructions": None,
         "llm_raw_output": None,
-        "llm_response": None,
-        "tool_results": [],
-        "tool_iteration": 0,
-        "web_search_count": 0,
-        "page_fetch_count": 0,
         "response_type": None,
         "questions": None,
         "section_content": None,
@@ -763,18 +572,8 @@ _NODE_STAGE_MAP = {
     "build_system_prompt": "building_context",
     "classify_intent": "analyzing_intent",
     "invoke_llm": "generating",
-    "invoke_llm_with_tools": "generating",
-    "extract_raw_output": "generating",
+    "run_react_agent": "generating",
     "validate_output": "validating",
-}
-
-# Tool name to stage mapping
-_TOOL_STAGE_MAP = {
-    "search_notes": "searching_notes",
-    "find_related_notes": "searching_notes",
-    "read_note": "reading_note",
-    "web_search": "searching_web",
-    "fetch_webpage": "fetching_page",
 }
 
 
@@ -802,11 +601,6 @@ async def stream_section_author(request: SectionAuthorRequest):
         "system_prompt": None,
         "intent_instructions": None,
         "llm_raw_output": None,
-        "llm_response": None,
-        "tool_results": [],
-        "tool_iteration": 0,
-        "web_search_count": 0,
-        "page_fetch_count": 0,
         "response_type": None,
         "questions": None,
         "section_content": None,
@@ -821,25 +615,9 @@ async def stream_section_author(request: SectionAuthorRequest):
             node_name = list(event.keys())[0]
             state_update = event[node_name]
 
-            # Emit tool-specific stages for execute_tools
-            if node_name == "execute_tools":
-                # Inspect which tools were called from the LLM response
-                llm_resp = state_update.get("tool_results", [])
-                for msg in llm_resp:
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        for tc in msg.tool_calls:
-                            tool_stage = _TOOL_STAGE_MAP.get(tc["name"], "generating")
-                            evt = {"stage": tool_stage, "tool": tc["name"]}
-                            if "query" in tc.get("args", {}):
-                                evt["query"] = tc["args"]["query"]
-                            elif "topic" in tc.get("args", {}):
-                                evt["query"] = tc["args"]["topic"]
-                            yield _sse_event(evt)
-                        break  # Only emit for the AI message with tool_calls
-            else:
-                stage = _NODE_STAGE_MAP.get(node_name)
-                if stage:
-                    yield _sse_event({"stage": stage})
+            stage = _NODE_STAGE_MAP.get(node_name)
+            if stage:
+                yield _sse_event({"stage": stage})
 
             result = state_update
 

@@ -1,5 +1,5 @@
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
 
@@ -568,22 +568,24 @@ class TestSectionAuthorEndpoint:
         # Verify get_llm was called with format="json"
         mock_get_llm.assert_called_with(format="json")
 
-    def test_tools_enabled_prompt_includes_tools_section(self, client):
-        """When tools_enabled=True, system prompt should mention available tools."""
+    def test_tools_enabled_prompt_includes_agent_instructions(self, client):
+        """When tools_enabled=True, the react agent is invoked with agent instructions in prompt."""
         llm_output = {
             "action": "content",
             "section_content": {"code": "print('hi')", "language": "python"},
             "explanation": "With tools.",
         }
 
-        mock_llm = _mock_llm_response(llm_output)
-        # bind_tools should return the same mock (tools don't change invoke behavior in test)
-        mock_llm.bind_tools = MagicMock(return_value=mock_llm)
+        captured_messages = []
 
-        with patch(
-            "src.agents.section_author.get_llm",
-            return_value=mock_llm,
-        ):
+        async def fake_ainvoke(input_dict, **kwargs):
+            captured_messages.extend(input_dict.get("messages", []))
+            return {"messages": [MagicMock(content=json.dumps(llm_output))]}
+
+        mock_agent = AsyncMock()
+        mock_agent.ainvoke = fake_ainvoke
+
+        with patch("src.agents.section_author.create_react_agent", return_value=mock_agent):
             with patch("src.agents.section_author._tool_graph", None):
                 with patch("src.agents.section_author._get_tools", return_value=[]):
                     response = client.post(
@@ -594,10 +596,12 @@ class TestSectionAuthorEndpoint:
                     )
 
         assert response.status_code == 200
-        # Verify system prompt includes tools section
-        call_args = mock_llm.invoke.call_args[0][0]
-        system_msg = call_args[0]
-        assert "Available Tools" in system_msg.content
+        data = response.json()
+        assert data["response_type"] == "content"
+        # Verify system prompt includes agent instructions
+        system_msgs = [m for m in captured_messages if hasattr(m, "type") and m.type == "system"]
+        assert len(system_msgs) > 0
+        assert "Agent Instructions" in system_msgs[0].content
 
     def test_stream_endpoint_returns_sse(self, client):
         """Stream endpoint returns text/event-stream with stage events."""
