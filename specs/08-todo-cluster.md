@@ -75,6 +75,17 @@ Compact metadata bar shown above the title on todo neuron pages.
 - Completed-at display when applicable
 - Each change saves immediately via `PATCH /api/neurons/{id}/todo`
 
+### TaskOverviewRow (`components/todo/TaskOverviewRow.tsx`)
+
+Compact row rendered by the Task Overview page. Differs from `TodoTaskRow` by showing the brain/cluster context instead of the per-task delete action.
+
+- Completion checkbox
+- Title with link to the neuron editor
+- Second line: brain color dot + `"{brain name} · {cluster name}"`
+- Priority badge (hidden for normal)
+- Effort pill
+- Due date badge with the same overdue/today coloring used in `TodoTaskRow`
+
 ### TasksPanel (`components/todo/TasksPanel.tsx`)
 
 Sidebar panel shown on knowledge neuron pages when the `ListTodo` toolbar button is clicked.
@@ -101,6 +112,21 @@ When `cluster.type !== "todo"`:
 - **Icon:** `CheckSquare` for todo clusters (instead of `FolderOpen`)
 - **Sort:** Todo clusters appear first, then ai-research, then others by sortOrder
 - **Expanded view:** When the todo cluster is expanded in the sidebar, completed tasks are filtered out (uses `useTodoClusterMetadata` to check completion status)
+- **Tasks link:** A global `Tasks` link (CheckSquare icon) sits directly under `Review` in both the expanded and collapsed sidebar, routing to `/tasks`
+
+## Task Overview Page (`/tasks`)
+
+Cross-brain view of every active task. Unlike `TodoClusterView` (which is scoped to a single cluster), this page aggregates tasks from every non-archived todo cluster across every brain.
+
+- **Data source:** `useAllTasks()` → `GET /api/tasks` (returns `TaskOverviewItem[]` already joined with brain + cluster context)
+- **Sort order** (client-side, `lib/taskSort.ts`):
+  1. Incomplete first, completed last
+  2. Effective due date ascending — **overdue tasks collapse to "yesterday"** so they always lead; tasks without a due date rank last
+  3. Priority (critical → important → normal)
+  4. Effort (15min → 8hr; tasks without effort rank after tasks with effort)
+- **Rows:** `TaskOverviewRow` shows the brain/cluster context inline
+- **Actions:** Toggle completion (same PATCH as elsewhere); clicking the title navigates to the neuron editor. Deletion is intentionally left to the cluster view.
+- **Show/Hide completed toggle** with count
 
 ## API Endpoints
 
@@ -110,6 +136,7 @@ When `cluster.type !== "todo"`:
 | PATCH | `/api/neurons/{neuronId}/todo` | Update todo metadata (triggers reminder sync) |
 | GET | `/api/clusters/{clusterId}/todo` | Batch metadata for cluster list view |
 | POST | `/api/brains/{brainId}/tasks` | Create task from neuron (auto-creates cluster + link) |
+| GET | `/api/tasks` | List every active task across all brains with brain/cluster context (used by `/tasks`) |
 
 ## Backend Services
 

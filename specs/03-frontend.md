@@ -33,6 +33,7 @@
 | `/thoughts` | Thoughts | List of thought collections |
 | `/thoughts/[thoughtId]` | Thought Viewer | View neurons matching thought criteria with keyboard navigation |
 | `/review` | Review Queue | Spaced repetition review with quality ratings |
+| `/tasks` | Task Overview | Cross-brain list of all tasks, sorted by due date/priority/effort |
 | `/shared/[token]` | Shared Neuron | Read-only public view of a shared neuron |
 | `/brain/[brainId]` | Brain | Brain overview with stats, clusters, knowledge graph link |
 | `/brain/[brainId]/graph` | Knowledge Graph | Visual network of neurons and links |
@@ -193,6 +194,20 @@ Core editing experience with section-based content:
 - Arrow key navigation (left/right) between neurons
 - Edit/delete thought actions
 
+### Task Overview Page (`/tasks`)
+
+- Cross-brain list of every active task (non-archived/deleted neurons in non-archived clusters/brains)
+- Fetched via `useAllTasks()` → `GET /api/tasks`
+- Sort order (computed client-side in `lib/taskSort.ts`):
+  1. Incomplete tasks first, completed last
+  2. Due date ascending, with **overdue tasks collapsed to "yesterday"** so they always lead
+  3. Priority: critical → important → normal
+  4. Effort: shorter first (15min → 8hr); tasks without effort rank after tasks with effort
+  5. Tasks without a due date rank last
+- Show/Hide completed toggle with count
+- Each row (`TaskOverviewRow`) shows: completion checkbox, title (links to the neuron editor), brain color dot + "Brain · Cluster" breadcrumb, priority/effort/due-date badges
+- Toggling completion calls `PATCH /api/neurons/{id}/todo` and invalidates `all-tasks`, `todo-cluster-metadata`, and `todo-metadata` query caches
+
 ### Review Queue Page (`/review`)
 
 - Displays spaced repetition items due for review
@@ -222,7 +237,7 @@ Core editing experience with section-based content:
 
 - **Brains section** — expandable list with clusters; cluster icons indicate type (CheckSquare=todo, Sparkles=ai-research, Code=project, FolderOpen=knowledge); sort order: todo first, ai-research second, rest by sortOrder; completed tasks hidden when expanding todo clusters; context menus for rename/delete on brains and clusters
 - **Thoughts section** — list of thought collections
-- **Navigation links** — Dashboard, Search, Favorites, Trash, Review (with queue count badge), Settings
+- **Navigation links** — Dashboard, Search, Favorites, Trash, Review (with queue count badge), Tasks, Settings
 - **Collapse toggle** — sidebar can be collapsed/expanded (Ctrl+\)
 - **Resizable width** — drag-to-resize handle on the right edge; minimum 200px, maximum 480px
 - **Theme toggle** — dark/light mode switch
@@ -246,7 +261,7 @@ Core editing experience with section-based content:
 
 - Global command launcher triggered by `Ctrl+Shift+P`
 - Searchable list of commands:
-  - **Navigation:** Dashboard, Search, Favorites, Trash, Thoughts, Settings, Review Queue
+  - **Navigation:** Dashboard, Search, Favorites, Trash, Thoughts, Settings, Review Queue, Tasks
   - **Brain navigation:** Jump to any brain or brain graph
   - **Actions:** Toggle sidebar, toggle table of contents, switch theme, create new brain
 
@@ -273,7 +288,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 - `api.reminders` — `list()`, `create()`, `update()`, `delete()`
 - `api.revisions` — `list()`, `get()`, `create()`, `restore()`, `delete()`
 - `api.settings` — `get()`, `update()`
-- `api.todo` — `getMetadata()`, `updateMetadata()`, `getClusterMetadata()`, `createTaskFromNeuron()`
+- `api.todo` — `getMetadata()`, `updateMetadata()`, `getClusterMetadata()`, `createTaskFromNeuron()`, `listAllTasks()`
 - `api.notifications` — `getAll()`, `getUnreadCount()`, `markAsRead()`, `markAllAsRead()`
 - `api.spacedRepetition` — `addItem()`, `removeItem()`, `getItem()`, `getAllItems()`, `getQueue()`, `submitReview()`
 - `api.researchTopics` — `list()`, `get()`, `create()`, `delete()`, `reorder()`, `update()`, `updateAll()`, `expand()`
@@ -299,6 +314,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 | `useSettings()` | `settings`, `loading`, `updateDisplayName`, `updateMaxReminders`, `updateTimezone` | App settings (display name, max reminders, timezone) |
 | `useTodoMetadata(neuronId)` | `metadata`, `loading`, `updateMetadata` | Todo metadata for a single neuron |
 | `useTodoClusterMetadata(clusterId)` | `metadataMap`, `loading` | Batch todo metadata for all neurons in a cluster |
+| `useAllTasks()` | `tasks`, `loading`, `refetch` | Every active task across all brains with brain/cluster context (used by `/tasks`) |
 | `useSpacedRepetition()` | `queue`, `queueLoading`, `allItems`, `itemsLoading`, `addToReview`, `removeFromReview`, `submitReview`, `isInReview` | SM-2 spaced repetition management |
 | `useNeuronShares(neuronId)` | `shares`, `loading`, `createShare`, `revokeShare` | Token-based neuron sharing |
 | `useResearchTopics(clusterId)` | `topics`, `loading`, `createTopic`, `deleteTopic`, `updateTopic`, `updateAll`, `expandBullet`, `reorder` | CRUD + AI operations for research topics in a cluster |
@@ -477,6 +493,17 @@ interface TodoMetadata {
 interface CreateTaskFromNeuronResponse {
   neuron: Neuron; todoMetadata: TodoMetadata;
   clusterId: string; brainId: string;
+}
+
+interface TaskOverviewItem {
+  neuronId: string; title: string;
+  dueDate: string | null;
+  completed: boolean; completedAt: string | null;
+  effort: TodoEffort | null; priority: TodoPriority;
+  brainId: string; brainName: string;
+  brainColor: string | null; brainIcon: string | null;
+  clusterId: string; clusterName: string;
+  createdAt: string; updatedAt: string;
 }
 
 interface SpacedRepetitionItem {

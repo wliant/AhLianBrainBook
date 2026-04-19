@@ -658,6 +658,32 @@ Create a task from a knowledge neuron. Auto-creates the todo cluster if it doesn
 }
 ```
 
+### `GET /api/tasks`
+List every active task across all brains. Returns todo metadata joined with the neuron, cluster, and brain context. Excludes deleted or archived neurons and archived clusters or brains. Results are unsorted — callers apply their own ordering.
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "neuronId": "uuid",
+    "title": "string",
+    "dueDate": "2024-06-01 | null",
+    "completed": false,
+    "completedAt": "2024-06-01T09:00:00 | null",
+    "effort": "15min | 30min | 1hr | 2hr | 4hr | 8hr | null",
+    "priority": "critical | important | normal",
+    "brainId": "uuid",
+    "brainName": "string",
+    "brainColor": "#rrggbb | null",
+    "brainIcon": "string | null",
+    "clusterId": "uuid",
+    "clusterName": "string",
+    "createdAt": "2024-01-01T00:00:00",
+    "updatedAt": "2024-01-01T00:00:00"
+  }
+]
+```
+
 ---
 
 ## Tags
