@@ -13,6 +13,16 @@ from src.utils import strip_code_fences
 
 logger = logging.getLogger(__name__)
 from src.llm import get_llm, get_provider_name
+
+
+def _extract_text(content) -> str:
+    """Extract plain text from an LLM message content field."""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = [b["text"] for b in content if isinstance(b, dict) and "text" in b]
+        return "\n".join(parts).strip()
+    return ""
 from src.schemas.section_author import (
     QuestionItem,
     SectionAuthorRequest,
@@ -159,10 +169,12 @@ Before generating content, reason through the following:
 2. If the request is ambiguous or lacks detail, think: what 1–2 questions would resolve it?
    Then output {"action": "questions", ...} with those questions.
 3. If the user references a URL, call fetch_webpage before generating.
-4. If the user mentions "my notes", "my examples", or "my code", call list_cluster_notes
-   to discover relevant notes, then use read_note or search_notes to retrieve details.
+4. call list_cluster_notes to see pre-fetched related notes. If those aren't sufficient,
+   call search_notes('keyword') or find_related_notes('topic') to search more broadly.
 5. If the request requires current/external information, call web_search.
 6. If modifying existing content, call get_current_section first.
+7. Do NOT ask questions for simple, unambiguous refinements ('make it shorter', 'add comments',
+   'use async'). Modify directly.
 
 Think step by step. Only generate your final JSON response after gathering sufficient context."""
 
@@ -273,6 +285,21 @@ def _build_history_messages(state: SectionAuthorState) -> list:
                     "section_content": content["sectionContent"],
                 })))
     return messages
+
+
+def _build_current_turn_messages(state: SectionAuthorState) -> list:
+    """Build the current turn's HumanMessage(s) for the react agent path."""
+    if state.get("question_answers"):
+        formatted = "\n".join(
+            f"- {a['question_id']}: {a['value']}"
+            for a in state["question_answers"]
+        )
+        return [HumanMessage(content=f"Here are my answers:\n{formatted}\n\nPlease generate the content now.")]
+    elif state.get("regenerate"):
+        return [HumanMessage(content="Please regenerate the content with a different approach.")]
+    elif state.get("user_message", "").strip():
+        return [HumanMessage(content=state["user_message"])]
+    return [HumanMessage(content="Please generate the section content.")]
 
 
 def invoke_llm(state: SectionAuthorState) -> dict:
@@ -433,28 +460,21 @@ async def run_react_agent(state: SectionAuthorState) -> dict:
 
     messages = [SystemMessage(content=state["system_prompt"])]
     messages += _build_history_messages(state)
-
-    # Add current turn
-    if state.get("question_answers"):
-        formatted = "\n".join(
-            f"- {a['question_id']}: {a['value']}"
-            for a in state["question_answers"]
-        )
-        messages.append(HumanMessage(
-            content=f"Here are my answers:\n{formatted}\n\nPlease generate the content now."
-        ))
-    elif state.get("regenerate"):
-        messages.append(HumanMessage(
-            content="Please regenerate the content with a different approach."
-        ))
-    elif state.get("user_message", "").strip():
-        messages.append(HumanMessage(content=state["user_message"]))
+    messages += _build_current_turn_messages(state)
 
     logger.info("ReAct agent invoked with %d messages", len(messages))
-    result = await agent.ainvoke({"messages": messages})
+    result = await agent.ainvoke(
+        {"messages": messages},
+        config={"recursion_limit": 10},
+    )
 
     final_msg = result["messages"][-1]
-    raw = final_msg.content if isinstance(final_msg.content, str) else str(final_msg.content)
+    raw = _extract_text(final_msg.content)
+    if not raw:
+        logger.warning(
+            "ReAct agent returned empty content, content type=%s",
+            type(final_msg.content).__name__,
+        )
     logger.info("ReAct agent finished, output length=%d", len(raw))
     return {"llm_raw_output": raw}
 
@@ -576,6 +596,17 @@ _NODE_STAGE_MAP = {
     "validate_output": "validating",
 }
 
+# Stage mapping from tool names to user-friendly stage events (tools_enabled path)
+_TOOL_STAGE_MAP = {
+    "search_notes": "searching_notes",
+    "find_related_notes": "searching_notes",
+    "read_note": "reading_note",
+    "web_search": "searching_web",
+    "fetch_webpage": "fetching_page",
+    "get_current_section": "reading_section",
+    "list_cluster_notes": "reading_notes",
+}
+
 
 def _sse_event(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
@@ -583,8 +614,6 @@ def _sse_event(data: dict) -> str:
 
 async def stream_section_author(request: SectionAuthorRequest):
     """Async generator that yields SSE events for each stage of section authoring."""
-    graph = _get_graph(request.tools_enabled)
-
     initial_state: SectionAuthorState = {
         "section_type": request.section_type,
         "current_content": request.current_content,
@@ -611,15 +640,58 @@ async def stream_section_author(request: SectionAuthorRequest):
 
     try:
         result = None
-        async for event in graph.astream(initial_state):
-            node_name = list(event.keys())[0]
-            state_update = event[node_name]
 
-            stage = _NODE_STAGE_MAP.get(node_name)
-            if stage:
-                yield _sse_event({"stage": stage})
+        if request.tools_enabled:
+            # Bypass the outer graph wrapper to stream individual tool-call stages.
+            state = dict(initial_state)
 
-            result = state_update
+            yield _sse_event({"stage": "building_context"})
+            state.update(build_system_prompt(state))
+
+            tools = _get_tools(state)
+            llm = get_llm()
+            agent = create_react_agent(llm, tools)
+            messages = [SystemMessage(content=state["system_prompt"])]
+            messages += _build_history_messages(state)
+            messages += _build_current_turn_messages(state)
+
+            yield _sse_event({"stage": "generating"})
+
+            final_messages = []
+            async for event in agent.astream_events(
+                {"messages": messages},
+                version="v2",
+                config={"recursion_limit": 10},
+            ):
+                evt = event.get("event", "")
+                name = event.get("name", "")
+                if evt == "on_tool_start":
+                    stage = _TOOL_STAGE_MAP.get(name)
+                    if stage:
+                        yield _sse_event({"stage": stage})
+                elif evt == "on_chain_end" and name == "LangGraph":
+                    output = event["data"].get("output", {})
+                    final_messages = output.get("messages", [])
+
+            raw = _extract_text(final_messages[-1].content) if final_messages else ""
+            if not raw:
+                logger.warning("ReAct agent stream returned empty content")
+            state["llm_raw_output"] = raw
+
+            yield _sse_event({"stage": "validating"})
+            result = validate_output(state)
+
+        else:
+            graph = _get_graph(tools_enabled=False)
+            async for event in graph.astream(initial_state):
+                node_name = list(event.keys())[0]
+                state_update = event[node_name]
+
+                stage = _NODE_STAGE_MAP.get(node_name)
+                if stage:
+                    yield _sse_event({"stage": stage})
+
+                result = state_update
 
         # Build final response
         if result and result.get("response_type"):

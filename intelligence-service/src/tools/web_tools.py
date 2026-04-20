@@ -13,8 +13,10 @@ WEB_SEARCH_TIMEOUT = 10.0
 PAGE_FETCH_TIMEOUT = 15.0
 
 
-def create_web_tools() -> list:
-    """Create web search and page fetch tools."""
+def create_web_tools(max_searches: int = 5, max_fetches: int = 3) -> list:
+    """Create web search and page fetch tools with per-request rate limits."""
+    search_count = [0]
+    fetch_count = [0]
 
     @tool
     def web_search(query: str) -> str:
@@ -23,6 +25,9 @@ def create_web_tools() -> list:
         - Current best practices that may have changed recently
         - Facts, statistics, or references that need to be accurate
         Returns top 5 search results with titles, URLs, and snippets."""
+        if search_count[0] >= max_searches:
+            return "Rate limit reached for web search."
+        search_count[0] += 1
         if settings.tavily_api_key:
             return _search_tavily(query)
         return _search_duckduckgo(query)
@@ -33,6 +38,9 @@ def create_web_tools() -> list:
         Use this when the user provides a URL directly in their message, or after
         web_search returns a relevant URL you want to read in detail.
         Returns cleaned text content, truncated to 3000 characters."""
+        if fetch_count[0] >= max_fetches:
+            return "Rate limit reached for page fetching."
+        fetch_count[0] += 1
         try:
             with httpx.Client(timeout=PAGE_FETCH_TIMEOUT) as client:
                 resp = client.get(

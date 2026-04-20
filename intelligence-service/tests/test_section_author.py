@@ -2,7 +2,9 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
+import pytest_asyncio
 
+from src.agents.section_author import invoke_section_author
 from src.schemas.section_author import (
     ConversationTurn,
     NeuronContext,
@@ -666,3 +668,132 @@ class TestSectionAuthorEndpoint:
         # Building context should come before generating, which comes before complete
         assert stages.index("building_context") < stages.index("generating")
         assert stages.index("generating") < stages.index("complete")
+
+
+class TestReactAgentRobustness:
+    """Tests for the tools_enabled=True (deep agent) path."""
+
+    @pytest.mark.asyncio
+    async def test_react_agent_none_content_handled(self):
+        """When agent final message has content=None, returns error response gracefully."""
+        mock_msg = MagicMock()
+        mock_msg.content = None
+
+        async def fake_ainvoke(input_dict, config=None):
+            return {"messages": [mock_msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.ainvoke = fake_ainvoke
+
+        with patch("src.agents.section_author.create_react_agent", return_value=mock_agent):
+            with patch("src.agents.section_author._get_tools", return_value=[]):
+                with patch("src.agents.section_author.get_llm", return_value=MagicMock()):
+                    result = await invoke_section_author(
+                        _make_request(tools_enabled=True)
+                    )
+
+        assert result.response_type == "message"
+        assert result.message_severity == "error"
+
+    @pytest.mark.asyncio
+    async def test_react_agent_list_content_handled(self):
+        """When agent final message has list content, extracts text and parses correctly."""
+        llm_output = {
+            "action": "content",
+            "section_content": {"code": "print('hi')", "language": "python"},
+            "explanation": "Extracted from list.",
+        }
+        mock_msg = MagicMock()
+        mock_msg.content = [{"type": "text", "text": json.dumps(llm_output)}]
+
+        async def fake_ainvoke(input_dict, config=None):
+            return {"messages": [mock_msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.ainvoke = fake_ainvoke
+
+        with patch("src.agents.section_author.create_react_agent", return_value=mock_agent):
+            with patch("src.agents.section_author._get_tools", return_value=[]):
+                with patch("src.agents.section_author.get_llm", return_value=MagicMock()):
+                    result = await invoke_section_author(
+                        _make_request(tools_enabled=True)
+                    )
+
+        assert result.response_type == "content"
+        assert result.section_content["code"] == "print('hi')"
+
+    @pytest.mark.asyncio
+    async def test_react_agent_empty_user_message_fallback(self):
+        """When no user_message/answers/regenerate, a fallback HumanMessage is sent."""
+        llm_output = {
+            "action": "content",
+            "section_content": {"code": "# fallback", "language": "python"},
+            "explanation": "Fallback.",
+        }
+        captured_messages = []
+
+        async def fake_ainvoke(input_dict, config=None):
+            captured_messages.extend(input_dict.get("messages", []))
+            mock_msg = MagicMock()
+            mock_msg.content = json.dumps(llm_output)
+            return {"messages": [mock_msg]}
+
+        mock_agent = MagicMock()
+        mock_agent.ainvoke = fake_ainvoke
+
+        with patch("src.agents.section_author.create_react_agent", return_value=mock_agent):
+            with patch("src.agents.section_author._get_tools", return_value=[]):
+                with patch("src.agents.section_author.get_llm", return_value=MagicMock()):
+                    result = await invoke_section_author(
+                        _make_request(
+                            tools_enabled=True,
+                            user_message="",
+                            question_answers=None,
+                            regenerate=False,
+                        )
+                    )
+
+        from langchain_core.messages import HumanMessage
+        human_msgs = [m for m in captured_messages if isinstance(m, HumanMessage)]
+        assert len(human_msgs) > 0
+        assert "generate" in human_msgs[-1].content.lower()
+
+    def test_tools_enabled_streaming_emits_generating(self, client):
+        """SSE stream with tools_enabled=True emits 'generating' and 'complete' stages."""
+        llm_output = {
+            "action": "content",
+            "section_content": {"code": "print('streamed')", "language": "python"},
+            "explanation": "Streamed with tools.",
+        }
+
+        async def fake_astream_events(input_dict, version="v1", config=None):
+            mock_msg = MagicMock()
+            mock_msg.content = json.dumps(llm_output)
+            yield {
+                "event": "on_chain_end",
+                "name": "LangGraph",
+                "data": {"output": {"messages": [mock_msg]}},
+            }
+
+        mock_agent = MagicMock()
+        mock_agent.astream_events = fake_astream_events
+
+        with patch("src.agents.section_author.create_react_agent", return_value=mock_agent):
+            with patch("src.agents.section_author._get_tools", return_value=[]):
+                with patch("src.agents.section_author.get_llm", return_value=MagicMock()):
+                    response = client.post(
+                        "/api/agents/section-author/stream",
+                        json=_make_request().model_dump() | {"tools_enabled": True},
+                    )
+
+        assert response.status_code == 200
+        events = []
+        for line in response.text.split("\n"):
+            if line.startswith("data: "):
+                events.append(json.loads(line[6:]))
+
+        stages = [e["stage"] for e in events]
+        assert "generating" in stages
+        assert "complete" in stages
+        complete_event = next(e for e in events if e["stage"] == "complete")
+        assert complete_event["data"]["response_type"] == "content"

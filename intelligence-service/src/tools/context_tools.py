@@ -18,9 +18,8 @@ def create_context_tools(current_content: dict | None, context: dict) -> list:
 
     @tool
     def list_cluster_notes() -> str:
-        """List all notes available in the current cluster.
-        Call this when the user's request mentions their existing notes, examples, or code,
-        or when you need to discover related notes before searching."""
+        """Returns notes the system already identified as related to this neuron.
+        Use search_notes or find_related_notes to actively search by keyword or topic."""
         items = context.get("knowledge_context", [])
         if not items:
             return "No notes found in this cluster."
