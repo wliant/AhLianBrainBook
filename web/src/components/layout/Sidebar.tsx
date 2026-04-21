@@ -544,7 +544,7 @@ export function Sidebar({
           "hidden lg:flex lg:h-full",
           collapsed && "lg:w-14",
           // Mobile: fixed overlay
-          open && "fixed inset-y-0 left-0 z-50 flex w-64 h-full lg:relative"
+          open && "fixed inset-y-0 left-0 z-50 flex w-[min(85vw,16rem)] h-full lg:relative lg:w-64"
         )}
         style={!collapsed && !open ? { width: sidebarWidth } : undefined}
       >

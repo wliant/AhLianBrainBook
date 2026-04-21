@@ -21,6 +21,7 @@ import { useTodoMetadata } from "@/lib/hooks/useTodoMetadata";
 import { TodoMetadataEditor } from "@/components/todo/TodoMetadataEditor";
 import { TasksPanel } from "@/components/todo/TasksPanel";
 import { Button } from "@/components/ui/button";
+import { ResponsiveSidePanel } from "@/components/ui/ResponsiveSidePanel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -541,60 +542,55 @@ function NeuronPageContent({
             </>
           )}
         </div>
-        {showToc && sectionsDoc && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+        {sectionsDoc && (
+          <ResponsiveSidePanel open={showToc} onDismiss={() => setShowToc(false)}>
             <TableOfContents
               document={sectionsDoc}
               onClose={() => setShowToc(false)}
             />
-          </div>
+          </ResponsiveSidePanel>
         )}
-        {showLinks && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
-            <ConnectionsPanel
-              neuronId={neuronId}
-              brainId={brainId}
-              onClose={() => setShowLinks(false)}
-            />
-          </div>
-        )}
-        {showHistory && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
-            <HistoryPanel
-              neuronId={neuronId}
-              onClose={closeHistory}
-              onViewRevision={handleViewRevision}
-              onRestore={handleRestore}
-            />
-          </div>
-        )}
-        {showReminder && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
-            <ReminderPanel
-              neuronId={neuronId}
-              onClose={() => setShowReminder(false)}
-              onReminderChange={setHasReminder}
-            />
-          </div>
-        )}
-        {showSR && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
-            <SpacedRepetitionPanel
-              neuronId={neuronId}
-              onClose={() => setShowSR(false)}
-              addToReview={addToReview}
-              removeFromReview={removeFromReview}
-            />
-          </div>
-        )}
-        {showTasks && !isTodo && (
+        <ResponsiveSidePanel open={showLinks} onDismiss={() => setShowLinks(false)}>
+          <ConnectionsPanel
+            neuronId={neuronId}
+            brainId={brainId}
+            onClose={() => setShowLinks(false)}
+          />
+        </ResponsiveSidePanel>
+        <ResponsiveSidePanel open={showHistory} onDismiss={closeHistory}>
+          <HistoryPanel
+            neuronId={neuronId}
+            onClose={closeHistory}
+            onViewRevision={handleViewRevision}
+            onRestore={handleRestore}
+          />
+        </ResponsiveSidePanel>
+        <ResponsiveSidePanel open={showReminder} onDismiss={() => setShowReminder(false)}>
+          <ReminderPanel
+            neuronId={neuronId}
+            onClose={() => setShowReminder(false)}
+            onReminderChange={setHasReminder}
+          />
+        </ResponsiveSidePanel>
+        <ResponsiveSidePanel open={showSR} onDismiss={() => setShowSR(false)}>
+          <SpacedRepetitionPanel
+            neuronId={neuronId}
+            onClose={() => setShowSR(false)}
+            addToReview={addToReview}
+            removeFromReview={removeFromReview}
+          />
+        </ResponsiveSidePanel>
+        <ResponsiveSidePanel
+          open={showTasks && !isTodo}
+          onDismiss={() => setShowTasks(false)}
+        >
           <TasksPanel
             neuronId={neuronId}
             brainId={brainId}
             neuronTitle={title}
             onClose={() => setShowTasks(false)}
           />
-        )}
+        </ResponsiveSidePanel>
       </div>
       <ShareDialog
         neuronId={neuronId}
