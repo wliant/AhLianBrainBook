@@ -52,7 +52,7 @@ export function TagFilterSelect({ label, allTags, selectedTags, onSelectionChang
             <ChevronDown className="h-3.5 w-3.5 opacity-50" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="p-2 w-64" align="start">
+        <PopoverContent className="p-2 w-[calc(100vw-2rem)] sm:w-64" align="start">
           <Input
             placeholder="Search tags..."
             value={search}

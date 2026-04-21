@@ -83,7 +83,7 @@ export function SpacedRepetitionPanel({
   const isDue = item ? new Date(item.nextReviewAt).getTime() <= Date.now() : false;
 
   return (
-    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0" data-testid="sr-panel">
+    <div className="flex flex-col h-full bg-background" data-testid="sr-panel">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm">Spaced Repetition</h3>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>

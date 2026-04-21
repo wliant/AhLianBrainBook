@@ -90,7 +90,7 @@ export function TasksPanel({ neuronId, brainId, neuronTitle, onClose }: TasksPan
   }, [neuronId, queryClient]);
 
   return (
-    <div className="w-80 border-l bg-background flex flex-col h-full" data-testid="tasks-panel">
+    <div className="flex flex-col h-full bg-background" data-testid="tasks-panel">
       <div className="flex items-center justify-between px-3 py-2 border-b">
         <h3 className="text-sm font-medium">Tasks</h3>
         <button onClick={onClose} className="p-0.5 hover:bg-accent rounded">

@@ -91,7 +91,7 @@ export function AddLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <DialogContent className="max-w-md" data-testid="add-link-dialog">
+      <DialogContent className="sm:max-w-md" data-testid="add-link-dialog">
         <DialogHeader>
           <DialogTitle>Add Link</DialogTitle>
         </DialogHeader>

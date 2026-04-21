@@ -399,7 +399,7 @@ export function NeuronPanel({
 
       {/* Neuron content dialog */}
       <Dialog open={!!dialogNeuron} onOpenChange={(open) => { if (!open) setDialogNeuron(null); }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-3xl sm:max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{dialogNeuron?.neuron.title || "Untitled"}</DialogTitle>
             {dialogNeuron?.anchor && (

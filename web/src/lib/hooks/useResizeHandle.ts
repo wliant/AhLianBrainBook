@@ -6,13 +6,15 @@ export function useResizeHandle(
   initialSize: number,
   min: number,
   max: number,
-  direction: "left" | "right" = "left"
+  direction: "left" | "right" = "left",
+  enabled: boolean = true
 ) {
   const [size, setSize] = useState(initialSize);
   const isResizing = useRef(false);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (!enabled) return;
       e.preventDefault();
       isResizing.current = true;
       const startX = e.clientX;
@@ -38,7 +40,7 @@ export function useResizeHandle(
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [size, min, max, direction]
+    [size, min, max, direction, enabled]
   );
 
   return { size, handleMouseDown };

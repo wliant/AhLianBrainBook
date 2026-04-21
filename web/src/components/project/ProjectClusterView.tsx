@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { GitBranch, Box, List, History, AlignLeft, Loader2, Folder } from "lucide-react";
+import { GitBranch, Box, List, History, AlignLeft, Loader2, Folder, X } from "lucide-react";
 import { BranchSelector } from "./BranchSelector";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useProjectConfig } from "@/lib/hooks/useProjectConfig";
 import { useFileTree } from "@/lib/hooks/useFileTree";
 import { useFileContent } from "@/lib/hooks/useFileContent";
 import { useFileAnchors } from "@/lib/hooks/useNeuronAnchors";
 import { useSandbox } from "@/lib/hooks/useSandbox";
 import { useResizeHandle } from "@/lib/hooks/useResizeHandle";
+import { useIsTablet } from "@/lib/hooks/useMediaQuery";
 import { api } from "@/lib/api";
 import { FileTreePanel } from "./FileTreePanel";
 import { FileContentViewer } from "./FileContentViewer";
@@ -51,8 +53,11 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   const [blameVisible, setBlameVisible] = useState(false);
   const [codeSelection, setCodeSelection] = useState<CodeSelection | null>(null);
   const [goToLineOpen, setGoToLineOpen] = useState(false);
-  const { size: leftPanelWidth, handleMouseDown: handleLeftResize } = useResizeHandle(250, 150, 500, "left");
-  const { size: rightPanelWidth, handleMouseDown: handleRightResize } = useResizeHandle(300, 200, 600, "right");
+  const isTablet = useIsTablet();
+  const { size: leftPanelWidth, handleMouseDown: handleLeftResize } = useResizeHandle(250, 150, 500, "left", isTablet);
+  const { size: rightPanelWidth, handleMouseDown: handleRightResize } = useResizeHandle(300, 200, 600, "right", isTablet);
+  const [fileTreeOpen, setFileTreeOpen] = useState(false);
+  const [neuronOpen, setNeuronOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [terminating, setTerminating] = useState(false);
 
@@ -167,7 +172,8 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     setSelectedType("file");
     setScrollToLine(null);
     setCodeSelection(null);
-  }, []);
+    if (!isTablet) setFileTreeOpen(false);
+  }, [isTablet]);
 
   const handleSelectFolder = useCallback((path: string) => {
     setSelectedPath(path);
@@ -218,6 +224,16 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
     <div className="flex flex-col h-full" data-testid="project-cluster-view">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 md:hidden"
+          onClick={() => setFileTreeOpen((v) => !v)}
+          title="Toggle file tree"
+          aria-label="Toggle file tree"
+        >
+          <Folder className="h-3.5 w-3.5" />
+        </Button>
         {isSandboxActive && sandbox ? (
           <BranchSelector
             clusterId={cluster.id}
@@ -231,9 +247,19 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           </>
         )}
         {config?.repoUrl && (
-          <span className="text-xs opacity-60 truncate ml-2">{config.repoUrl}</span>
+          <span className="text-xs opacity-60 truncate ml-2 hidden sm:inline">{config.repoUrl}</span>
         )}
         <div className="flex-1" />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 md:hidden"
+          onClick={() => setNeuronOpen((v) => !v)}
+          title="Toggle notes"
+          aria-label="Toggle notes"
+        >
+          <Box className="h-3.5 w-3.5" />
+        </Button>
         {isSandboxActive && (
           <>
             <Button
@@ -292,9 +318,41 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
       {/* Three-panel layout */}
       {!(sandbox && (sandbox.status === "cloning" || sandbox.status === "indexing")) && (
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 relative">
+        {/* Mobile backdrop for left drawer */}
+        {!isTablet && fileTreeOpen && (
+          <div
+            className="fixed inset-0 bg-black/30 z-30 md:hidden"
+            onClick={() => setFileTreeOpen(false)}
+            aria-hidden
+          />
+        )}
+
         {/* File Tree + Structure Panel */}
-        <div className="border-r overflow-hidden flex-shrink-0 flex flex-col" style={{ width: leftPanelWidth }}>
+        <div
+          className={cn(
+            "border-r overflow-hidden flex flex-col bg-background",
+            isTablet
+              ? "flex-shrink-0"
+              : cn(
+                  "fixed inset-y-0 left-0 z-40 w-[85vw] max-w-xs shadow-xl transition-transform",
+                  fileTreeOpen ? "translate-x-0" : "-translate-x-full"
+                )
+          )}
+          style={isTablet ? { width: leftPanelWidth } : undefined}
+        >
+          {!isTablet && (
+            <div className="flex items-center justify-between px-3 py-2 border-b md:hidden">
+              <span className="text-xs font-medium text-muted-foreground">FILES</span>
+              <button
+                className="p-0.5 hover:bg-accent rounded"
+                onClick={() => setFileTreeOpen(false)}
+                aria-label="Close file tree"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <div className={structurePanelOpen ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-hidden"}>
             <FileTreePanel
               entries={entries}
@@ -331,9 +389,9 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           )}
         </div>
 
-        {/* Left resize handle */}
+        {/* Left resize handle — desktop only */}
         <div
-          className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 flex-shrink-0"
+          className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 flex-shrink-0 hidden md:block"
           onMouseDown={handleLeftResize}
         />
 
@@ -363,14 +421,45 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           )}
         </div>
 
-        {/* Right resize handle */}
+        {/* Right resize handle — desktop only */}
         <div
-          className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 flex-shrink-0"
+          className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 flex-shrink-0 hidden md:block"
           onMouseDown={handleRightResize}
         />
 
+        {/* Mobile backdrop for right sheet */}
+        {!isTablet && neuronOpen && (
+          <div
+            className="fixed inset-0 bg-black/30 z-30 md:hidden"
+            onClick={() => setNeuronOpen(false)}
+            aria-hidden
+          />
+        )}
+
         {/* Neuron Panel / Orphan List */}
-        <div className="overflow-hidden flex-shrink-0" style={{ width: rightPanelWidth }}>
+        <div
+          className={cn(
+            "overflow-hidden bg-background",
+            isTablet
+              ? "flex-shrink-0"
+              : neuronOpen
+                ? "fixed inset-x-0 bottom-0 h-[70dvh] z-40 border-t shadow-xl"
+                : "hidden"
+          )}
+          style={isTablet ? { width: rightPanelWidth } : undefined}
+        >
+          {!isTablet && (
+            <div className="flex items-center justify-between px-3 py-2 border-b md:hidden">
+              <span className="text-xs font-medium text-muted-foreground">NOTES</span>
+              <button
+                className="p-0.5 hover:bg-accent rounded"
+                onClick={() => setNeuronOpen(false)}
+                aria-label="Close notes"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <NeuronPanel
             clusterId={cluster.id}
             brainId={brainId}

@@ -33,7 +33,7 @@ export function ConnectionsPanel({
   };
 
   return (
-    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0" data-testid="connections-panel">
+    <div className="flex flex-col h-full bg-background" data-testid="connections-panel">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm">Connections</h3>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>

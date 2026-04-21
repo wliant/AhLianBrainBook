@@ -75,7 +75,7 @@ export function ThoughtFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" data-testid="thought-form-dialog">
+      <DialogContent className="sm:max-w-md" data-testid="thought-form-dialog">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

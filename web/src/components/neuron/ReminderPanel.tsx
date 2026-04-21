@@ -76,7 +76,7 @@ export function ReminderPanel({
   const atLimit = reminders.length >= maxReminders;
 
   return (
-    <div className="w-full lg:w-80 lg:border-l flex flex-col h-full bg-background shrink-0" data-testid="reminder-panel">
+    <div className="flex flex-col h-full bg-background" data-testid="reminder-panel">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h3 className="font-semibold text-sm">Reminders ({reminders.length}/{maxReminders})</h3>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
