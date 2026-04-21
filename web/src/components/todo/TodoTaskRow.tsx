@@ -75,19 +75,19 @@ export function TodoTaskRow({ neuron, metadata, brainId, clusterId, onToggleComp
         {neuron.title || "Untitled"}
       </Link>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {metadata?.priority && metadata.priority !== "normal" && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_STYLES[metadata.priority]}`}>
+          <span className={`hidden sm:inline text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_STYLES[metadata.priority]}`}>
             {metadata.priority}
           </span>
         )}
         {metadata?.effort && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
+          <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
             {EFFORT_LABELS[metadata.effort]}
           </span>
         )}
         {metadata?.dueDate && (
-          <span className={`text-xs ${getDueDateStyle(metadata.dueDate, completed)}`}>
+          <span className={`text-xs whitespace-nowrap ${getDueDateStyle(metadata.dueDate, completed)}`}>
             {formatDueDate(metadata.dueDate)}
           </span>
         )}

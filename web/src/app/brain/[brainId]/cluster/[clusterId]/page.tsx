@@ -68,7 +68,7 @@ function SortableNeuronRow({
             </p>
           </div>
           {neuron.complexity && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+            <span className={`hidden sm:inline text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
               neuron.complexity === "complex" ? "bg-red-500/20 text-red-400" :
               neuron.complexity === "moderate" ? "bg-yellow-500/20 text-yellow-400" :
               "bg-green-500/20 text-green-400"
@@ -76,7 +76,7 @@ function SortableNeuronRow({
               {neuron.complexity}
             </span>
           )}
-          <span className="text-xs text-muted-foreground shrink-0">
+          <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
             {new Date(neuron.lastEditedAt).toLocaleDateString()}
           </span>
         </Link>

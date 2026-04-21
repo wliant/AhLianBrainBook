@@ -101,9 +101,9 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="text-xl font-semibold">Research Topics</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -111,7 +111,8 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
             disabled={!hasUpdatableTopics || isClusterGenerating}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
-            Update All
+            <span className="hidden sm:inline">Update All</span>
+            <span className="sm:hidden">Update</span>
           </Button>
           <Button
             size="sm"
@@ -119,7 +120,9 @@ export function ResearchClusterView({ cluster, brainId }: ResearchClusterViewPro
             disabled={isClusterGenerating}
             data-testid="new-research-topic-btn"
           >
-            <Plus className="h-4 w-4 mr-1" /> New Topic
+            <Plus className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">New Topic</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>

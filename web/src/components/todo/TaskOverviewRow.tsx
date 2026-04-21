@@ -85,19 +85,19 @@ export function TaskOverviewRow({ task, onToggleComplete }: TaskOverviewRowProps
         </div>
       </Link>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {task.priority !== "normal" && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_STYLES[task.priority]}`}>
+          <span className={`hidden sm:inline text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_STYLES[task.priority]}`}>
             {task.priority}
           </span>
         )}
         {task.effort && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
+          <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
             {EFFORT_LABELS[task.effort]}
           </span>
         )}
         {task.dueDate && (
-          <span className={`text-xs ${getDueDateStyle(task.dueDate, completed)}`}>
+          <span className={`text-xs whitespace-nowrap ${getDueDateStyle(task.dueDate, completed)}`}>
             {formatDueDate(task.dueDate)}
           </span>
         )}

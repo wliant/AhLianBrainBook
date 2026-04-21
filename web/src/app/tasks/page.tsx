@@ -34,7 +34,7 @@ export default function TasksPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto" data-testid="tasks-page">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <CheckSquare className="h-6 w-6" />
           Tasks

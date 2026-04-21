@@ -17,11 +17,11 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
         <span key={item.href} className="flex items-center gap-1 shrink-0">
           {i > 0 && <ChevronRight className="h-3 w-3" />}
           {i < items.length - 1 ? (
-            <Link href={item.href} className="hover:text-foreground transition-colors truncate max-w-[120px] sm:max-w-[200px]">
+            <Link href={item.href} className="hover:text-foreground transition-colors truncate max-w-[90px] sm:max-w-[160px] lg:max-w-[240px]">
               {item.label}
             </Link>
           ) : (
-            <span className="text-foreground font-medium truncate max-w-[120px] sm:max-w-[200px]">{item.label}</span>
+            <span className="text-foreground font-medium truncate max-w-[90px] sm:max-w-[160px] lg:max-w-[240px]">{item.label}</span>
           )}
         </span>
       ))}

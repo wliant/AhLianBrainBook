@@ -81,16 +81,20 @@ export default function BrainPage({ params }: { params: Promise<{ brainId: strin
 
       <BrainStats brainId={brainId} />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <h2 className="text-xl font-semibold">Clusters</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href={`/brain/${brainId}/graph`}>
             <Button variant="outline" size="sm">
-              <Network className="h-4 w-4 mr-1" /> Knowledge Graph
+              <Network className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Knowledge Graph</span>
+              <span className="sm:hidden">Graph</span>
             </Button>
           </Link>
           <Button size="sm" onClick={() => setClusterDialogOpen(true)} data-testid="new-cluster-btn">
-            <Plus className="h-4 w-4 mr-1" /> New Cluster
+            <Plus className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">New Cluster</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>

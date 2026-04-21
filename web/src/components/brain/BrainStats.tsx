@@ -30,7 +30,7 @@ export function BrainStats({ brainId }: { brainId: string }) {
 
   return (
     <div className="mb-6 space-y-4">
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={<FolderOpen className="h-4 w-4" />} label="Clusters" value={stats.clusterCount} />
         <StatCard icon={<FileText className="h-4 w-4" />} label="Neurons" value={stats.neuronCount} />
         <StatCard icon={<Tag className="h-4 w-4" />} label="Tags" value={stats.tagCount} />
@@ -66,7 +66,7 @@ export function BrainStats({ brainId }: { brainId: string }) {
               />
             )}
           </div>
-          <div className="flex gap-4 mt-1.5 text-[10px] text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Simple: {stats.simpleCount}</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" />Moderate: {stats.moderateCount}</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />Complex: {stats.complexCount}</span>

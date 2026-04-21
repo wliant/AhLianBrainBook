@@ -217,7 +217,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
   return (
     <div className="flex flex-col h-full" data-testid="project-cluster-view">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground">
         {isSandboxActive && sandbox ? (
           <BranchSelector
             clusterId={cluster.id}
@@ -231,7 +231,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
           </>
         )}
         {config?.repoUrl && (
-          <span className="text-xs opacity-60 truncate ml-2">{config.repoUrl}</span>
+          <span className="hidden md:inline text-xs opacity-60 truncate ml-2 min-w-0">{config.repoUrl}</span>
         )}
         <div className="flex-1" />
         {isSandboxActive && (
@@ -292,7 +292,7 @@ export function ProjectClusterView({ cluster, brainId }: ProjectClusterViewProps
 
       {/* Three-panel layout */}
       {!(sandbox && (sandbox.status === "cloning" || sandbox.status === "indexing")) && (
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-x-auto">
         {/* File Tree + Structure Panel */}
         <div className="border-r overflow-hidden flex-shrink-0 flex flex-col" style={{ width: leftPanelWidth }}>
           <div className={structurePanelOpen ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-hidden"}>

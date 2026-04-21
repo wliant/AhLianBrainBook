@@ -298,9 +298,9 @@ function NeuronPageContent({
   return (
     <div className="flex flex-col h-full" data-testid="neuron-editor-page">
       <Breadcrumb items={neuronBreadcrumbs} />
-      <div className="flex items-center gap-2 border-b px-3 sm:px-6 py-2">
+      <div className="flex flex-wrap items-center gap-1 sm:gap-2 border-b px-3 sm:px-6 py-2">
         {!viewMode && <SaveStatusIndicator status={saveStatus} />}
-        <div className="flex-1" />
+        <div className="flex-1 min-w-0" />
         <Button
           variant="ghost"
           size="icon"
@@ -542,7 +542,7 @@ function NeuronPageContent({
           )}
         </div>
         {showToc && sectionsDoc && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+          <div className="fixed inset-x-0 bottom-0 h-[70vh] max-h-[70vh] z-30 border-t bg-background overscroll-contain shadow-[0_-4px_12px_rgba(0,0,0,0.15)] lg:static lg:h-auto lg:max-h-none lg:z-auto lg:border-t-0 lg:shadow-none">
             <TableOfContents
               document={sectionsDoc}
               onClose={() => setShowToc(false)}
@@ -550,7 +550,7 @@ function NeuronPageContent({
           </div>
         )}
         {showLinks && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+          <div className="fixed inset-x-0 bottom-0 h-[70vh] max-h-[70vh] z-30 border-t bg-background overscroll-contain shadow-[0_-4px_12px_rgba(0,0,0,0.15)] lg:static lg:h-auto lg:max-h-none lg:z-auto lg:border-t-0 lg:shadow-none">
             <ConnectionsPanel
               neuronId={neuronId}
               brainId={brainId}
@@ -559,7 +559,7 @@ function NeuronPageContent({
           </div>
         )}
         {showHistory && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+          <div className="fixed inset-x-0 bottom-0 h-[70vh] max-h-[70vh] z-30 border-t bg-background overscroll-contain shadow-[0_-4px_12px_rgba(0,0,0,0.15)] lg:static lg:h-auto lg:max-h-none lg:z-auto lg:border-t-0 lg:shadow-none">
             <HistoryPanel
               neuronId={neuronId}
               onClose={closeHistory}
@@ -569,7 +569,7 @@ function NeuronPageContent({
           </div>
         )}
         {showReminder && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+          <div className="fixed inset-x-0 bottom-0 h-[70vh] max-h-[70vh] z-30 border-t bg-background overscroll-contain shadow-[0_-4px_12px_rgba(0,0,0,0.15)] lg:static lg:h-auto lg:max-h-none lg:z-auto lg:border-t-0 lg:shadow-none">
             <ReminderPanel
               neuronId={neuronId}
               onClose={() => setShowReminder(false)}
@@ -578,7 +578,7 @@ function NeuronPageContent({
           </div>
         )}
         {showSR && (
-          <div className="fixed inset-x-0 bottom-0 h-[60vh] z-30 border-t bg-background overscroll-contain lg:relative lg:inset-auto lg:h-auto lg:z-auto lg:border-t-0">
+          <div className="fixed inset-x-0 bottom-0 h-[70vh] max-h-[70vh] z-30 border-t bg-background overscroll-contain shadow-[0_-4px_12px_rgba(0,0,0,0.15)] lg:static lg:h-auto lg:max-h-none lg:z-auto lg:border-t-0 lg:shadow-none">
             <SpacedRepetitionPanel
               neuronId={neuronId}
               onClose={() => setShowSR(false)}
