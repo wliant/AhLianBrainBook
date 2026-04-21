@@ -88,7 +88,7 @@ export function QuickOpenDialog({ open, onOpenChange, entries, onSelectFile }: Q
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 gap-0 max-w-lg" aria-describedby={undefined}>
+      <DialogContent className="p-0 gap-0 sm:max-w-lg" aria-describedby={undefined}>
         <div className="p-3 border-b">
           <input
             ref={inputRef}

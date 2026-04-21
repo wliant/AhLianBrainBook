@@ -41,7 +41,7 @@ export function Toolbar({ editor }: ToolbarProps) {
   if (!editor) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b pb-2 mb-4">
+    <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 border-b pb-2 mb-4">
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={editor.isActive("bold")}
@@ -85,7 +85,7 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Highlighter className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-border mx-1" />
+      <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -109,7 +109,7 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Heading3 className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-border mx-1" />
+      <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -153,11 +153,11 @@ export function Toolbar({ editor }: ToolbarProps) {
         <Code className="h-4 w-4" />
       </ToolbarButton>
 
-      <div className="w-px h-6 bg-border mx-1" />
+      <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
       <LinkPopover editor={editor} />
 
-      <div className="w-px h-6 bg-border mx-1" />
+      <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
       <ToolbarButton
         onClick={() => editor.chain().focus().undo().run()}

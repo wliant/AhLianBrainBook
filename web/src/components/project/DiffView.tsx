@@ -38,7 +38,7 @@ export function DiffView({ open, onOpenChange, clusterId, from, to }: DiffViewPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-0 gap-0" aria-describedby={undefined}>
+      <DialogContent className="sm:max-w-4xl sm:max-h-[80vh] flex flex-col p-0 gap-0" aria-describedby={undefined}>
         <DialogHeader className="px-4 py-3 border-b shrink-0">
           <DialogTitle className="text-sm font-mono">
             Diff: {from.substring(0, 7)} → {to.substring(0, 7)}

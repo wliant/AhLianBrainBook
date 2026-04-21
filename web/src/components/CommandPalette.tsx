@@ -59,7 +59,7 @@ export function CommandPalette() {
       open={open}
       onOpenChange={setOpen}
       label="Command Palette"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] px-4"
       overlayClassName="fixed inset-0 bg-black/50"
       contentClassName="w-full max-w-lg rounded-lg border bg-background shadow-lg overflow-hidden"
     >

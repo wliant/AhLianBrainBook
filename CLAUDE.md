@@ -77,6 +77,15 @@ Go microservice that provisions and manages git sandboxes for Project clusters. 
 ### Web (`web/src/`)
 Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/neuron/[neuronId]/`. API client in `lib/api.ts` wraps fetch (includes SSE stream parser for AI assist). Custom hooks in `lib/hooks/` (useBrains, useClusters, useNeurons, useTodoMetadata, useAiAssist with streaming + cancellation). Rich text editor uses TipTap (`components/editor/`). AI assist dialog (`components/sections/AiAssistDialog.tsx`) with side-by-side preview, stage indicators, read-only TipTap rich-text preview, explanation toggles, and cancel button. Cluster-type-specific views: `components/research/` (AI research), `components/project/` (code sandbox), `components/todo/` (task management — TodoClusterView, TodoTaskRow, TodoMetadataEditor, TasksPanel, TaskOverviewRow). Cross-brain `/tasks` overview page aggregates todos across all brains, sorted by due date (overdue collapsed to yesterday), priority, then effort. UI built with Radix primitives + Tailwind CSS (`components/ui/`).
 
+### Responsive Design
+- Minimum supported viewport: **360px**. Tailwind breakpoints: `sm` 640, `md` 768, `lg` 1024.
+- Dialogs: use the `<DialogContent>` primitive as-is — it caps to `w-[calc(100vw-2rem)]` and `max-h-[calc(100dvh-2rem)]` by default. Override sizes only with `sm:max-w-*` / `sm:max-h-*` so mobile inherits the safe default.
+- Side panels on the neuron page and similar layouts: wrap in `<ResponsiveSidePanel>` (`components/ui/ResponsiveSidePanel.tsx`) — bottom sheet on mobile, right column on `lg`.
+- Popovers anchored to the right edge: use `w-[calc(100vw-2rem)] sm:w-*` so they can't overflow.
+- Prefer CSS-based responsiveness (`hidden lg:flex`, `md:block`, etc.). Only reach for `useMediaQuery` / `useIsDesktop` / `useIsTablet` (`lib/hooks/useMediaQuery.ts`) when JS must know the viewport (conditional mount, resize-handle gating).
+- Avoid fixed pixel widths for panels. Gate pixel resize handles (e.g. `useResizeHandle`) behind `md:` / `lg:` so they don't activate on mobile.
+- Manual test viewports: **360×640** (small phone), **768×1024** (tablet), **1280×800** (desktop baseline).
+
 ### Testing
 - **App**: JUnit 5 + Spring Boot Test + TestContainers (PostgreSQL). Classical-school unit tests for services (real DB, only MinIO mocked). Integration tests for controllers (`@SpringBootTest` with `RANDOM_PORT` + `TestRestTemplate`). Requires Docker for TestContainers.
 - **Web**: Vitest + React Testing Library + MSW (Mock Service Worker). Unit tests for API client, hooks, and components. Integration tests for pages with mocked backend APIs.
