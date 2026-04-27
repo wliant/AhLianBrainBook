@@ -4,10 +4,14 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
+import java.util.UUID;
+
 public record AppSettingsRequest(
         @Size(max = 100) String displayName,
         @Min(1) @Max(100) Integer maxRemindersPerNeuron,
         @Size(max = 50) String timezone,
-        Boolean aiToolsEnabled
+        Boolean aiToolsEnabled,
+        UUID defaultShareClusterId,
+        Boolean clearDefaultShareCluster
 ) {
 }

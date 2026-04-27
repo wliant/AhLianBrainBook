@@ -35,6 +35,9 @@ public class AppSettings {
     @Column(name = "ai_tools_enabled", nullable = false)
     private boolean aiToolsEnabled = false;
 
+    @Column(name = "default_share_cluster_id")
+    private UUID defaultShareClusterId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -67,4 +70,6 @@ public class AppSettings {
     public void setTimezone(String timezone) { this.timezone = timezone; }
     public boolean isAiToolsEnabled() { return aiToolsEnabled; }
     public void setAiToolsEnabled(boolean aiToolsEnabled) { this.aiToolsEnabled = aiToolsEnabled; }
+    public UUID getDefaultShareClusterId() { return defaultShareClusterId; }
+    public void setDefaultShareClusterId(UUID defaultShareClusterId) { this.defaultShareClusterId = defaultShareClusterId; }
 }
