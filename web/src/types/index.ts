@@ -194,6 +194,8 @@ export interface AppSettings {
   maxRemindersPerNeuron: number;
   timezone: string;
   aiToolsEnabled: boolean;
+  defaultShareClusterId: string | null;
+  defaultShareBrainId: string | null;
   createdAt: string;
   updatedAt: string;
 }

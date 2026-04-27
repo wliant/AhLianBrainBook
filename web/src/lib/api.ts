@@ -286,7 +286,7 @@ export const api = {
   // Settings endpoints
   settings: {
     get: () => request<import("@/types").AppSettings>("/api/settings"),
-    update: (body: { displayName?: string; maxRemindersPerNeuron?: number; timezone?: string; aiToolsEnabled?: boolean }) =>
+    update: (body: { displayName?: string; maxRemindersPerNeuron?: number; timezone?: string; aiToolsEnabled?: boolean; defaultShareClusterId?: string; clearDefaultShareCluster?: boolean }) =>
       request<import("@/types").AppSettings>("/api/settings", { method: "PATCH", body }),
   },
 

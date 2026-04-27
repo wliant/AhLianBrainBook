@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSettings } from "@/lib/hooks/useSettings";
+import { useBrains } from "@/lib/hooks/useBrains";
+import { useClusters } from "@/lib/hooks/useClusters";
 import { CheckCircle, Loader2 } from "lucide-react";
 
-export default function SettingsPage() {
-  const { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone, updateAiToolsEnabled } = useSettings();
+function SettingsPageInner() {
+  const { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone, updateAiToolsEnabled, updateDefaultShareCluster } = useSettings();
+  const searchParams = useSearchParams();
+  const fromShare = searchParams.get("from") === "share";
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -62,6 +67,12 @@ export default function SettingsPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
+
+      {fromShare && !settings?.defaultShareClusterId && (
+        <div className="mb-6 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200" data-testid="share-banner">
+          Pick a default cluster below to enable mobile sharing.
+        </div>
+      )}
 
       <div className="space-y-6">
         <div>
@@ -160,6 +171,14 @@ export default function SettingsPage() {
         </div>
 
         <div className="border-t pt-6">
+          <DefaultShareClusterSection
+            currentClusterId={settings?.defaultShareClusterId ?? null}
+            currentBrainId={settings?.defaultShareBrainId ?? null}
+            onSave={updateDefaultShareCluster}
+          />
+        </div>
+
+        <div className="border-t pt-6">
           <label htmlFor="aiToolsEnabled" className="block text-sm font-medium mb-1.5">
             AI Tools (Search &amp; Retrieval)
           </label>
@@ -200,5 +219,102 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function DefaultShareClusterSection({
+  currentClusterId,
+  currentBrainId,
+  onSave,
+}: {
+  currentClusterId: string | null;
+  currentBrainId: string | null;
+  onSave: (clusterId: string | null) => Promise<void>;
+}) {
+  const { brains, loading: brainsLoading } = useBrains();
+  const [selectedBrainId, setSelectedBrainId] = useState<string>("");
+  const [selectedClusterId, setSelectedClusterId] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const { clusters, loading: clustersLoading } = useClusters(selectedBrainId || null);
+
+  useEffect(() => {
+    setSelectedBrainId(currentBrainId ?? "");
+    setSelectedClusterId(currentClusterId ?? "");
+  }, [currentBrainId, currentClusterId]);
+
+  const dirty =
+    (selectedBrainId !== (currentBrainId ?? "")) ||
+    (selectedClusterId !== (currentClusterId ?? ""));
+  const canSave = dirty && (selectedClusterId !== "" || currentClusterId !== null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    await onSave(selectedClusterId || null);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div data-testid="default-share-cluster">
+      <label className="block text-sm font-medium mb-1.5">Default Share Cluster</label>
+      <p className="text-xs text-muted-foreground mb-2">
+        When you share a link, image, or file to BrainBook from your phone, the new neuron is
+        created in this cluster. iOS does not support PWA share targets.
+      </p>
+      <div className="flex flex-wrap gap-2 items-center">
+        <select
+          aria-label="Brain"
+          value={selectedBrainId}
+          onChange={(e) => {
+            setSelectedBrainId(e.target.value);
+            setSelectedClusterId("");
+          }}
+          disabled={brainsLoading}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm max-w-[14rem]"
+          data-testid="share-brain-select"
+        >
+          <option value="">— None —</option>
+          {brains.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Cluster"
+          value={selectedClusterId}
+          onChange={(e) => setSelectedClusterId(e.target.value)}
+          disabled={!selectedBrainId || clustersLoading}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm max-w-[14rem]"
+          data-testid="share-cluster-select"
+        >
+          <option value="">{selectedBrainId ? "— Select cluster —" : "— Pick a brain first —"}</option>
+          {clusters.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <Button onClick={handleSave} disabled={saving || !canSave} data-testid="share-cluster-save">
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : saved ? (
+            <>
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Saved
+            </>
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <SettingsPageInner />
+    </Suspense>
   );
 }

@@ -34,5 +34,14 @@ export function useSettings() {
     queryClient.invalidateQueries({ queryKey: ["settings"] });
   }, [queryClient]);
 
-  return { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone, updateAiToolsEnabled };
+  const updateDefaultShareCluster = useCallback(async (clusterId: string | null) => {
+    if (clusterId === null) {
+      await api.settings.update({ clearDefaultShareCluster: true });
+    } else {
+      await api.settings.update({ defaultShareClusterId: clusterId });
+    }
+    queryClient.invalidateQueries({ queryKey: ["settings"] });
+  }, [queryClient]);
+
+  return { settings, loading, updateDisplayName, updateMaxReminders, updateTimezone, updateAiToolsEnabled, updateDefaultShareCluster };
 }
