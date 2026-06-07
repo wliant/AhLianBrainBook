@@ -5,6 +5,7 @@ import com.wliant.brainbook.dto.QuizEnabledRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
+import com.wliant.brainbook.service.ReviewQuestionAsyncService;
 import com.wliant.brainbook.service.ReviewQuestionService;
 import com.wliant.brainbook.service.SpacedRepetitionService;
 import jakarta.validation.Valid;
@@ -28,11 +29,14 @@ public class SpacedRepetitionController {
 
     private final SpacedRepetitionService spacedRepetitionService;
     private final ReviewQuestionService reviewQuestionService;
+    private final ReviewQuestionAsyncService reviewQuestionAsyncService;
 
     public SpacedRepetitionController(SpacedRepetitionService spacedRepetitionService,
-                                       ReviewQuestionService reviewQuestionService) {
+                                       ReviewQuestionService reviewQuestionService,
+                                       ReviewQuestionAsyncService reviewQuestionAsyncService) {
         this.spacedRepetitionService = spacedRepetitionService;
         this.reviewQuestionService = reviewQuestionService;
+        this.reviewQuestionAsyncService = reviewQuestionAsyncService;
     }
 
     @PostMapping("/items/{neuronId}")
@@ -75,9 +79,9 @@ public class SpacedRepetitionController {
 
     @PostMapping("/items/{itemId}/questions/regenerate")
     public ResponseEntity<Void> regenerateQuestions(@PathVariable UUID itemId) {
-        // Trigger async regeneration by clearing existing and letting scheduler pick up
-        reviewQuestionService.markStaleByNeuron(
-                spacedRepetitionService.getItemEntity(itemId).getNeuronId(), "");
+        // Regenerate immediately off-thread for any item (due or not), bypassing the scheduler.
+        UUID neuronId = spacedRepetitionService.getItemEntity(itemId).getNeuronId();
+        reviewQuestionAsyncService.regenerateForItem(itemId, neuronId);
         return ResponseEntity.accepted().build();
     }
 

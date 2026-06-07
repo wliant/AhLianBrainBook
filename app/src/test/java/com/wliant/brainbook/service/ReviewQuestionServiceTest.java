@@ -198,4 +198,44 @@ class ReviewQuestionServiceTest {
         assertThat(reviewQuestionService.hasReadyQuestions(srItem.id())).isFalse();
     }
 
+    @Test
+    void generateQuestionsForItem_skipsWhenContentUnchangedAndReadyExists() {
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any()))
+                .thenReturn(Map.of("items", List.of(Map.of("question", "Original Q?", "answer", "Original A"))))
+                .thenReturn(Map.of("items", List.of(Map.of("question", "Fresh Q?", "answer", "Fresh A"))));
+
+        SpacedRepetitionItemResponse srItem = srService.addItem(neuronId);
+        reviewQuestionService.generateQuestionsForItem(srItem.id());
+
+        // Second call without marking stale is a no-op: the content hash still matches READY questions.
+        reviewQuestionService.generateQuestionsForItem(srItem.id());
+
+        List<ReviewQuestionResponse> questions = reviewQuestionService.getQuestionsForItem(srItem.id());
+        assertThat(questions).hasSize(1);
+        assertThat(questions.get(0).questionText()).isEqualTo("Original Q?");
+    }
+
+    @Test
+    void regenerate_replacesQuestionsEvenWhenContentUnchanged() {
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any()))
+                .thenReturn(Map.of("items", List.of(Map.of("question", "Original Q?", "answer", "Original A"))))
+                .thenReturn(Map.of("items", List.of(
+                        Map.of("question", "Fresh Q1?", "answer", "Fresh A1"),
+                        Map.of("question", "Fresh Q2?", "answer", "Fresh A2"))));
+
+        SpacedRepetitionItemResponse srItem = srService.addItem(neuronId);
+        reviewQuestionService.generateQuestionsForItem(srItem.id());
+        assertThat(reviewQuestionService.getQuestionsForItem(srItem.id())).hasSize(1);
+
+        // This is exactly what ReviewQuestionAsyncService.regenerateForItem does: mark stale then generate.
+        // markStaleByNeuron with an empty hash clears the READY status so the idempotency guard does not skip.
+        reviewQuestionService.markStaleByNeuron(neuronId, "");
+        reviewQuestionService.generateQuestionsForItem(srItem.id());
+
+        List<ReviewQuestionResponse> regenerated = reviewQuestionService.getQuestionsForItem(srItem.id());
+        assertThat(regenerated).hasSize(2);
+        assertThat(regenerated.get(0).questionText()).isEqualTo("Fresh Q1?");
+        assertThat(regenerated.get(1).questionText()).isEqualTo("Fresh Q2?");
+    }
+
 }

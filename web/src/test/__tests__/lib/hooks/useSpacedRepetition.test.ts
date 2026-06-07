@@ -136,6 +136,59 @@ describe('useSpacedRepetition', () => {
     expect(reviewResult?.intervalDays).toBe(1);
   });
 
+  it('regenerateQuestions calls POST and invalidates queries', async () => {
+    let postCalled = false;
+    let getCallCount = 0;
+    server.use(
+      http.get(`${API_BASE}/api/spaced-repetition/items`, () => {
+        getCallCount++;
+        // Before regenerate: questions ready. After: re-fetched with fresh questions.
+        return HttpResponse.json([makeSRItem({ hasQuestions: getCallCount > 1 })]);
+      }),
+      http.post(`${API_BASE}/api/spaced-repetition/items/:itemId/questions/regenerate`, () => {
+        postCalled = true;
+        return new HttpResponse(null, { status: 202 });
+      })
+    );
+
+    const { result } = renderHook(() => useSpacedRepetition(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.itemsLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.regenerateQuestions('sr-1');
+    });
+
+    expect(postCalled).toBe(true);
+    await waitFor(() => {
+      expect(result.current.allItems[0]?.hasQuestions).toBe(true);
+    });
+  });
+
+  it('exposes refetchItems and refetchQueue', async () => {
+    server.use(
+      http.get(`${API_BASE}/api/spaced-repetition/items`, () => HttpResponse.json([makeSRItem()]))
+    );
+
+    const { result } = renderHook(() => useSpacedRepetition(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.itemsLoading).toBe(false);
+    });
+
+    expect(typeof result.current.refetchItems).toBe('function');
+    expect(typeof result.current.refetchQueue).toBe('function');
+
+    let refetched: SpacedRepetitionItem[] | undefined;
+    await act(async () => {
+      const res = await result.current.refetchItems();
+      refetched = res.data;
+    });
+    expect(refetched).toHaveLength(1);
+  });
+
   it('isInReview returns true when neuron is in allItems', async () => {
     server.use(
       http.get(`${API_BASE}/api/spaced-repetition/items`, () =>

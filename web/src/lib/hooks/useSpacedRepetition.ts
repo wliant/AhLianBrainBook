@@ -7,12 +7,12 @@ import { useCallback } from "react";
 export function useSpacedRepetition() {
   const queryClient = useQueryClient();
 
-  const { data: queue = [], isLoading: queueLoading } = useQuery({
+  const { data: queue = [], isLoading: queueLoading, refetch: refetchQueue } = useQuery({
     queryKey: ["sr-queue"],
     queryFn: () => api.spacedRepetition.getQueue(),
   });
 
-  const { data: allItems = [], isLoading: itemsLoading } = useQuery({
+  const { data: allItems = [], isLoading: itemsLoading, refetch: refetchItems } = useQuery({
     queryKey: ["sr-items"],
     queryFn: () => api.spacedRepetition.getAllItems(),
   });
@@ -36,6 +36,12 @@ export function useSpacedRepetition() {
     return result;
   }, [queryClient]);
 
+  const regenerateQuestions = useCallback(async (itemId: string) => {
+    await api.spacedRepetition.regenerateQuestions(itemId);
+    queryClient.invalidateQueries({ queryKey: ["sr-items"] });
+    queryClient.invalidateQueries({ queryKey: ["sr-queue"] });
+  }, [queryClient]);
+
   const isInReview = useCallback((neuronId: string) => {
     return allItems.some((item) => item.neuronId === neuronId);
   }, [allItems]);
@@ -48,6 +54,9 @@ export function useSpacedRepetition() {
     addToReview,
     removeFromReview,
     submitReview,
+    regenerateQuestions,
+    refetchItems,
+    refetchQueue,
     isInReview,
   };
 }

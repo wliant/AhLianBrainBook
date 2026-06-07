@@ -401,6 +401,9 @@ export const handlers = [
   http.get(`${API_BASE}/api/spaced-repetition/items/:itemId/questions`, () =>
     HttpResponse.json([])
   ),
+  http.post(`${API_BASE}/api/spaced-repetition/items/:itemId/questions/regenerate`, () =>
+    new HttpResponse(null, { status: 202 })
+  ),
 
   // Reminders (global)
   http.get(`${API_BASE}/api/reminders`, () => HttpResponse.json([])),

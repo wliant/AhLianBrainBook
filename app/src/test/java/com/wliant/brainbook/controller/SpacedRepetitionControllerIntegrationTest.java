@@ -12,6 +12,7 @@ import com.wliant.brainbook.dto.QuestionCountRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
+import com.wliant.brainbook.service.ReviewQuestionAsyncService;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,9 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestContainersConfig.class)
@@ -40,6 +44,9 @@ class SpacedRepetitionControllerIntegrationTest {
 
     @MockitoBean
     private MinioClient minioClient;
+
+    @MockitoBean
+    private ReviewQuestionAsyncService reviewQuestionAsyncService;
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -295,6 +302,30 @@ class SpacedRepetitionControllerIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEmpty();
+    }
+
+    // ── regenerateQuestions ──
+
+    @Test
+    void regenerateQuestions_returns202AndDelegatesToAsyncService() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        ResponseEntity<Void> response = restTemplate.postForEntity(
+                "/api/spaced-repetition/items/{itemId}/questions/regenerate",
+                null, Void.class, item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        verify(reviewQuestionAsyncService).regenerateForItem(eq(item.id()), eq(neuronId));
+    }
+
+    @Test
+    void regenerateQuestions_returns404ForUnknownItem() {
+        ResponseEntity<Void> response = restTemplate.postForEntity(
+                "/api/spaced-repetition/items/{itemId}/questions/regenerate",
+                null, Void.class, UUID.randomUUID());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        verifyNoInteractions(reviewQuestionAsyncService);
     }
 
     // ── updateQuestionCount ──

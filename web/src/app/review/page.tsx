@@ -21,13 +21,17 @@ const QUALITY_OPTIONS = [
 
 type ReviewMode = "choose" | "content" | "quiz";
 
+// Question regeneration runs async on the backend; poll until questions are READY again.
+const REGEN_POLL_INTERVAL_MS = 4000;
+const REGEN_MAX_ATTEMPTS = 30; // ~2 min ceiling
+
 function isDue(item: SpacedRepetitionItem): boolean {
   return new Date(item.nextReviewAt).getTime() <= Date.now();
 }
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { queue, queueLoading, allItems, itemsLoading, submitReview } = useSpacedRepetition();
+  const { queue, queueLoading, allItems, itemsLoading, submitReview, regenerateQuestions, refetchItems, refetchQueue } = useSpacedRepetition();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [reviewingNonDue, setReviewingNonDue] = useState(false);
   const [neuron, setNeuron] = useState<Neuron | null>(null);
@@ -47,6 +51,10 @@ export default function ReviewPage() {
   const [showQuizAnswers, setShowQuizAnswers] = useState(false);
   const [showFullNote, setShowFullNote] = useState(false);
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+
+  // Manual question regeneration
+  const [regeneratingItemId, setRegeneratingItemId] = useState<string | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
 
   // Determine the active item: selected from sidebar or current in queue
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
@@ -92,11 +100,13 @@ export default function ReviewPage() {
   // Auto-select content mode if quiz not available
   useEffect(() => {
     if (activeItem && !loadingNeuron && neuron && !showingNonDueInfo) {
+      // While regenerating, keep the chooser visible even though hasQuestions is transiently false.
+      if (regeneratingItemId === activeItem.id) return;
       if (!activeItem.quizEnabled || !activeItem.quizEligible || !activeItem.hasQuestions) {
         setReviewMode("content");
       }
     }
-  }, [activeItem, loadingNeuron, neuron, showingNonDueInfo]);
+  }, [activeItem, loadingNeuron, neuron, showingNonDueInfo, regeneratingItemId]);
 
   const handleSelectQuiz = async () => {
     if (!activeItem) return;
@@ -116,11 +126,59 @@ export default function ReviewPage() {
     }
   };
 
+  const handleRegenerate = async () => {
+    if (!activeItem) return;
+    const id = activeItem.id;
+    setRegenerateError(null);
+    setRegeneratingItemId(id); // triggers the polling effect and suppresses auto-switch to content
+    try {
+      await regenerateQuestions(id);
+    } catch {
+      setRegeneratingItemId(null);
+      setRegenerateError("Failed to start regeneration. Please try again.");
+    }
+  };
+
+  // Poll while a regeneration is in flight; stop once questions are READY again (or after a cap).
+  useEffect(() => {
+    const id = regeneratingItemId;
+    if (!id) return;
+    let cancelled = false;
+
+    (async () => {
+      for (let attempts = 0; attempts < REGEN_MAX_ATTEMPTS; attempts++) {
+        await new Promise((r) => setTimeout(r, REGEN_POLL_INTERVAL_MS));
+        if (cancelled) return;
+        try {
+          const [itemsRes] = await Promise.all([refetchItems(), refetchQueue()]);
+          if (cancelled) return;
+          const fresh = itemsRes.data?.find((i) => i.id === id);
+          if (fresh?.hasQuestions) {
+            setRegeneratingItemId(null); // success: "Quiz Me" re-enables, user stays put
+            return;
+          }
+        } catch {
+          // transient fetch error — keep polling
+        }
+      }
+      if (!cancelled) {
+        setRegeneratingItemId(null);
+        setRegenerateError("Question generation is taking longer than expected. Please check back shortly.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [regeneratingItemId, refetchItems, refetchQueue]);
+
   const handleRate = async (quality: number) => {
     if (!activeItem || submitting) return;
     setSubmitting(true);
     await submitReview(activeItem.id, quality);
     setSubmitting(false);
+    setRegeneratingItemId(null);
+    setRegenerateError(null);
 
     if (selectedItemId) {
       // Was reviewing a specific item from sidebar
@@ -147,6 +205,8 @@ export default function ReviewPage() {
     setShowQuizAnswers(false);
     setShowFullNote(false);
     setUserAnswers({});
+    setRegeneratingItemId(null);
+    setRegenerateError(null);
     setSidebarOpen(false);
   };
 
@@ -157,6 +217,8 @@ export default function ReviewPage() {
   const handleBackToQueue = () => {
     setSelectedItemId(null);
     setReviewingNonDue(false);
+    setRegeneratingItemId(null);
+    setRegenerateError(null);
   };
 
   if (queueLoading && itemsLoading) {
@@ -307,6 +369,37 @@ export default function ReviewPage() {
                   <Play className="h-4 w-4" />
                   Review Now
                 </Button>
+                {activeItem.quizEnabled && activeItem.quizEligible && (
+                  <div className="flex flex-col items-center gap-2 pt-4 mt-2 border-t w-full">
+                    {regeneratingItemId === activeItem.id ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="regenerating-indicator">
+                        <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+                        Generating new questions…
+                      </div>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRegenerate}
+                          className="gap-2"
+                          data-testid="regenerate-btn"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          Regenerate questions
+                        </Button>
+                        {activeItem.hasQuestions && (
+                          <p className="text-xs text-muted-foreground">
+                            Questions ready ({activeItem.questionCount})
+                          </p>
+                        )}
+                      </>
+                    )}
+                    {regenerateError && (
+                      <p className="text-xs text-red-500" data-testid="regenerate-error">{regenerateError}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -325,42 +418,68 @@ export default function ReviewPage() {
 
                     {/* Mode chooser */}
                     {reviewMode === "choose" && (
-                      <div className="flex justify-center gap-4 py-8" data-testid="mode-chooser">
-                        <Button
-                          size="lg"
-                          variant="outline"
-                          onClick={() => setReviewMode("content")}
-                          className="flex items-center gap-2"
-                          data-testid="mode-content"
-                        >
-                          <BookOpen className="h-5 w-5" />
-                          Review Content
-                        </Button>
-                        {activeItem.quizEnabled && activeItem.quizEligible && (
+                      <div className="flex flex-col items-center gap-4 py-8" data-testid="mode-chooser">
+                        <div className="flex justify-center gap-4">
                           <Button
                             size="lg"
-                            onClick={activeItem.hasQuestions ? handleSelectQuiz : undefined}
-                            disabled={!activeItem.hasQuestions}
-                            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-60"
-                            data-testid="mode-quiz"
+                            variant="outline"
+                            onClick={() => setReviewMode("content")}
+                            className="flex items-center gap-2"
+                            data-testid="mode-content"
                           >
-                            {!activeItem.hasQuestions ? (
-                              <>
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                Generating Quiz...
-                              </>
-                            ) : (
-                              <>
-                                <BrainCircuit className="h-5 w-5" />
-                                Quiz Me
-                                {activeItem.questionCount > 0 && (
-                                  <span className="ml-1 text-xs bg-purple-500 rounded-full px-1.5 py-0.5">
-                                    {activeItem.questionCount}
-                                  </span>
-                                )}
-                              </>
-                            )}
+                            <BookOpen className="h-5 w-5" />
+                            Review Content
                           </Button>
+                          {activeItem.quizEnabled && activeItem.quizEligible && (
+                            <Button
+                              size="lg"
+                              onClick={activeItem.hasQuestions ? handleSelectQuiz : undefined}
+                              disabled={!activeItem.hasQuestions}
+                              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-60"
+                              data-testid="mode-quiz"
+                            >
+                              {!activeItem.hasQuestions ? (
+                                <>
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                  Generating Quiz...
+                                </>
+                              ) : (
+                                <>
+                                  <BrainCircuit className="h-5 w-5" />
+                                  Quiz Me
+                                  {activeItem.questionCount > 0 && (
+                                    <span className="ml-1 text-xs bg-purple-500 rounded-full px-1.5 py-0.5">
+                                      {activeItem.questionCount}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        {activeItem.quizEnabled && activeItem.quizEligible && (
+                          <div className="flex flex-col items-center gap-1">
+                            {regeneratingItemId === activeItem.id ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="regenerating-indicator">
+                                <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+                                Generating new questions…
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleRegenerate}
+                                className="gap-2 text-muted-foreground"
+                                data-testid="regenerate-btn"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                                Regenerate questions
+                              </Button>
+                            )}
+                            {regenerateError && (
+                              <p className="text-xs text-red-500" data-testid="regenerate-error">{regenerateError}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
