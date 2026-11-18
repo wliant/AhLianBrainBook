@@ -3,16 +3,18 @@
 BrainBook runs in three environments that are built the same way and differ
 only in their env file.
 
-| Environment | Where it runs | Project | Port | Built |
-|---|---|---|---|---|
-| `local` | your machine | `brainbook-local` | `13000` | from source |
-| `dev` | 192.168.1.248 | `brainbook-dev` | `5991` | pulled from the registry |
-| `prod` | 192.168.1.248 | `brainbook-prod` | `5989` | pulled from the registry |
+| Environment | Where it runs | Project | Built |
+|---|---|---|---|
+| `local` | your machine | `brainbook-local` | from source |
+| `dev` | the target host | `brainbook-dev` | pulled from the registry |
+| `prod` | the target host | `brainbook-prod` | pulled from the registry |
 
-Images are **always built on your machine** and pushed to the registry at
-`192.168.1.248:5000`. Nothing is ever built on a target host, and no git clone
-lives there - a deploy copies exactly two files, the compose file and the env
-file.
+Each environment's host, port, registry and credentials live in its
+`deployment/.env.<env>`, which is gitignored and never in this repo.
+
+Images are **always built on your machine** and pushed to `$REGISTRY`. Nothing
+is ever built on a target host, and no git clone lives there - a deploy copies
+exactly two files, the compose file and the env file.
 
 ## One port, one origin
 
@@ -69,52 +71,58 @@ for the app, intelligence and sandbox containers.
 Postgres and MinIO are **provided infrastructure outside the application
 stack** and are never created, migrated or deleted by a deploy:
 
-| | prod | dev |
-|---|---|---|
-| application DB | `pgvector-bb:5433/brainbook` | `pgvector-bb:5433/brainbook_dev` |
-| sandbox DB | `postgres:5432/sandbox` | `postgres:5432/sandbox_dev` |
-| bucket | `minio:9000/brainbook-attachments` | `minio:9000/brainbook-dev-attachments` |
+Each environment needs three things of its own, named in its env file:
 
-`scripts/provision.sh <dev|prod>` creates whatever is missing - database,
-pgvector extension, sandbox role and database, bucket. It is idempotent and
-only ever creates, so running it against prod cannot disturb live data. Role
-creation on the shared Postgres needs its superuser, which is why
-`SANDBOX_DB_ADMIN` defaults to `pgadmin`.
+- an **application database** (`SPRING_DATASOURCE_URL`) on a Postgres with
+  pgvector, for the embeddings
+- a **sandbox database and role** (`SANDBOX_DATABASE_URL`) for cloned
+  project-cluster repos
+- an **object storage bucket** (`MINIO_BUCKET`)
+
+Give dev its own of each. That is what makes it safe to point the e2e suite at
+a deployed environment.
+
+`scripts/provision.sh <dev|prod>` creates whatever is missing. It is idempotent
+and only ever creates, so running it against prod cannot disturb live data. It
+reaches the two Postgres instances and MinIO by container name - override
+`APP_DB_CONTAINER`, `SANDBOX_DB_CONTAINER`, `MINIO_CONTAINER` if yours differ.
+Creating a role needs a privileged account, hence `SANDBOX_DB_ADMIN`.
 
 The one piece of data the stack itself owns is the `sandbox-data` volume -
 cloned project-cluster repos, recreatable by re-cloning.
 
-## First prod cutover
+## Migrating from a build-on-target deployment
 
-The old deployment was a git clone at `/home/wliant/myapps/AhLianBrainBook`
-running `docker compose up --build`. To move to the new one:
+If an environment currently runs from a git clone on the host with
+`docker compose up --build`, move it over like this. Nothing here changes a
+schema or rewrites data, so every step is reversible.
 
 ```bash
-# 1. Back up, even though the migration changes no schema and no data.
-ssh wliant@192.168.1.248 'docker exec pgvector-bb pg_dump -U brainbook brainbook' \
-  > brainbook-$(date +%F).sql
+# 1. Back up, even though the migration changes neither schema nor data.
+ssh "$SSH_USER@$DEPLOY_HOST" \
+  'docker exec <pg-container> pg_dump -U <user> --format=custom <db>' \
+  > brainbook-$(date +%F).dump
 
-# 2. Carry the cloned sandboxes across to the new project's volume.
-ssh wliant@192.168.1.248 '
+# 2. Carry the cloned sandboxes into the new compose project's volume.
+#    Compare `du -sb` on both before continuing.
+ssh "$SSH_USER@$DEPLOY_HOST" '
   docker volume create brainbook-prod_sandbox-data &&
-  docker run --rm -v ahlianbrainbook_sandbox-data:/from \
+  docker run --rm -v <old-project>_sandbox-data:/from \
                   -v brainbook-prod_sandbox-data:/to \
                   alpine sh -c "cp -a /from/. /to/"'
 
-# 3. Free port 5989. Note: down, never down -v - the latter deletes the volume.
-ssh wliant@192.168.1.248 'cd /home/wliant/myapps/AhLianBrainBook &&
+# 3. Free the port. Note: down, never down -v - the latter deletes the volume.
+ssh "$SSH_USER@$DEPLOY_HOST" 'cd <old-dir> &&
   docker compose -f docker-compose.prod.yml --env-file .env down'
 
-# 4. Deploy.
+# 4. Deploy. Downtime is only steps 3-4; build and push beforehand to shorten it.
 scripts/deploy.sh prod
 ```
 
-Then check `https://brainbook.wliant.org`: the UI loads, API calls return 200
-same-origin, an attachment downloads, and an AI-assist stream runs to
-completion. If anything is wrong, the old stack's compose file and images are
-still on the host and bringing it back up restores the previous state - no
-data was migrated destructively.
+Then check the public URL: the UI loads, API calls return 200 same-origin, an
+attachment downloads, and an AI-assist stream runs to completion.
 
-Once you are confident, delete `myapps/AhLianBrainBook`, remove the
-`ahlianbrainbook_sandbox-data` volume, and retire the `brainbook-api.wliant.org`
-DNS/TLS entry - the API no longer has an origin of its own.
+To roll back, bring the old stack up again with its unchanged compose file -
+its images and volume are still on the host and nothing was migrated
+destructively. Clean those up only once you are confident, and retire any
+separate API hostname: the API no longer has an origin of its own.

@@ -20,9 +20,11 @@ load_env "$1"
 require_env SSH_USER DEPLOY_HOST SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME \
     SANDBOX_DATABASE_URL MINIO_BUCKET
 
-# Container names of the provided infrastructure. The app database lives on
-# the pgvector instance; sandboxes live on the plain one.
-APP_DB_CONTAINER="${APP_DB_CONTAINER:-pgvector-bb}"
+# Container names of the provided infrastructure on the target host. The app
+# database needs pgvector for the embeddings; the sandbox database does not and
+# may well live on a different instance. Override any of these in the env file
+# if yours are named differently.
+APP_DB_CONTAINER="${APP_DB_CONTAINER:-postgres}"
 SANDBOX_DB_CONTAINER="${SANDBOX_DB_CONTAINER:-postgres}"
 MINIO_CONTAINER="${MINIO_CONTAINER:-minio}"
 

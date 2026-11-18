@@ -43,8 +43,9 @@ scripts/deploy.sh <dev|prod> [tag]   # build locally, push, ship compose+env, st
 scripts/rollback.sh <dev|prod> <tag> # redeploy an older tag without rebuilding
 scripts/provision.sh <dev|prod>      # create the DBs/bucket an environment needs (idempotent)
 ```
-Images are built on your machine and pushed to `192.168.1.248:5000`; nothing is
-ever built on a target host. See `docs/deployment.md`.
+Images are built on your machine and pushed to `$REGISTRY`; nothing is ever
+built on a target host. Each environment's host, port and credentials live in
+`deployment/.env.<env>`, which is gitignored. See `docs/deployment.md`.
 
 ### App (from `app/`)
 ```bash
@@ -106,7 +107,7 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 
 ### Key Config
 - Container ports: backend 8080, frontend 3000, intelligence 8001, proxy 80. Only the proxy is ever published — the browser reaches the API same-origin at `/api`, and the frontend bundle contains no API hostname (`web/src/lib/apiBase.ts`, built with `NEXT_PUBLIC_API_URL=""`).
-- Published ports: local 13000, dev 5991, prod 5989.
+- Published port: local 13000; dev and prod come from `WEB_PORT` in their env file.
 - MinIO API: 9000, Console: 9001
 - Ollama: external (configured via `OLLAMA_BASE_URL` in `.env`)
 - LLM max tokens: configurable via `LLM_MAX_TOKENS` (default 4096); per-agent overrides via `MAX_TOKENS_*` and `TEMPERATURE_*` env vars
