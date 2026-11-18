@@ -12,6 +12,12 @@ only in their env file.
 Each environment's host, port, registry and credentials live in its
 `deployment/.env.<env>`, which is gitignored and never in this repo.
 
+Two environments can share one `DEPLOY_DIR` - the four files
+(`docker-compose.{dev,prod}.yml`, `.env.{dev,prod}`) do not collide, and each
+compose file names its own project, so `--remove-orphans` on one cannot reach
+the other's containers. They must differ in every resource they own, though:
+`WEB_PORT`, both databases, and the bucket.
+
 Images are **always built on your machine** and pushed to `$REGISTRY`. Nothing
 is ever built on a target host, and no git clone lives there - a deploy copies
 exactly two files, the compose file and the env file.
@@ -29,11 +35,19 @@ browser ──▶ :PORT  proxy
 ```
 
 `app`, `web`, `intelligence-service` and `sandbox-service` publish nothing.
-The browser reaches the API same-origin at `/api`, so `CORS_ALLOWED_ORIGINS`
-is no longer what makes the app work, and the frontend bundle contains no
-API hostname at all - `NEXT_PUBLIC_API_URL` is built empty and every request
-is relative (`web/src/lib/apiBase.ts`). That is what lets one image serve dev
-and prod, and what lets a tested dev image be promoted to prod unchanged.
+The browser reaches the API same-origin at `/api`, and the frontend bundle
+contains no API hostname at all - `NEXT_PUBLIC_API_URL` is built empty and
+every request is relative (`web/src/lib/apiBase.ts`). That is what lets one
+image serve dev and prod, and what lets a tested dev image be promoted to
+prod unchanged.
+
+Same origin does **not** mean CORS stops mattering. Browsers attach an
+`Origin` header to same-origin POST/PUT/DELETE, and Spring answers any Origin
+missing from `CORS_ALLOWED_ORIGINS` with `403 Invalid CORS request`. GETs
+carry no Origin, so a stale value looks perfectly healthy - the UI loads,
+`/actuator/health` is UP, lists render - until the first write. List every
+origin the environment is reachable on, comma-separated, including the bare
+`host:port` if you browse it that way.
 
 ## Deploying
 
@@ -81,6 +95,11 @@ Each environment needs three things of its own, named in its env file:
 
 Give dev its own of each. That is what makes it safe to point the e2e suite at
 a deployed environment.
+
+`scripts/reset-dev.sh` empties dev's database and bucket and lets Flyway
+rebuild the schema, for when a run needs a known starting state - the e2e
+suite cleans up after itself, but a failed test can leave data behind. It
+refuses to run unless the names it is given look like dev's.
 
 `scripts/provision.sh <dev|prod>` creates whatever is missing. It is idempotent
 and only ever creates, so running it against prod cannot disturb live data. It
