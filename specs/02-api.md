@@ -1052,6 +1052,8 @@ Add a neuron to the spaced repetition queue.
   "id": "uuid",
   "neuronId": "uuid",
   "neuronTitle": "string",
+  "brainId": "uuid",
+  "clusterId": "uuid | null",
   "easeFactor": 2.5,
   "intervalDays": 0,
   "repetitions": 0,

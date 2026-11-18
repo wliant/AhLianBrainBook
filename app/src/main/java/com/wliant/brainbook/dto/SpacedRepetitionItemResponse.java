@@ -7,6 +7,8 @@ public record SpacedRepetitionItemResponse(
         UUID id,
         UUID neuronId,
         String neuronTitle,
+        UUID brainId,
+        UUID clusterId,
         double easeFactor,
         int intervalDays,
         int repetitions,

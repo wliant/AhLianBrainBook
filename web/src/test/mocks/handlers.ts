@@ -383,6 +383,8 @@ export const handlers = [
         id: 'sr-1',
         neuronId: params.neuronId,
         neuronTitle: 'Test Neuron',
+        brainId: 'brain-1',
+        clusterId: 'cluster-1',
         easeFactor: 2.5,
         intervalDays: 0,
         repetitions: 0,

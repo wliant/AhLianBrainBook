@@ -393,6 +393,7 @@ SM-2 algorithm-based review scheduling for neurons, enabling long-term retention
   - Quality < 3: resets to 1 day interval, resets repetition count
   - Ease factor adjusts per review: `ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))`, minimum 1.3
 - **Sidebar badge:** Review link shows count of items due for review
+- **Jump to neuron:** review rows and the active item's title link to the neuron editor in a new tab (`brainId`/`clusterId` are returned on the SR item)
 - **Initial values:** easeFactor = 2.5, intervalDays = 0, repetitions = 0
 - **Review Questions (Q&A mode):**
   - AI-generated question-answer pairs per neuron for active recall testing

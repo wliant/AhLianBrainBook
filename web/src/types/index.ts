@@ -391,6 +391,8 @@ export interface SpacedRepetitionItem {
   id: string;
   neuronId: string;
   neuronTitle: string;
+  brainId: string;
+  clusterId: string | null;
   easeFactor: number;
   intervalDays: number;
   repetitions: number;

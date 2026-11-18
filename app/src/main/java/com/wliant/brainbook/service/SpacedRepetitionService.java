@@ -160,6 +160,8 @@ public class SpacedRepetitionService {
                 item.getId(),
                 item.getNeuron().getId(),
                 item.getNeuron().getTitle(),
+                item.getNeuron().getBrainId(),
+                item.getNeuron().getClusterId(),
                 item.getEaseFactor(),
                 item.getIntervalDays(),
                 item.getRepetitions(),

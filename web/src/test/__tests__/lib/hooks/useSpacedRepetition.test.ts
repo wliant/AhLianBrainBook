@@ -14,6 +14,8 @@ const makeSRItem = (overrides: Partial<SpacedRepetitionItem> = {}): SpacedRepeti
   id: 'sr-1',
   neuronId: 'neuron-1',
   neuronTitle: 'Test Neuron',
+  brainId: 'brain-1',
+  clusterId: 'cluster-1',
   easeFactor: 2.5,
   intervalDays: 0,
   repetitions: 0,

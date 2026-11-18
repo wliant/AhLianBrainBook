@@ -222,6 +222,9 @@ Core editing experience with section-based content:
     - **Easy** (quality: 5, green) — perfect recall
 - Auto-advances to next item after rating
 - Shows "All caught up!" when queue is empty or all items reviewed
+- **Open the neuron** — each sidebar row carries an external-link icon, and the active item's
+  title is itself a link; both open `/brain/{brainId}/cluster/{clusterId}/neuron/{neuronId}`
+  in a new tab so the review session survives. Neurons without a cluster render unlinked.
 
 ### Shared Neuron Page (`/shared/[token]`)
 
