@@ -31,8 +31,10 @@ class TestKeyboardShortcuts:
 
         editor.click()
         editor.type("bold test")
-        pg.keyboard.press("Control+a")
-        pg.keyboard.press("Control+b")
+        # ControlOrMeta, not Control: these are ProseMirror/browser-native bindings,
+        # and on macOS Ctrl+B moves the caret instead of bolding.
+        pg.keyboard.press("ControlOrMeta+a")
+        pg.keyboard.press("ControlOrMeta+b")
 
         expect(editor.locator("strong")).to_be_visible(timeout=3000)
 
@@ -43,7 +45,7 @@ class TestKeyboardShortcuts:
 
         editor.click()
         editor.type("undo test")
-        pg.keyboard.press("Control+z")
+        pg.keyboard.press("ControlOrMeta+z")
 
         # After undo, the typed text should be partially or fully removed
         expect(editor).not_to_have_text("undo test", timeout=3000)
