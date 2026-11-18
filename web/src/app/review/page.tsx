@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useSpacedRepetition } from "@/lib/hooks/useSpacedRepetition";
 import { SectionList } from "@/components/sections/SectionList";
 import { normalizeContent } from "@/components/sections/sectionUtils";
 import { formatRelativeFuture } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, RotateCcw, BookOpen, BrainCircuit, ChevronDown, ChevronUp, Clock, Play, Menu, X } from "lucide-react";
+import { Loader2, CheckCircle, RotateCcw, BookOpen, BrainCircuit, ChevronDown, ChevronUp, Clock, Play, Menu, X, ExternalLink } from "lucide-react";
 import type { Neuron, SectionsDocument, ReviewQuestion, SpacedRepetitionItem } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,31 @@ const QUALITY_OPTIONS = [
 ];
 
 type ReviewMode = "choose" | "content" | "quiz";
+
+// Neurons without a cluster can't be addressed by the editor route; those render unlinked.
+const neuronHref = (item: SpacedRepetitionItem): string | null =>
+  item.clusterId
+    ? `/brain/${item.brainId}/cluster/${item.clusterId}/neuron/${item.neuronId}`
+    : null;
+
+function NeuronTitleLink({ item, title }: { item: SpacedRepetitionItem; title: string | null }) {
+  const label = title || "Untitled";
+  const href = neuronHref(item);
+  if (!href) return <>{label}</>;
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open neuron in new tab"
+      className="inline-flex items-center gap-1.5 hover:underline"
+      data-testid="active-item-open"
+    >
+      {label}
+      <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </Link>
+  );
+}
 
 // Question regeneration runs async on the backend; poll until questions are READY again.
 const REGEN_POLL_INTERVAL_MS = 4000;
@@ -255,31 +281,49 @@ export default function ReviewPage() {
             {allItems.map((item) => {
               const itemDue = isDue(item);
               const isActive = activeItem?.id === item.id;
+              const href = neuronHref(item);
               return (
-                <button
+                <div
                   key={item.id}
-                  onClick={() => handleSelectItem(item)}
                   className={cn(
-                    "w-full text-left px-4 py-2.5 text-sm border-b transition-colors hover:bg-muted/50",
+                    "flex items-center border-b transition-colors hover:bg-muted/50",
                     isActive && "bg-muted"
                   )}
-                  data-testid={`sidebar-item-${item.id}`}
                 >
-                  <p className="font-medium truncate">{item.neuronTitle || "Untitled"}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {itemDue ? (
-                      <span className="text-xs font-medium text-purple-500">Due now</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        <Clock className="inline h-3 w-3 mr-0.5" />
-                        {formatRelativeFuture(item.nextReviewAt)}
-                      </span>
-                    )}
-                    {item.quizEnabled && item.quizEligible && !item.hasQuestions && itemDue && (
-                      <span className="text-xs text-orange-500">Generating quiz...</span>
-                    )}
-                  </div>
-                </button>
+                  <button
+                    onClick={() => handleSelectItem(item)}
+                    className="flex-1 min-w-0 text-left pl-4 pr-1 py-2.5 text-sm"
+                    data-testid={`sidebar-item-${item.id}`}
+                  >
+                    <p className="font-medium truncate">{item.neuronTitle || "Untitled"}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {itemDue ? (
+                        <span className="text-xs font-medium text-purple-500">Due now</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          <Clock className="inline h-3 w-3 mr-0.5" />
+                          {formatRelativeFuture(item.nextReviewAt)}
+                        </span>
+                      )}
+                      {item.quizEnabled && item.quizEligible && !item.hasQuestions && itemDue && (
+                        <span className="text-xs text-orange-500">Generating quiz...</span>
+                      )}
+                    </div>
+                  </button>
+                  {href && (
+                    <Link
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open neuron in new tab"
+                      title="Open neuron in new tab"
+                      className="shrink-0 px-3 py-2.5 text-muted-foreground hover:text-foreground"
+                      data-testid={`sidebar-item-open-${item.id}`}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -356,7 +400,9 @@ export default function ReviewPage() {
           {/* Non-due item info */}
           {showingNonDueInfo && activeItem && (
             <div className="border rounded-lg p-6 bg-card">
-              <h2 className="text-xl font-semibold mb-4">{activeItem.neuronTitle || "Untitled"}</h2>
+              <h2 className="text-xl font-semibold mb-4">
+                <NeuronTitleLink item={activeItem} title={activeItem.neuronTitle} />
+              </h2>
               <div className="flex flex-col items-center gap-4 py-8">
                 <Clock className="h-10 w-10 text-muted-foreground" />
                 <p className="text-muted-foreground">
@@ -414,7 +460,9 @@ export default function ReviewPage() {
                   </div>
                 ) : neuron && sectionsDoc ? (
                   <>
-                    <h2 className="text-xl font-semibold mb-4">{neuron.title || "Untitled"}</h2>
+                    <h2 className="text-xl font-semibold mb-4">
+                      <NeuronTitleLink item={activeItem} title={neuron.title} />
+                    </h2>
 
                     {/* Mode chooser */}
                     {reviewMode === "choose" && (

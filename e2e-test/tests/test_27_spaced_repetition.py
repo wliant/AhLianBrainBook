@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from helpers.api_client import BrainBookAPI
-from helpers.page_helpers import navigate_to_neuron, open_sr_panel, unique_name
+from helpers.page_helpers import navigate, navigate_to_neuron, open_sr_panel, unique_name
 
 
 class TestSpacedRepetitionAPI:
@@ -165,3 +165,31 @@ class TestSpacedRepetitionBrowser:
         expect(sr_icon).to_be_visible(timeout=5000)
         icon_class = sr_icon.get_attribute("class") or ""
         assert "fill-purple-400" in icon_class, f"Expected purple fill, got: {icon_class}"
+
+
+class TestReviewPageNeuronLink:
+    """The review page must offer a way out to the neuron itself."""
+
+    def test_api_exposes_brain_and_cluster_ids(self, api: BrainBookAPI, neuron_in_cluster):
+        brain, cluster, neuron = neuron_in_cluster
+        try:
+            item = api.add_sr_item(neuron["id"])
+            assert item["brainId"] == brain["id"]
+            assert item["clusterId"] == cluster["id"]
+        finally:
+            api.remove_sr_item(neuron["id"])
+
+    def test_review_page_links_to_neuron_in_new_tab(
+        self, page: Page, api: BrainBookAPI, neuron_in_cluster
+    ):
+        brain, cluster, neuron = neuron_in_cluster
+        api.add_sr_item(neuron["id"])
+        try:
+            navigate(page, "/review")
+            href = f"/brain/{brain['id']}/cluster/{cluster['id']}/neuron/{neuron['id']}"
+
+            # Sidebar row carries an "open in new tab" link alongside the select button.
+            row_link = page.locator(f'a[href="{href}"]').first
+            expect(row_link).to_have_attribute("target", "_blank", timeout=10000)
+        finally:
+            api.remove_sr_item(neuron["id"])

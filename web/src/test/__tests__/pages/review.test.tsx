@@ -18,6 +18,8 @@ const makeSRItem = (overrides: Partial<SpacedRepetitionItem> = {}): SpacedRepeti
   id: 'sr-1',
   neuronId: 'neuron-1',
   neuronTitle: 'Test Neuron',
+  brainId: 'brain-1',
+  clusterId: 'cluster-1',
   easeFactor: 2.5,
   intervalDays: 1,
   repetitions: 1,
@@ -115,5 +117,55 @@ describe('Review page — regenerate questions', () => {
       expect(postCalled).toBe(true);
       expect(screen.getByTestId('regenerating-indicator')).toBeInTheDocument();
     });
+  });
+});
+
+describe('Review page — navigating to the neuron', () => {
+  const HREF = '/brain/brain-1/cluster/cluster-1/neuron/neuron-1';
+
+  const mountWithDueItem = async (item: SpacedRepetitionItem) => {
+    server.use(
+      http.get(`${API_BASE}/api/spaced-repetition/queue`, () => HttpResponse.json([item])),
+      http.get(`${API_BASE}/api/spaced-repetition/items`, () => HttpResponse.json([item])),
+      http.get(`${API_BASE}/api/neurons/${item.neuronId}`, () =>
+        HttpResponse.json({ id: item.neuronId, title: 'Test Neuron', contentJson: null })
+      )
+    );
+    const Wrapper = createWrapper();
+    const ReviewPage = await importReviewPage();
+    render(<Wrapper><ReviewPage /></Wrapper>);
+  };
+
+  it('links each sidebar row to the neuron in a new tab without breaking selection', async () => {
+    await mountWithDueItem(makeSRItem());
+
+    const open = await screen.findByTestId('sidebar-item-open-sr-1');
+    expect(open).toHaveAttribute('href', HREF);
+    expect(open).toHaveAttribute('target', '_blank');
+    expect(open).toHaveAttribute('rel', expect.stringContaining('noopener'));
+
+    // The row button is a sibling, not an ancestor — selecting the item still works.
+    expect(screen.getByTestId('sidebar-item-sr-1')).not.toContainElement(open);
+  });
+
+  it('links the active item title to the neuron in a new tab', async () => {
+    await mountWithDueItem(makeSRItem());
+
+    const titleLink = await screen.findByTestId('active-item-open');
+    expect(titleLink).toHaveAttribute('href', HREF);
+    expect(titleLink).toHaveAttribute('target', '_blank');
+    expect(titleLink).toHaveTextContent('Test Neuron');
+  });
+
+  it('renders the title as plain text when the neuron has no cluster', async () => {
+    await mountWithDueItem(makeSRItem({ clusterId: null }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mode-chooser')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('active-item-open')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sidebar-item-open-sr-1')).not.toBeInTheDocument();
+    // Title still renders (sidebar row + heading), just unlinked.
+    expect(screen.getAllByText('Test Neuron').length).toBeGreaterThan(0);
   });
 });

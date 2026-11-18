@@ -109,6 +109,29 @@ class SpacedRepetitionControllerIntegrationTest {
     }
 
     @Test
+    void getItem_exposesBrainAndClusterIdsForLinking() {
+        addToSR(neuronId);
+
+        ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.getForEntity(
+                "/api/spaced-repetition/items/{neuronId}", SpacedRepetitionItemResponse.class, neuronId);
+
+        assertThat(response.getBody().brainId()).isEqualTo(brainId);
+        assertThat(response.getBody().clusterId()).isEqualTo(clusterId);
+    }
+
+    @Test
+    void getReviewQueue_exposesBrainAndClusterIdsForLinking() {
+        addToSR(neuronId);
+
+        ResponseEntity<SpacedRepetitionItemResponse[]> response = restTemplate.getForEntity(
+                "/api/spaced-repetition/queue", SpacedRepetitionItemResponse[].class);
+
+        assertThat(response.getBody()).hasSize(1);
+        assertThat(response.getBody()[0].brainId()).isEqualTo(brainId);
+        assertThat(response.getBody()[0].clusterId()).isEqualTo(clusterId);
+    }
+
+    @Test
     void addItem_idempotent_returns201() {
         ResponseEntity<SpacedRepetitionItemResponse> first = restTemplate.postForEntity(
                 "/api/spaced-repetition/items/{neuronId}", null, SpacedRepetitionItemResponse.class, neuronId);
