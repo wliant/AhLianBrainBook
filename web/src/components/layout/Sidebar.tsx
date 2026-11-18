@@ -363,7 +363,9 @@ export function Sidebar({
           </div>
 
           {thoughtsExpanded && thoughts.length > 0 && (
-            <div className="px-2 pb-2 space-y-0.5">
+            // Capped: an unbounded list here consumes the column and starves the
+            // brains ScrollArea below it, which collapses to a few pixels.
+            <div className="px-2 pb-2 space-y-0.5 max-h-[30vh] overflow-y-auto shrink-0">
               {thoughts.map((thought) => (
                 <div key={thought.id} className="group flex items-center rounded-md px-2 py-1 text-sm">
                   <Link
@@ -392,7 +394,7 @@ export function Sidebar({
               <div className="flex items-center justify-between px-4 py-2">
                 <span className="text-xs font-medium uppercase text-sidebar-muted">Sandboxes</span>
               </div>
-              <div className="px-2 pb-2 space-y-0.5">
+              <div className="px-2 pb-2 space-y-0.5 max-h-[20vh] overflow-y-auto shrink-0">
                 {sandboxes.map((sb) => (
                   <Link key={sb.id} href={`/brain/${sb.brainId}/cluster/${sb.clusterId}`}>
                     <div className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent">
@@ -435,7 +437,7 @@ export function Sidebar({
             </div>
           </div>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-32">
             <div className="pl-2 pr-3 pb-4 space-y-0.5">
               {brains.map((brain) => (
                 <BrainItem

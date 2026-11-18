@@ -10,7 +10,11 @@ from helpers.page_helpers import expand_brain_in_sidebar, navigate, navigate_to_
 class TestSidebarNavigation:
     def test_sidebar_visible(self, home: Page):
         expect(home.get_by_test_id("sidebar")).to_be_visible()
-        expect(home.get_by_test_id("sidebar").get_by_text("BrainBook")).to_be_visible()
+        # Target the logo link, not any text: get_by_text matches substrings across
+        # the whole sidebar, so adjacent brain names can concatenate into "...Brainbook".
+        expect(
+            home.get_by_test_id("sidebar").get_by_role("link", name="BrainBook")
+        ).to_be_visible()
 
     def test_sidebar_has_search_link(self, home: Page):
         expect(home.locator("aside a[href='/search']")).to_be_visible()
@@ -92,7 +96,9 @@ class TestEditorToolbar:
         editor.click()
         editor.type("Bold text")
 
-        page.keyboard.press("Control+A")
+        # ControlOrMeta: Ctrl+A does not select-all in a contenteditable on macOS,
+        # which would leave the Bold click with nothing to apply to.
+        page.keyboard.press("ControlOrMeta+a")
         page.get_by_title("Bold").click()
 
         expect(editor.locator("strong")).to_be_visible(timeout=3000)
