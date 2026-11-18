@@ -5,7 +5,9 @@ import { useFileTree } from '@/lib/hooks/useFileTree';
 import { server } from '../../../mocks/server';
 import { createWrapper } from '../../../utils/createWrapper';
 
-const API_BASE = 'http://localhost:8080';
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 describe('useFileTree', () => {
   it('returns empty entries when clusterId is null', async () => {

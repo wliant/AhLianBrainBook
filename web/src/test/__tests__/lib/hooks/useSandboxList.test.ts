@@ -5,7 +5,9 @@ import { useSandboxList } from '@/lib/hooks/useSandboxList';
 import { server } from '../../../mocks/server';
 import { createWrapper } from '../../../utils/createWrapper';
 
-const API_BASE = 'http://localhost:8080';
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 describe('useSandboxList', () => {
   it('returns empty list by default', async () => {

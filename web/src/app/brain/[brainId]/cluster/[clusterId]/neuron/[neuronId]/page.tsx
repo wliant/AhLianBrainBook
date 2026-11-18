@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
+import { API_BASE } from "@/lib/apiBase";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Brain, Cluster, Neuron, NeuronRevision, SectionsDocument } from "@/types";
 import { CheckCircle, AlertCircle, Loader2, Star, Pin, Eye, Pencil, Link2, Bell, History, Download, List, GraduationCap, Share2, ListTodo } from "lucide-react";
@@ -454,7 +455,6 @@ function NeuronPageContent({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => {
-                const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
                 window.open(`${API_BASE}/api/neurons/${neuronId}/export/markdown`, "_blank");
               }}>
                 Export as Markdown

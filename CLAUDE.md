@@ -28,12 +28,23 @@ Java 21 is installed at `D:\Installation\Java\liberica-21.0.5`. The setup script
 
 ## Commands
 
-### Infrastructure
-Always use `--env-file .env` when running docker compose:
+### Local stack
 ```bash
-docker compose --env-file .env -f docker-compose.infra.yml up -d          # postgres + minio
-docker compose --env-file .env -f docker-compose.infra.yml -f docker-compose.app.yml up -d  # full stack
+scripts/dev-up.sh               # infra + app + proxy, built from source
+scripts/dev-down.sh             # stop (--volumes also discards local data)
 ```
+Serves everything on one port (`WEB_PORT`, default 13000): UI at `/`, API at
+`/api`, same origin — the same shape dev and prod are served in. The backend
+is also on `127.0.0.1:${APP_PORT:-18080}` for curling it directly.
+
+### Deployment
+```bash
+scripts/deploy.sh <dev|prod> [tag]   # build locally, push, ship compose+env, start over SSH
+scripts/rollback.sh <dev|prod> <tag> # redeploy an older tag without rebuilding
+scripts/provision.sh <dev|prod>      # create the DBs/bucket an environment needs (idempotent)
+```
+Images are built on your machine and pushed to `192.168.1.248:5000`; nothing is
+ever built on a target host. See `docs/deployment.md`.
 
 ### App (from `app/`)
 ```bash
@@ -91,10 +102,11 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 - **Web**: Vitest + React Testing Library + MSW (Mock Service Worker). Unit tests for API client, hooks, and components. Integration tests for pages with mocked backend APIs.
 - **Intelligence Service**: pytest + httpx (FastAPI TestClient). All LLM calls mocked — no Ollama required for tests.
 - **When testing**: Run only the relevant test package for the changes made (e.g., `./gradlew test --tests ClassName` or specific test files in web).
-- **E2E tests**: Always rebuild and test using docker compose (`docker compose --env-file .env -f docker-compose.infra.yml -f docker-compose.app.yml up -d --build`).
+- **E2E tests**: Always rebuild and test against the containerised stack (`scripts/dev-up.sh`). `BASE_URL` and `API_URL` are the same origin now — both point at the proxy's port.
 
 ### Key Config
-- Backend port: 8080, Frontend port: 3000, Intelligence Service port: 8001
+- Container ports: backend 8080, frontend 3000, intelligence 8001, proxy 80. Only the proxy is ever published — the browser reaches the API same-origin at `/api`, and the frontend bundle contains no API hostname (`web/src/lib/apiBase.ts`, built with `NEXT_PUBLIC_API_URL=""`).
+- Published ports: local 13000, dev 5991, prod 5989.
 - MinIO API: 9000, Console: 9001
 - Ollama: external (configured via `OLLAMA_BASE_URL` in `.env`)
 - LLM max tokens: configurable via `LLM_MAX_TOKENS` (default 4096); per-agent overrides via `MAX_TOKENS_*` and `TEMPERATURE_*` env vars

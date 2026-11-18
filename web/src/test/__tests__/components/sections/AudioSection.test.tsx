@@ -6,7 +6,9 @@ import { AudioSection } from '@/components/sections/AudioSection';
 import { server } from '../../../mocks/server';
 import type { Section } from '@/types';
 
-const API_BASE = 'http://localhost:8080';
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 function makeSection(content: Record<string, unknown> = {}): Section {
   return {
@@ -76,7 +78,7 @@ describe('AudioSection', () => {
       await vi.waitFor(() => {
         expect(onUpdate).toHaveBeenCalledWith(
           expect.objectContaining({
-            src: `${API_BASE}/api/attachments/att-1/download`,
+            src: "/api/attachments/att-1/download",
             label: 'song.mp3',
             sourceType: 'upload',
             attachmentId: 'att-1',

@@ -1,0 +1,104 @@
+# prod environment. Images are pulled from the registry - never built on the
+# target host. Postgres and MinIO are provided infrastructure that lives
+# outside this stack; this file only runs the application.
+#
+# Deployed by scripts/deploy.sh prod, which copies this file and .env.prod to
+# the target and runs nothing else by hand.
+name: brainbook-prod
+
+services:
+  # The only published port. Serves the UI and proxies /api same-origin, so
+  # the browser never needs a second host or a CORS grant.
+  proxy:
+    image: ${REGISTRY}/brainbook/proxy:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+  app:
+    image: ${REGISTRY}/brainbook/app:${IMAGE_TAG}
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_FLYWAY_ENABLED: "true"
+      INTELLIGENCE_BASE_URL: http://intelligence-service:8001
+      SANDBOX_SERVICE_HOST: sandbox-service:50051
+      TZ: UTC
+    # Not published: the browser reaches the API through the proxy at /api.
+    # A second, cross-origin way in is exactly what this redesign removes.
+    expose:
+      - "8080"
+    depends_on:
+      sandbox-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  web:
+    image: ${REGISTRY}/brainbook/web:${IMAGE_TAG}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # Reached only by app over the compose network; never by a browser.
+  intelligence-service:
+    image: ${REGISTRY}/brainbook/intelligence:${IMAGE_TAG}
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env.prod
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  sandbox-service:
+    image: ${REGISTRY}/brainbook/sandbox:${IMAGE_TAG}
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env.prod
+    environment:
+      # The service reads DATABASE_URL; the env file names it
+      # SANDBOX_DATABASE_URL so it cannot be confused with the app's datasource.
+      DATABASE_URL: ${SANDBOX_DATABASE_URL:?SANDBOX_DATABASE_URL is required}
+      SANDBOX_ROOT_PATH: /data/sandboxes
+      GRPC_PORT: 50051
+      TZ: UTC
+    volumes:
+      - sandbox-data:/data/sandboxes
+    healthcheck:
+      test: ["CMD", "/app/grpc_health_probe", "-addr=:50051"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  # Cloned project-cluster repos. The only data this stack owns - everything
+  # else lives in the external Postgres and MinIO.
+  sandbox-data:

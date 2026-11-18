@@ -4,7 +4,9 @@ import { http, HttpResponse } from 'msw';
 import { useAttachmentUpload } from '@/lib/hooks/useAttachmentUpload';
 import { server } from '../../../mocks/server';
 
-const API_BASE = 'http://localhost:8080';
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 describe('useAttachmentUpload', () => {
   it('uploads file and calls onUploaded with download URL', async () => {
@@ -36,7 +38,7 @@ describe('useAttachmentUpload', () => {
     expect(result.current.uploading).toBe(false);
     expect(result.current.error).toBeNull();
     expect(onUploaded).toHaveBeenCalledWith(
-      `${API_BASE}/api/attachments/att-1/download`,
+      "/api/attachments/att-1/download",
       expect.objectContaining({ id: 'att-1', fileName: 'test.mp3' })
     );
   });
