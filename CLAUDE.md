@@ -42,6 +42,7 @@ is also on `127.0.0.1:${APP_PORT:-18080}` for curling it directly.
 scripts/deploy.sh <dev|prod> [tag]   # build locally, push, ship compose+env, start over SSH
 scripts/rollback.sh <dev|prod> <tag> # redeploy an older tag without rebuilding
 scripts/provision.sh <dev|prod>      # create the DBs/bucket an environment needs (idempotent)
+scripts/reset-dev.sh                 # empty dev's DB + bucket for a clean e2e run (dev only)
 ```
 Images are built on your machine and pushed to `$REGISTRY`; nothing is ever
 built on a target host. Each environment's host, port and credentials live in
