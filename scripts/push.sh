@@ -8,7 +8,10 @@ require_command docker
 
 [[ $# -ge 1 ]] || die "usage: $(basename "$0") <dev|prod> [image-tag]"
 load_env "$1"
-IMAGE_TAG="$(resolve_image_tag "${2:-${IMAGE_TAG:-}}")"
+# Note: deliberately not falling back to the env file's IMAGE_TAG. That
+# value is the compose-interpolation default on the target; letting it
+# outrank the git SHA here would push "latest" when no tag was given.
+IMAGE_TAG="$(resolve_image_tag "${2:-}")"
 require_env REGISTRY IMAGE_TAG
 
 for spec in "${IMAGES[@]}"; do

@@ -6,7 +6,7 @@
 source "$(dirname "$0")/lib/common.sh"
 require_command docker git
 
-IMAGE_TAG="$(resolve_image_tag "${1:-${IMAGE_TAG:-}}")"
+IMAGE_TAG="$(resolve_image_tag "${1:-}")"
 
 for spec in "${IMAGES[@]}"; do
     name="${spec%%:*}"
