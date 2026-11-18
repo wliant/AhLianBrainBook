@@ -24,6 +24,11 @@ web/out/
 .env.local
 .env.*.local
 
+# Deployment secrets. These are the only files carrying credentials to a
+# target host; the example stays tracked.
+deployment/.env.*
+!deployment/.env.example
+
 # OS
 .DS_Store
 Thumbs.db
@@ -57,3 +62,6 @@ scripts/setup.sh
 
 # Test results
 web/test-results/
+
+# E2E artifacts
+e2e-test/test-results/

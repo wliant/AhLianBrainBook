@@ -10,10 +10,10 @@ import {
   resolveSharedTitle,
   type SharedFile,
 } from "@/lib/share/buildSharedNeuronContent";
+import { API_BASE } from "@/lib/apiBase";
 import type { Attachment, Neuron } from "@/types";
 
 const SHARE_CACHE = "share-inbox";
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 interface SharePayload {
   title: string;

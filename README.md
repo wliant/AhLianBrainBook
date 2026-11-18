@@ -103,21 +103,23 @@
 git clone https://github.com/wliant/AhLianBrainBook.git
 cd AhLianBrainBook
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env — set database password, MinIO keys, and LLM provider
+# 2. Start the full stack (infrastructure, app, and the proxy in front of it)
+scripts/dev-up.sh
 
-# 3. Start the full stack
-docker compose --env-file .env \
-  -f docker-compose.infra.yml \
-  -f docker-compose.app.yml \
-  up -d
-
-# 4. Open in browser
-open http://localhost:3000
+# 3. Open in browser
+open http://localhost:13000
 ```
 
-The first startup pulls images and runs database migrations automatically.
+The first startup pulls images, builds from source, and runs database
+migrations automatically. `scripts/dev-down.sh` stops it again (`--volumes`
+also discards the local data).
+
+Everything is served on one port: the UI at `/` and the API at `/api`, same
+origin, exactly as the deployed environments serve it. `WEB_PORT` changes that
+port, and the backend is also published on `127.0.0.1:${APP_PORT:-18080}` for
+curling the API directly while debugging.
+
+See [docs/deployment.md](docs/deployment.md) for deploying to a server.
 
 **LLM configuration:** Set `LLM_PROVIDER=ollama` and point `OLLAMA_BASE_URL` at a running [Ollama](https://ollama.com) instance, or set `LLM_PROVIDER=anthropic` with your `ANTHROPIC_API_KEY`. AI features (writing assist, research clusters, quiz generation) require a working LLM connection.
 

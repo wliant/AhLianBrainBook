@@ -3,7 +3,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ARG NEXT_PUBLIC_API_URL=http://localhost:8080
+# Empty: the browser reaches the API same-origin through the nginx edge, so
+# every request is relative and the bundle carries no API hostname. That is
+# what makes one image serve local, dev and prod, and what lets a tested dev
+# image be promoted to prod unchanged. The ARG exists for a one-off build
+# against a separate API origin; no environment we ship sets it.
+ARG NEXT_PUBLIC_API_URL=""
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 

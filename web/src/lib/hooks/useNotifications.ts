@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useCallback, useEffect } from "react";
 import { participateInSseLeaderElection, type SseEvent } from "@/lib/sseLeaderElection";
+import { API_BASE } from "@/lib/apiBase";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const PAGE_SIZE = 20;
 
 export function useNotifications() {

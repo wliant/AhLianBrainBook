@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import { API_BASE } from "./apiBase";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 1;

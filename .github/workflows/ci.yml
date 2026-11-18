@@ -75,11 +75,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start infrastructure
-        run: docker compose -f docker-compose.infra.yml up -d --wait
-
-      - name: Build and start application
-        run: docker compose -f docker-compose.infra.yml -f docker-compose.app.yml up -d --build --wait
+      # One invocation: both files share the brainbook-local project, so
+      # neither is treated as the other's orphan.
+      - name: Build and start the stack
+        run: |
+          docker compose \
+            -f deployment/docker-compose.infra.yml \
+            -f deployment/docker-compose.local.yml \
+            up -d --build --wait
 
       - uses: astral-sh/setup-uv@v4
 
@@ -92,8 +95,9 @@ jobs:
       - name: Run E2E tests
         working-directory: e2e-test
         env:
+          # One origin serves both: the UI and the API share the proxy's port.
           BASE_URL: http://localhost:13000
-          API_URL: http://localhost:18080
+          API_URL: http://localhost:13000
           MINIO_ENDPOINT: localhost:19000
           MINIO_ACCESS_KEY: brainbook
           MINIO_SECRET_KEY: brainbook123
@@ -111,4 +115,7 @@ jobs:
       - name: Stop services
         if: always()
         run: |
-          docker compose -f docker-compose.infra.yml -f docker-compose.app.yml down -v
+          docker compose \
+            -f deployment/docker-compose.infra.yml \
+            -f deployment/docker-compose.local.yml \
+            down -v

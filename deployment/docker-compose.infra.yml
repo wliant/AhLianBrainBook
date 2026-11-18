@@ -1,0 +1,53 @@
+# Throwaway Postgres and MinIO for the local stack only. Never deployed:
+# dev and prod use the provided infrastructure on the target host.
+#
+# Shares the brainbook-local project (and so the network) with
+# docker-compose.local.yml - scripts/dev-up.sh brings both up together.
+name: brainbook-local
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: brainbook-local-db
+    environment:
+      POSTGRES_DB: brainbook
+      POSTGRES_USER: brainbook
+      POSTGRES_PASSWORD: brainbook
+      TZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../docker/init-sandbox-db.sql:/docker-entrypoint-initdb.d/02-sandbox.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brainbook"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    # MinIO's own images are no longer pullable from Docker Hub or quay without
+    # credentials. This mirror is public, behaves identically for our purposes,
+    # and keeps the local stack and CI free of any private-registry dependency.
+    # dev and prod are unaffected: they use the MinIO that runs as provided
+    # infrastructure on the target host.
+    image: ${MINIO_IMAGE:-bitnamilegacy/minio:latest}
+    container_name: brainbook-local-minio
+    environment:
+      MINIO_ROOT_USER: brainbook
+      MINIO_ROOT_PASSWORD: brainbook123
+      MINIO_DEFAULT_BUCKETS: brainbook-attachments
+    ports:
+      - "${MINIO_API_PORT:-19000}:9000"
+      - "${MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  minio-data:

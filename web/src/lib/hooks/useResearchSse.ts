@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import { API_BASE } from "@/lib/apiBase";
 
 export function useResearchSse(clusterId: string | null) {
   const queryClient = useQueryClient();

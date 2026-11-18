@@ -7,7 +7,9 @@ import { TodoClusterView } from "@/components/todo/TodoClusterView";
 import { server } from "../../../mocks/server";
 import type { Cluster, Neuron, TodoMetadata } from "@/types";
 
-const API_BASE = "http://localhost:8080";
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 // Mock next/link so <Link> renders a plain <a>
 vi.mock("next/link", () => ({

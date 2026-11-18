@@ -3,7 +3,9 @@ import { http, HttpResponse } from 'msw';
 import { api } from '@/lib/api';
 import { server } from '../../mocks/server';
 
-const API_BASE = 'http://localhost:8080';
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 describe('api', () => {
   it('get fetches data', async () => {

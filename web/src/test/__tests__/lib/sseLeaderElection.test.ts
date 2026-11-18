@@ -80,7 +80,7 @@ describe("sseLeaderElection", () => {
 
     const handler = vi.fn();
     const cleanup = participateInSseLeaderElection(
-      "http://localhost:8080/api/notifications/stream",
+      "/api/notifications/stream",
       handler,
       0 // no delay for testing
     );
@@ -100,7 +100,7 @@ describe("sseLeaderElection", () => {
 
     const handler = vi.fn();
     const cleanup = participateInSseLeaderElection(
-      "http://localhost:8080/api/notifications/stream",
+      "/api/notifications/stream",
       handler,
       0
     );
@@ -136,7 +136,7 @@ describe("sseLeaderElection", () => {
     // The BroadcastChannel onmessage handler should still deliver events.
     const handler = vi.fn();
     const cleanup = participateInSseLeaderElection(
-      "http://localhost:8080/api/notifications/stream",
+      "/api/notifications/stream",
       handler,
       0
     );
@@ -163,7 +163,7 @@ describe("sseLeaderElection", () => {
 
     const handler = vi.fn();
     const cleanup = participateInSseLeaderElection(
-      "http://localhost:8080/api/notifications/stream",
+      "/api/notifications/stream",
       handler,
       0
     );

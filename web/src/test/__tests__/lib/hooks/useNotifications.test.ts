@@ -5,7 +5,9 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 import { server } from '../../../mocks/server';
 import { createWrapper } from '../../../utils/createWrapper';
 
-const API_BASE = 'http://localhost:8080';
+// The app issues relative URLs now - one origin serves both the UI and the
+// API - so handlers must be registered against the page's own origin.
+const API_BASE = window.location.origin;
 
 // Mock EventSource
 class MockEventSource {
@@ -79,7 +81,7 @@ describe('useNotifications', () => {
 
     await waitForSseConnection();
 
-    expect(MockEventSource.instances[0].url).toBe(`${API_BASE}/api/notifications/stream`);
+    expect(MockEventSource.instances[0].url).toBe("/api/notifications/stream");
   });
 
   it('fetches initial unread count', async () => {
