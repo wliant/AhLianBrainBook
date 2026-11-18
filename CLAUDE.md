@@ -104,11 +104,12 @@ Next.js App Router with nested routes: `app/brain/[brainId]/cluster/[clusterId]/
 - **Web**: Vitest + React Testing Library + MSW (Mock Service Worker). Unit tests for API client, hooks, and components. Integration tests for pages with mocked backend APIs.
 - **Intelligence Service**: pytest + httpx (FastAPI TestClient). All LLM calls mocked — no Ollama required for tests.
 - **When testing**: Run only the relevant test package for the changes made (e.g., `./gradlew test --tests ClassName` or specific test files in web).
-- **E2E tests**: Always rebuild and test against the containerised stack (`scripts/dev-up.sh`). `BASE_URL` and `API_URL` are the same origin now — both point at the proxy's port.
+- **E2E tests**: Always rebuild and test against the containerised stack (`scripts/dev-up.sh`). `BASE_URL` and `API_URL` are the same origin now — both point at the proxy's port. The suite can also run against the deployed dev environment; `scripts/reset-dev.sh` first if it needs a clean slate.
 
 ### Key Config
 - Container ports: backend 8080, frontend 3000, intelligence 8001, proxy 80. Only the proxy is ever published — the browser reaches the API same-origin at `/api`, and the frontend bundle contains no API hostname (`web/src/lib/apiBase.ts`, built with `NEXT_PUBLIC_API_URL=""`).
 - Published port: local 13000; dev and prod come from `WEB_PORT` in their env file.
+- `CORS_ALLOWED_ORIGINS` is still load-bearing despite same-origin: browsers send an `Origin` header on same-origin POST/PUT/DELETE and Spring 403s any Origin not listed. GETs carry no Origin, so a wrong value looks healthy — UI loads, health UP, lists render — until the first write. Change `WEB_PORT` or the hostname and you must change this too.
 - MinIO API: 9000, Console: 9001
 - Ollama: external (configured via `OLLAMA_BASE_URL` in `.env`)
 - LLM max tokens: configurable via `LLM_MAX_TOKENS` (default 4096); per-agent overrides via `MAX_TOKENS_*` and `TEMPERATURE_*` env vars
