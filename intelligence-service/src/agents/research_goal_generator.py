@@ -3,6 +3,7 @@ import logging
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph
 
+from src.utils import extract_text
 from src.config import settings
 from src.llm import get_llm, get_provider_name
 from src.schemas.research import GenerateGoalRequest, GenerateGoalResponse
@@ -43,6 +44,7 @@ def invoke_llm(state: dict) -> dict:
     llm = get_llm(
         temperature=settings.temperature_goal_generator,
         max_tokens=settings.max_tokens_goal_generator,
+        effort=settings.effort_goal_generator,
     )
     messages = [
         SystemMessage(content=state["system_prompt"]),
@@ -50,8 +52,9 @@ def invoke_llm(state: dict) -> dict:
     ]
     logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
-    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
-    return {"research_goal": response.content.strip().strip('"')}
+    raw = extract_text(response.content)
+    logger.debug("LLM response length=%d content=%r", len(raw), raw[:500])
+    return {"research_goal": raw.strip('"')}
 
 
 def _build_graph():

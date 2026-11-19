@@ -449,19 +449,27 @@ Finds all references to the symbol at the given line/column.
 | EMBEDDING_OLLAMA_BASE_URL | No                        | http://ollama:11434        | Ollama server URL (for embeddings)    |
 | EMBEDDING_OLLAMA_MODEL    | No                        | nomic-embed-text           | Ollama model for vector embeddings    |
 | ANTHROPIC_API_KEY         | When provider=anthropic   | (empty)                    | Anthropic API key                     |
-| ANTHROPIC_MODEL           | No                        | claude-sonnet-4-20250514   | Anthropic model name                  |
-| LLM_MAX_TOKENS            | No                        | 4096                       | Default max output tokens for LLM     |
+| ANTHROPIC_MODEL           | No                        | claude-sonnet-5            | Anthropic model name                  |
+| LLM_MAX_TOKENS            | No                        | 8192                       | Default max output tokens (covers thinking + answer) |
 | BRAINBOOK_API_URL         | No                        | http://app:8080            | Backend API URL (for agent tool use)  |
 | AGENT_TIMEOUT             | No                        | 600                        | Agent execution timeout in seconds    |
 | LOG_LEVEL                 | No                        | INFO                       | Logging level                         |
-| TEMPERATURE_GOAL_GENERATOR | No                       | 0.7                        | LLM temperature for goal generator    |
+| TEMPERATURE_GOAL_GENERATOR | No                       | 0.7                        | LLM temperature (ignored on Claude 5) |
 | TEMPERATURE_TOPIC_GENERATOR | No                      | 0.4                        | LLM temperature for topic generator   |
 | TEMPERATURE_TOPIC_SCORER  | No                        | 0.1                        | LLM temperature for topic scorer      |
 | TEMPERATURE_BULLET_EXPANDER | No                      | 0.4                        | LLM temperature for bullet expander   |
-| MAX_TOKENS_GOAL_GENERATOR | No                        | 256                        | Max tokens for goal generator         |
-| MAX_TOKENS_TOPIC_GENERATOR | No                       | 4096                       | Max tokens for topic generator        |
+| MAX_TOKENS_GOAL_GENERATOR | No                        | 4096                       | Max tokens for goal generator         |
+| MAX_TOKENS_TOPIC_GENERATOR | No                       | 16000                      | Max tokens for topic generator        |
 | MAX_TOKENS_TOPIC_SCORER   | No                        | 4096                       | Max tokens for topic scorer           |
 | MAX_TOKENS_BULLET_EXPANDER | No                       | 2048                       | Max tokens for bullet expander        |
+
+**Claude 5 note.** Claude 5 models (`claude-sonnet-5`, `claude-opus-5`, …) reject
+`temperature`/`top_p`/`top_k` with a 400, so `get_llm()` drops the temperature for them
+automatically; the `EFFORT_*` variables (`low`|`medium`|`high`|`xhigh`|`max`) are the
+equivalent cost/quality lever. These models also run adaptive thinking by default, which
+means message content arrives as a list of blocks and `max_tokens` has to cover thinking
+plus the answer — hence the larger token ceilings. `src/utils.py:extract_text()` flattens
+that block list, and every agent uses it when reading `response.content`.
 
 ## Infrastructure
 

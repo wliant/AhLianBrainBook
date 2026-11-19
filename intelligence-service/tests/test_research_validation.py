@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
+from src.config import settings
 from src.agents.research_topic_generator import (
     _validate_quality,
     _check_duplicates,
@@ -211,7 +212,7 @@ def test_self_critique_calls_llm():
     assert result["llm_raw_output"] == mock_response.content
     mock_get_llm.assert_called_once_with(
         temperature=0.2,
-        max_tokens=4096,
+        max_tokens=settings.max_tokens_topic_generator,
         format="json",
     )
 

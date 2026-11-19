@@ -4,7 +4,7 @@ from typing import TypedDict
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from src.utils import strip_code_fences
+from src.utils import extract_text, strip_code_fences
 from langgraph.graph import StateGraph
 
 from src.llm import get_llm, get_provider_name
@@ -58,12 +58,13 @@ def invoke_llm(state: dict) -> dict:
     ]
     logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
-    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
+    raw = extract_text(response.content)
+    logger.debug("LLM response length=%d content=%r", len(raw), raw[:500])
     return {
         "system_prompt": state["system_prompt"],
         "content_text": state["content_text"],
         "question_count": state["question_count"],
-        "raw_response": response.content.strip(),
+        "raw_response": raw,
         "items": [],
         "error": None,
     }
