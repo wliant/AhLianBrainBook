@@ -180,7 +180,7 @@ The backend runs scheduled background tasks:
 | OLLAMA_BASE_URL                | http://ollama:11434                        |
 | OLLAMA_MODEL                   | llama3.2                                   |
 | ANTHROPIC_API_KEY              | (empty, required when LLM_PROVIDER=anthropic) |
-| ANTHROPIC_MODEL                | claude-sonnet-4-20250514                   |
+| ANTHROPIC_MODEL                | claude-sonnet-5                   |
 | BRAINBOOK_API_URL              | http://app:8080                            |
 | AGENT_TIMEOUT                  | 600                                        |
 

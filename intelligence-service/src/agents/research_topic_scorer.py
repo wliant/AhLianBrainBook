@@ -3,7 +3,7 @@ import logging
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from src.utils import strip_code_fences
+from src.utils import extract_text, strip_code_fences
 
 logger = logging.getLogger(__name__)
 from langgraph.graph import StateGraph
@@ -63,6 +63,7 @@ def invoke_llm(state: dict) -> dict:
     llm = get_llm(
         temperature=settings.temperature_topic_scorer,
         max_tokens=settings.max_tokens_topic_scorer,
+        effort=settings.effort_topic_scorer,
         format="json",
     )
     messages = [
@@ -71,8 +72,9 @@ def invoke_llm(state: dict) -> dict:
     ]
     logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
-    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
-    return {"llm_raw_output": response.content}
+    raw = extract_text(response.content)
+    logger.debug("LLM response length=%d content=%r", len(raw), raw[:500])
+    return {"llm_raw_output": raw}
 
 
 def validate_output(state: dict) -> dict:

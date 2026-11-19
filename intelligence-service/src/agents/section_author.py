@@ -9,20 +9,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import create_react_agent
 
 from src.config import settings
-from src.utils import strip_code_fences
+from src.utils import extract_text, strip_code_fences
 
 logger = logging.getLogger(__name__)
 from src.llm import get_llm, get_provider_name
 
 
-def _extract_text(content) -> str:
-    """Extract plain text from an LLM message content field."""
-    if isinstance(content, str):
-        return content.strip()
-    if isinstance(content, list):
-        parts = [b["text"] for b in content if isinstance(b, dict) and "text" in b]
-        return "\n".join(parts).strip()
-    return ""
 from src.schemas.section_author import (
     QuestionItem,
     SectionAuthorRequest,
@@ -331,8 +323,9 @@ def invoke_llm(state: SectionAuthorState) -> dict:
 
     logger.debug("LLM request messages=%d", len(messages))
     response = llm.invoke(messages)
-    logger.debug("LLM response length=%d content=%r", len(response.content), response.content[:500])
-    return {"llm_raw_output": response.content}
+    raw = extract_text(response.content)
+    logger.debug("LLM response length=%d content=%r", len(raw), raw[:500])
+    return {"llm_raw_output": raw}
 
 
 def validate_output(state: SectionAuthorState) -> dict:
@@ -469,7 +462,7 @@ async def run_react_agent(state: SectionAuthorState) -> dict:
     )
 
     final_msg = result["messages"][-1]
-    raw = _extract_text(final_msg.content)
+    raw = extract_text(final_msg.content)
     if not raw:
         logger.warning(
             "ReAct agent returned empty content, content type=%s",
@@ -673,7 +666,7 @@ async def stream_section_author(request: SectionAuthorRequest):
                     output = event["data"].get("output", {})
                     final_messages = output.get("messages", [])
 
-            raw = _extract_text(final_messages[-1].content) if final_messages else ""
+            raw = extract_text(final_messages[-1].content) if final_messages else ""
             if not raw:
                 logger.warning("ReAct agent stream returned empty content")
             state["llm_raw_output"] = raw
