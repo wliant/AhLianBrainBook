@@ -78,6 +78,7 @@ Production deployment configuration.
 | V31     | Add `title`, `description` (JSONB), `description_text` columns to reminders |
 | V32     | Convert all TIMESTAMP columns to TIMESTAMPTZ (timezone-aware) |
 | V33     | Add `todo` cluster type; `timezone` on app_settings; `is_system` on reminders; `todo_metadata` table |
+| V37     | Add multiple-choice review questions: `question_type`, `choices` (JSONB), `explanation` on review_questions; `choice_questions_enabled` on spaced_repetition_items |
 
 ### Content Format (v2 — Sections)
 

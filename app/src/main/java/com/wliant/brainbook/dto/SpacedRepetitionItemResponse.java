@@ -18,6 +18,7 @@ public record SpacedRepetitionItemResponse(
         int questionCount,
         boolean hasQuestions,
         boolean quizEligible,
-        boolean quizEnabled
+        boolean quizEnabled,
+        boolean choiceQuestionsEnabled
 ) {
 }

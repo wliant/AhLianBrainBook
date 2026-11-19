@@ -89,7 +89,9 @@ def _search_duckduckgo(query: str) -> str:
     try:
         from duckduckgo_search import DDGS
 
-        with DDGS() as ddgs:
+        # DDGS has no default timeout and rate-limits aggressively; without a ceiling a
+        # throttled call can hang a tool-using agent indefinitely.
+        with DDGS(timeout=WEB_SEARCH_TIMEOUT) as ddgs:
             results = list(ddgs.text(query, max_results=5))
             if not results:
                 return "No web results found."

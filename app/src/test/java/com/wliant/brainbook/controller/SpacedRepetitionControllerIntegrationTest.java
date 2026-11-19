@@ -8,10 +8,12 @@ import com.wliant.brainbook.dto.CreateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
+import com.wliant.brainbook.dto.ChoiceQuestionsEnabledRequest;
 import com.wliant.brainbook.dto.QuestionCountRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
+import com.wliant.brainbook.model.ReviewQuestionType;
 import com.wliant.brainbook.service.ReviewQuestionAsyncService;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +27,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -50,6 +53,9 @@ class SpacedRepetitionControllerIntegrationTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private DatabaseCleaner databaseCleaner;
@@ -349,6 +355,110 @@ class SpacedRepetitionControllerIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         verifyNoInteractions(reviewQuestionAsyncService);
+    }
+
+
+    // ── updateChoiceQuestionsEnabled ──
+
+    @Test
+    void updateChoiceQuestionsEnabled_returns200AndTogglesTheFlag() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+        assertThat(item.choiceQuestionsEnabled()).isTrue();
+
+        ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/choice-questions-enabled", HttpMethod.PATCH,
+                new HttpEntity<>(new ChoiceQuestionsEnabledRequest(false)),
+                SpacedRepetitionItemResponse.class, item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().choiceQuestionsEnabled()).isFalse();
+    }
+
+    @Test
+    void updateChoiceQuestionsEnabled_returns400ForNullValue() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/choice-questions-enabled", HttpMethod.PATCH,
+                new HttpEntity<>(Map.of()), Void.class, item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void updateChoiceQuestionsEnabled_returns404ForUnknownItem() {
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/choice-questions-enabled", HttpMethod.PATCH,
+                new HttpEntity<>(new ChoiceQuestionsEnabledRequest(false)),
+                Void.class, UUID.randomUUID());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void getItem_exposesChoiceQuestionsEnabledByDefault() {
+        addToSR(neuronId);
+
+        ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.getForEntity(
+                "/api/spaced-repetition/items/{neuronId}", SpacedRepetitionItemResponse.class, neuronId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().choiceQuestionsEnabled()).isTrue();
+    }
+
+    @Test
+    void getQuestions_serializesStoredChoiceQuestions() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        // Insert a choice question the way generation does, then read it back over HTTP.
+        jdbcTemplate.update("""
+                INSERT INTO review_questions
+                    (sr_item_id, neuron_id, question_text, answer_text, question_order,
+                     question_type, choices, explanation, status)
+                VALUES (?, ?, ?, ?, 0, 'SINGLE_CHOICE', ?::jsonb, ?, 'READY')""",
+                item.id(), neuronId,
+                "Which algorithm needs non-negative weights?", "Dijkstra",
+                """
+                {"version":1,"researched":true,"options":[
+                  {"id":"a","text":"Dijkstra","correct":true,"rationale":"Greedy","sourceUrl":"https://example.com/d"},
+                  {"id":"b","text":"Bellman-Ford","correct":false,"rationale":"Allows negative edges","sourceUrl":null}]}""",
+                "Dijkstra settles vertices greedily.");
+
+        ResponseEntity<List<ReviewQuestionResponse>> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/questions", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<ReviewQuestionResponse>>() {}, item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        ReviewQuestionResponse q = response.getBody().getFirst();
+        assertThat(q.questionType()).isEqualTo(ReviewQuestionType.SINGLE_CHOICE);
+        assertThat(q.researched()).isTrue();
+        assertThat(q.explanation()).isEqualTo("Dijkstra settles vertices greedily.");
+        assertThat(q.choices()).hasSize(2);
+        assertThat(q.choices().getFirst().correct()).isTrue();
+        assertThat(q.choices().getFirst().sourceUrl()).isEqualTo("https://example.com/d");
+        assertThat(q.choices().get(1).correct()).isFalse();
+    }
+
+    @Test
+    void getQuestions_serializesLegacyFreeTextRowsWithNullChoices() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        // A pre-migration row: question_type defaults to FREE_TEXT and choices stays null.
+        jdbcTemplate.update("""
+                INSERT INTO review_questions
+                    (sr_item_id, neuron_id, question_text, answer_text, question_order, status)
+                VALUES (?, ?, ?, ?, 0, 'READY')""",
+                item.id(), neuronId, "Why non-negative?", "The greedy choice must stay valid.");
+
+        ResponseEntity<List<ReviewQuestionResponse>> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/questions", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<ReviewQuestionResponse>>() {}, item.id());
+
+        ReviewQuestionResponse q = response.getBody().getFirst();
+        assertThat(q.questionType()).isEqualTo(ReviewQuestionType.FREE_TEXT);
+        assertThat(q.choices()).isNull();
+        assertThat(q.researched()).isFalse();
+        assertThat(q.answerText()).isEqualTo("The greedy choice must stay valid.");
     }
 
     // ── updateQuestionCount ──

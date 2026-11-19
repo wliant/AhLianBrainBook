@@ -145,6 +145,14 @@ public class SpacedRepetitionService {
         log.info("Updated quiz enabled to {} for SR item {}", quizEnabled, itemId);
     }
 
+    public void updateChoiceQuestionsEnabled(UUID itemId, boolean choiceQuestionsEnabled) {
+        SpacedRepetitionItem item = srRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
+        item.setChoiceQuestionsEnabled(choiceQuestionsEnabled);
+        srRepository.save(item);
+        log.info("Updated choice questions enabled to {} for SR item {}", choiceQuestionsEnabled, itemId);
+    }
+
     public void updateQuestionCount(UUID itemId, int questionCount) {
         SpacedRepetitionItem item = srRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
@@ -171,7 +179,8 @@ public class SpacedRepetitionService {
                 item.getQuestionCount(),
                 hasQuestions,
                 quizEligible,
-                item.isQuizEnabled()
+                item.isQuizEnabled(),
+                item.isChoiceQuestionsEnabled()
         );
     }
 }

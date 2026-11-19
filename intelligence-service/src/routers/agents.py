@@ -123,11 +123,13 @@ async def research_bullet_expander(request: ExpandBulletRequest):
 
 @router.post("/agents/review-qa-generator", response_model=ReviewQAResponse)
 async def review_qa_generator(request: ReviewQARequest):
-    logger.info("agent=review-qa-generator neuron=%r questions=%d brain=%r", request.neuron_title[:80], request.question_count, request.brain_name)
+    logger.info("agent=review-qa-generator neuron=%r questions=%d brain=%r choices=%s tools=%s", request.neuron_title[:80], request.question_count, request.brain_name, request.allow_choice_questions, request.tools_enabled)
     start = time.time()
     try:
         result = await invoke_review_qa_generator(request)
-        logger.info("agent=review-qa-generator status=ok items=%d duration=%.2fs", len(result.items), time.time() - start)
+        choice_items = sum(1 for i in result.items if i.question_type != "free_text")
+        researched = sum(1 for i in result.items if i.researched)
+        logger.info("agent=review-qa-generator status=ok items=%d choice=%d researched=%d duration=%.2fs", len(result.items), choice_items, researched, time.time() - start)
         return result
     except Exception:
         logger.exception("agent=review-qa-generator status=error duration=%.2fs", time.time() - start)

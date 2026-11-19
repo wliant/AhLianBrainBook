@@ -12,6 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, RotateCcw, BookOpen, BrainCircuit, ChevronDown, ChevronUp, Clock, Play, Menu, X, ExternalLink } from "lucide-react";
 import type { Neuron, SectionsDocument, ReviewQuestion, SpacedRepetitionItem } from "@/types";
 import { cn } from "@/lib/utils";
+import { ChoiceQuestion } from "@/components/review/ChoiceQuestion";
+import { FreeTextQuestion } from "@/components/review/FreeTextQuestion";
+import {
+  applySelection,
+  gradeQuiz,
+  isChoiceQuestion,
+  suggestQuality,
+  type ChoiceSelections,
+} from "@/lib/reviewGrading";
 
 const QUALITY_OPTIONS = [
   { label: "Again", quality: 1, color: "bg-red-500 hover:bg-red-600" },
@@ -77,6 +86,9 @@ export default function ReviewPage() {
   const [showQuizAnswers, setShowQuizAnswers] = useState(false);
   const [showFullNote, setShowFullNote] = useState(false);
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+  // Kept separate from userAnswers: choice selections are string[], and keeping the two
+  // apart avoids union narrowing in every setState and leaves the free-text path as-is.
+  const [userChoices, setUserChoices] = useState<ChoiceSelections>({});
 
   // Manual question regeneration
   const [regeneratingItemId, setRegeneratingItemId] = useState<string | null>(null);
@@ -107,6 +119,7 @@ export default function ReviewPage() {
     setShowQuizAnswers(false);
     setShowFullNote(false);
     setUserAnswers({});
+    setUserChoices({});
 
     api.get<Neuron>(`/api/neurons/${activeNeuronId}`).then((n) => {
       const parsedJson =
@@ -205,6 +218,7 @@ export default function ReviewPage() {
     setSubmitting(false);
     setRegeneratingItemId(null);
     setRegenerateError(null);
+    setUserChoices({});
 
     if (selectedItemId) {
       // Was reviewing a specific item from sidebar
@@ -259,6 +273,19 @@ export default function ReviewPage() {
 
   const showRatingButtons = reviewMode === "content" ? showAnswer :
     reviewMode === "quiz" ? showQuizAnswers : false;
+
+  // Choice questions grade themselves on exact set match; free-text ones stay self-assessed.
+  const quizScore = gradeQuiz(questions, userChoices);
+  const suggestedQuality = reviewMode === "quiz" && showQuizAnswers
+    ? suggestQuality(quizScore)
+    : null;
+
+  const toggleChoice = (question: ReviewQuestion, optionId: string) => {
+    setUserChoices((prev) => ({
+      ...prev,
+      [question.id]: applySelection(question, prev[question.id], optionId),
+    }));
+  };
 
   // Sidebar content (shared between mobile overlay and desktop sidebar)
   const sidebarContent = (
@@ -565,38 +592,29 @@ export default function ReviewPage() {
                           </div>
                         ) : (
                           <div className="space-y-4" data-testid="quiz-questions">
-                            {questions.map((q, i) => (
-                              <div key={q.id} className="border rounded-md p-4">
-                                <p className="font-medium text-sm text-muted-foreground mb-1">
-                                  Question {i + 1} of {questions.length}
-                                </p>
-                                <p className="text-base">{q.questionText}</p>
-
-                                {/* User answer textarea */}
-                                <textarea
-                                  className="mt-3 w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground resize-y min-h-[60px]"
-                                  placeholder="Type your answer here..."
-                                  rows={3}
-                                  value={userAnswers[q.id] || ""}
-                                  onChange={(e) => setUserAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                                  disabled={showQuizAnswers}
-                                  data-testid={`user-answer-${i}`}
+                            {questions.map((q, i) =>
+                              isChoiceQuestion(q) ? (
+                                <ChoiceQuestion
+                                  key={q.id}
+                                  question={q}
+                                  index={i}
+                                  total={questions.length}
+                                  selected={userChoices[q.id] ?? []}
+                                  revealed={showQuizAnswers}
+                                  onToggle={(optionId) => toggleChoice(q, optionId)}
                                 />
-
-                                {showQuizAnswers && (
-                                  <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded p-3" data-testid={`user-answer-display-${i}`}>
-                                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">Your Answer</p>
-                                      <p className="text-base whitespace-pre-wrap">{userAnswers[q.id] || <em className="text-muted-foreground">No answer provided</em>}</p>
-                                    </div>
-                                    <div className="bg-green-50 dark:bg-green-950/30 rounded p-3" data-testid={`correct-answer-${i}`}>
-                                      <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">Correct Answer</p>
-                                      <p className="text-base whitespace-pre-wrap">{q.answerText}</p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                              ) : (
+                                <FreeTextQuestion
+                                  key={q.id}
+                                  question={q}
+                                  index={i}
+                                  total={questions.length}
+                                  answer={userAnswers[q.id] || ""}
+                                  revealed={showQuizAnswers}
+                                  onChange={(value) => setUserAnswers((prev) => ({ ...prev, [q.id]: value }))}
+                                />
+                              )
+                            )}
 
                             {!showQuizAnswers && (
                               <div className="text-center pt-4">
@@ -607,6 +625,17 @@ export default function ReviewPage() {
                                 >
                                   Show Answers
                                 </Button>
+                              </div>
+                            )}
+
+                            {showQuizAnswers && quizScore.gradedCount > 0 && (
+                              <div
+                                className="text-center text-sm font-medium"
+                                data-testid="quiz-score"
+                              >
+                                {quizScore.correctCount} / {quizScore.gradedCount} correct
+                                {quizScore.selfAssessedCount > 0 &&
+                                  ` · ${quizScore.selfAssessedCount} self-assessed`}
                               </div>
                             )}
 
@@ -645,17 +674,28 @@ export default function ReviewPage() {
 
               {showRatingButtons && (
                 <div className="flex justify-center gap-3" data-testid="quality-buttons">
-                  {QUALITY_OPTIONS.map((opt) => (
-                    <Button
-                      key={opt.quality}
-                      onClick={() => handleRate(opt.quality)}
-                      disabled={submitting}
-                      className={`${opt.color} text-white min-w-[80px]`}
-                      data-testid={`quality-${opt.quality}`}
-                    >
-                      {opt.label}
-                    </Button>
-                  ))}
+                  {QUALITY_OPTIONS.map((opt) => {
+                    // A suggestion only — scheduling stays the reviewer's call, and with a
+                    // mixed set the machine score is only partial evidence.
+                    const suggested = suggestedQuality === opt.quality;
+                    return (
+                      <Button
+                        key={opt.quality}
+                        onClick={() => handleRate(opt.quality)}
+                        disabled={submitting}
+                        className={cn(
+                          opt.color,
+                          "text-white min-w-[80px]",
+                          suggested && "ring-2 ring-offset-2 ring-foreground",
+                        )}
+                        title={suggested ? "Suggested by your quiz score" : undefined}
+                        data-testid={`quality-${opt.quality}`}
+                        data-suggested={suggested || undefined}
+                      >
+                        {opt.label}
+                      </Button>
+                    );
+                  })}
                 </div>
               )}
             </>

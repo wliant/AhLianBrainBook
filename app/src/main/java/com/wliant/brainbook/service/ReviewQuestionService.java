@@ -1,12 +1,16 @@
 package com.wliant.brainbook.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wliant.brainbook.dto.ReviewChoice;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Neuron;
 import com.wliant.brainbook.model.ReviewQuestion;
 import com.wliant.brainbook.model.ReviewQuestionStatus;
+import com.wliant.brainbook.model.ReviewQuestionType;
 import com.wliant.brainbook.model.SpacedRepetitionItem;
 import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.repository.BrainRepository;
@@ -23,9 +27,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,6 +44,9 @@ public class ReviewQuestionService {
     private static final int MIN_CONTENT_LENGTH = 100;
     private static final Set<String> TEXT_BEARING_SECTION_TYPES = Set.of(
             "rich-text", "code", "math", "callout", "table");
+    private static final int CHOICES_PAYLOAD_VERSION = 1;
+    private static final int MIN_CHOICE_OPTIONS = 2;
+    private static final String CORRECT_ANSWER_JOINER = "; ";
 
     private final ReviewQuestionRepository reviewQuestionRepository;
     private final SpacedRepetitionRepository srRepository;
@@ -67,7 +77,13 @@ public class ReviewQuestionService {
 
     private record GenerationContext(
             UUID srItemId, UUID neuronId, String neuronTitle, String contentText,
-            int questionCount, String brainName, List<String> tags, String contentHash) {}
+            int questionCount, String brainName, List<String> tags, String contentHash,
+            boolean choiceQuestionsEnabled) {}
+
+    /** A generated question after type/choice normalization, ready to persist. */
+    private record NormalizedQuestion(
+            String questionText, String answerText, ReviewQuestionType questionType,
+            String choicesJson, String explanation, boolean researched) {}
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void generateQuestionsForItem(UUID srItemId) {
@@ -100,7 +116,8 @@ public class ReviewQuestionService {
 
             return new GenerationContext(
                     item.getId(), neuron.getId(), neuron.getTitle(), neuron.getContentText(),
-                    item.getQuestionCount(), brainName, tags, contentHash);
+                    item.getQuestionCount(), brainName, tags, contentHash,
+                    item.isChoiceQuestionsEnabled());
         });
 
         if (ctx == null) return;
@@ -109,7 +126,8 @@ public class ReviewQuestionService {
         Map<String, Object> response;
         try {
             response = intelligenceService.generateReviewQA(
-                    ctx.neuronTitle(), ctx.contentText(), ctx.questionCount(), ctx.brainName(), ctx.tags());
+                    ctx.neuronTitle(), ctx.contentText(), ctx.questionCount(), ctx.brainName(), ctx.tags(),
+                    ctx.choiceQuestionsEnabled());
         } catch (Exception e) {
             log.error("Failed to generate review Q&A for neuron {}: {}", ctx.neuronId(), e.getMessage());
             return;
@@ -133,6 +151,15 @@ public class ReviewQuestionService {
             return;
         }
 
+        List<NormalizedQuestion> normalized = items.stream()
+                .map(this::normalizeGeneratedItem)
+                .filter(Objects::nonNull)
+                .toList();
+        if (normalized.isEmpty()) {
+            log.warn("No usable questions generated for neuron {}", ctx.neuronId());
+            return;
+        }
+
         // Phase 3: Write results in a short transaction
         transactionTemplate.executeWithoutResult(status -> {
             reviewQuestionRepository.deleteBySrItemId(ctx.srItemId());
@@ -141,14 +168,17 @@ public class ReviewQuestionService {
             Neuron freshNeuron = neuronRepository.findById(ctx.neuronId()).orElse(null);
             if (freshItem == null || freshNeuron == null) return;
 
-            for (int i = 0; i < items.size(); i++) {
-                Map<String, Object> qa = items.get(i);
+            for (int i = 0; i < normalized.size(); i++) {
+                NormalizedQuestion qa = normalized.get(i);
                 ReviewQuestion question = new ReviewQuestion();
                 question.setSrItem(freshItem);
                 question.setNeuron(freshNeuron);
-                question.setQuestionText((String) qa.get("question"));
-                question.setAnswerText((String) qa.get("answer"));
+                question.setQuestionText(qa.questionText());
+                question.setAnswerText(qa.answerText());
                 question.setQuestionOrder(i);
+                question.setQuestionType(qa.questionType());
+                question.setChoices(qa.choicesJson());
+                question.setExplanation(qa.explanation());
                 question.setContentHash(ctx.contentHash());
                 question.setStatus(ReviewQuestionStatus.READY);
                 reviewQuestionRepository.save(question);
@@ -156,7 +186,7 @@ public class ReviewQuestionService {
         });
 
         log.info("Generated {} review questions for neuron {} (SR item {})",
-                items.size(), ctx.neuronId(), ctx.srItemId());
+                normalized.size(), ctx.neuronId(), ctx.srItemId());
     }
 
     @Transactional(readOnly = true)
@@ -221,7 +251,187 @@ public class ReviewQuestionService {
         }
     }
 
+
+    /**
+     * Turns one raw agent item into a persistable question.
+     *
+     * <p>The agent contract is {@code {question, answer, type?, choices?, correct_ids?, explanation?}}.
+     * Anything unrecognised or structurally invalid degrades to {@link ReviewQuestionType#FREE_TEXT}
+     * rather than being dropped, so a flaky agent response still yields a usable quiz and
+     * pre-choices rows keep their original meaning.
+     *
+     * @return null only when the item has no question or answer text at all
+     */
+    private NormalizedQuestion normalizeGeneratedItem(Map<String, Object> qa) {
+        String questionText = asText(qa.get("question"));
+        if (questionText == null || questionText.isBlank()) {
+            return null;
+        }
+        String answerText = asText(qa.get("answer"));
+        String explanation = asText(qa.get("explanation"));
+
+        // The agent sends snake_case "question_type"; "type" is accepted as a fallback.
+        Object rawType = qa.get("question_type") != null ? qa.get("question_type") : qa.get("type");
+        ReviewQuestionType requestedType = parseQuestionType(rawType);
+        List<ReviewChoice> options = requestedType == ReviewQuestionType.FREE_TEXT
+                ? List.of()
+                : extractChoices(qa);
+
+        if (options.size() < MIN_CHOICE_OPTIONS) {
+            return freeTextOrNull(questionText, answerText, explanation);
+        }
+
+        long correctCount = options.stream().filter(ReviewChoice::correct).count();
+        if (correctCount == 0 || correctCount == options.size()) {
+            // Nothing to discriminate between — unusable as a choice question.
+            log.debug("Choice question has {}/{} correct options; downgrading to free text",
+                    correctCount, options.size());
+            return freeTextOrNull(questionText, answerText, explanation);
+        }
+
+        // Trust the option flags over the declared type: they are what grading uses.
+        ReviewQuestionType type = correctCount == 1
+                ? ReviewQuestionType.SINGLE_CHOICE
+                : ReviewQuestionType.MULTI_CHOICE;
+
+        String derivedAnswer = options.stream()
+                .filter(ReviewChoice::correct)
+                .map(ReviewChoice::text)
+                .reduce((a, b) -> a + CORRECT_ANSWER_JOINER + b)
+                .orElse(answerText);
+
+        boolean researched = isTruthy(qa.get("researched"))
+                || options.stream().anyMatch(o -> o.sourceUrl() != null && !o.sourceUrl().isBlank());
+        return new NormalizedQuestion(questionText, derivedAnswer, type,
+                toChoicesJson(options, researched), explanation, researched);
+    }
+
+    /** answer_text is NOT NULL, so a question with no answer cannot be stored at all. */
+    private NormalizedQuestion freeTextOrNull(String questionText, String answerText, String explanation) {
+        if (answerText == null || answerText.isBlank()) {
+            return null;
+        }
+        return new NormalizedQuestion(questionText, answerText, ReviewQuestionType.FREE_TEXT, null, explanation, false);
+    }
+
+    private ReviewQuestionType parseQuestionType(Object raw) {
+        String value = asText(raw);
+        if (value == null || value.isBlank()) {
+            return ReviewQuestionType.FREE_TEXT;
+        }
+        try {
+            return ReviewQuestionType.valueOf(value.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            log.debug("Unknown review question type '{}', treating as free text", value);
+            return ReviewQuestionType.FREE_TEXT;
+        }
+    }
+
+    /**
+     * Reads the agent's option list. An option counts as correct when its own {@code correct}
+     * flag is set or its id appears in the item-level {@code correct_ids} list — the agent may
+     * use either shape.
+     */
+    private List<ReviewChoice> extractChoices(Map<String, Object> qa) {
+        Object raw = qa.get("choices");
+        if (!(raw instanceof List<?> rawOptions) || rawOptions.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> correctIds = new java.util.HashSet<>();
+        if (qa.get("correct_ids") instanceof List<?> ids) {
+            for (Object id : ids) {
+                String text = asText(id);
+                if (text != null) correctIds.add(text);
+            }
+        }
+
+        List<ReviewChoice> options = new ArrayList<>();
+        Set<String> seenIds = new java.util.HashSet<>();
+        for (Object element : rawOptions) {
+            if (!(element instanceof Map<?, ?> option)) continue;
+            String text = asText(option.get("text"));
+            if (text == null || text.isBlank()) continue;
+
+            String id = asText(option.get("id"));
+            if (id == null || id.isBlank() || !seenIds.add(id)) {
+                // Ids are what the client submits back, so they must exist and be unique.
+                id = "o" + (options.size() + 1);
+                seenIds.add(id);
+            }
+            boolean correct = isTruthy(option.get("correct")) || correctIds.contains(id);
+            options.add(new ReviewChoice(id, text, correct,
+                    asText(option.get("rationale")),
+                    asText(option.get("source_url")) != null
+                            ? asText(option.get("source_url"))
+                            : asText(option.get("sourceUrl"))));
+        }
+        return options;
+    }
+
+    private String toChoicesJson(List<ReviewChoice> options, boolean researched) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("version", CHOICES_PAYLOAD_VERSION);
+        // Provenance: whether web research actually backed these distractors. The UI badges
+        // it so a degraded (LLM-only) generation is visible rather than silent.
+        payload.put("researched", researched);
+        payload.put("options", options);
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize review question choices", e);
+        }
+    }
+
+    /** Parses stored choices back for the API. A bad row renders as free text instead of failing the queue. */
+    private List<ReviewChoice> parseChoicesJson(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            Map<String, Object> payload = objectMapper.readValue(json, new TypeReference<>() {});
+            Object options = payload.get("options");
+            if (options == null) return null;
+            return objectMapper.convertValue(options, new TypeReference<List<ReviewChoice>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse review question choices JSON", e);
+            return null;
+        }
+    }
+
+    private boolean isResearched(String json) {
+        if (json == null || json.isBlank()) return false;
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            return root.path("researched").asBoolean(false);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static String asText(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static boolean isTruthy(Object value) {
+        if (value instanceof Boolean b) return b;
+        return value != null && Boolean.parseBoolean(String.valueOf(value));
+    }
+
     private ReviewQuestionResponse toResponse(ReviewQuestion q) {
-        return new ReviewQuestionResponse(q.getId(), q.getQuestionText(), q.getAnswerText(), q.getQuestionOrder());
+        ReviewQuestionType type = q.getQuestionType() != null
+                ? q.getQuestionType()
+                : ReviewQuestionType.FREE_TEXT;
+        List<ReviewChoice> choices = type == ReviewQuestionType.FREE_TEXT
+                ? null
+                : parseChoicesJson(q.getChoices());
+        // An unparseable payload leaves nothing to select, so present it as free text.
+        if (type != ReviewQuestionType.FREE_TEXT && (choices == null || choices.isEmpty())) {
+            type = ReviewQuestionType.FREE_TEXT;
+            choices = null;
+        }
+        return new ReviewQuestionResponse(q.getId(), q.getQuestionText(), q.getAnswerText(),
+                q.getQuestionOrder(), type, choices, q.getExplanation(),
+                type != ReviewQuestionType.FREE_TEXT && isResearched(q.getChoices()));
     }
 }

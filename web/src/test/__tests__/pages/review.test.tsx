@@ -30,6 +30,7 @@ const makeSRItem = (overrides: Partial<SpacedRepetitionItem> = {}): SpacedRepeti
   hasQuestions: true,
   quizEligible: true,
   quizEnabled: true,
+  choiceQuestionsEnabled: true,
   ...overrides,
 });
 
@@ -167,5 +168,168 @@ describe('Review page — navigating to the neuron', () => {
     expect(screen.queryByTestId('sidebar-item-open-sr-1')).not.toBeInTheDocument();
     // Title still renders (sidebar row + heading), just unlinked.
     expect(screen.getAllByText('Test Neuron').length).toBeGreaterThan(0);
+  });
+});
+
+describe('Review page — multiple-choice quiz', () => {
+  const MC_QUESTIONS = [
+    {
+      id: 'q1',
+      questionText: 'Which algorithm needs non-negative weights?',
+      answerText: "Dijkstra's algorithm",
+      questionOrder: 0,
+      questionType: 'SINGLE_CHOICE',
+      researched: true,
+      explanation: 'Dijkstra settles vertices greedily.',
+      choices: [
+        { id: 'a', text: "Dijkstra's algorithm", correct: true, rationale: 'Greedy' },
+        { id: 'b', text: 'Bellman-Ford', correct: false, rationale: 'Allows negative edges', sourceUrl: 'https://example.com/bf' },
+        { id: 'c', text: 'Floyd-Warshall', correct: false },
+      ],
+    },
+    {
+      id: 'q2',
+      questionText: 'Which are ACID properties?',
+      answerText: 'Atomicity; Isolation',
+      questionOrder: 1,
+      questionType: 'MULTI_CHOICE',
+      choices: [
+        { id: 'a', text: 'Atomicity', correct: true },
+        { id: 'b', text: 'Isolation', correct: true },
+        { id: 'c', text: 'Elasticity', correct: false },
+      ],
+    },
+    // No questionType at all: a pre-choices row must still render a textarea.
+    {
+      id: 'q3',
+      questionText: 'Why are non-negative weights required?',
+      answerText: 'Because the greedy choice must stay valid.',
+      questionOrder: 2,
+    },
+  ];
+
+  const setupQuiz = (questions: unknown[] = MC_QUESTIONS) => {
+    const dueItem = makeSRItem({ hasQuestions: true, quizEligible: true, quizEnabled: true });
+    server.use(
+      http.get(`${API_BASE}/api/spaced-repetition/queue`, () => HttpResponse.json([dueItem])),
+      http.get(`${API_BASE}/api/spaced-repetition/items`, () => HttpResponse.json([dueItem])),
+      http.get(`${API_BASE}/api/neurons/neuron-1`, () =>
+        HttpResponse.json({ id: 'neuron-1', title: 'Test Neuron', contentJson: null })
+      ),
+      http.get(`${API_BASE}/api/spaced-repetition/items/:itemId/questions`, () =>
+        HttpResponse.json(questions)
+      )
+    );
+  };
+
+  const enterQuiz = async () => {
+    const ReviewPage = await importReviewPage();
+    render(<ReviewPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByTestId('mode-quiz')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('mode-quiz'));
+    await waitFor(() => expect(screen.getByTestId('quiz-questions')).toBeInTheDocument());
+  };
+
+  it('renders radios, checkboxes and a textarea for a mixed question set', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    expect(screen.getByTestId('choice-input-0-a')).toHaveAttribute('type', 'radio');
+    expect(screen.getByTestId('choice-input-1-a')).toHaveAttribute('type', 'checkbox');
+    // The untyped legacy question falls back to free text.
+    expect(screen.getByTestId('user-answer-2')).toBeInTheDocument();
+  });
+
+  it('scores an all-correct run and suggests the Easy rating', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('choice-input-0-a'));
+    fireEvent.click(screen.getByTestId('choice-input-1-a'));
+    fireEvent.click(screen.getByTestId('choice-input-1-b'));
+    fireEvent.click(screen.getByTestId('show-quiz-answers-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('quiz-score')).toBeInTheDocument());
+    expect(screen.getByTestId('quiz-score')).toHaveTextContent('2 / 2 correct');
+    expect(screen.getByTestId('quiz-score')).toHaveTextContent('1 self-assessed');
+    expect(screen.getByTestId('quality-5')).toHaveAttribute('data-suggested', 'true');
+  });
+
+  it('treats a partial multi-select as incorrect', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('choice-input-0-a'));
+    fireEvent.click(screen.getByTestId('choice-input-1-a')); // only one of two correct
+    fireEvent.click(screen.getByTestId('show-quiz-answers-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('choice-verdict-1')).toBeInTheDocument());
+    expect(screen.getByTestId('choice-verdict-0')).toHaveTextContent('Correct');
+    expect(screen.getByTestId('choice-verdict-1')).toHaveTextContent('Incorrect');
+    expect(screen.getByTestId('quiz-score')).toHaveTextContent('1 / 2 correct');
+  });
+
+  it('lets a multi-select option be deselected', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('choice-input-1-c'));
+    expect(screen.getByTestId('choice-input-1-c')).toBeChecked();
+    fireEvent.click(screen.getByTestId('choice-input-1-c'));
+    expect(screen.getByTestId('choice-input-1-c')).not.toBeChecked();
+  });
+
+  it('replaces the selection for single select', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('choice-input-0-a'));
+    fireEvent.click(screen.getByTestId('choice-input-0-b'));
+    expect(screen.getByTestId('choice-input-0-a')).not.toBeChecked();
+    expect(screen.getByTestId('choice-input-0-b')).toBeChecked();
+  });
+
+  it('reveals rationales, explanation and source links', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('show-quiz-answers-btn'));
+    await waitFor(() => expect(screen.getByTestId('choice-explanation-0')).toBeInTheDocument());
+
+    expect(screen.getByText('Allows negative edges')).toBeInTheDocument();
+    expect(screen.getByTestId('choice-source-0-b')).toHaveAttribute('href', 'https://example.com/bf');
+    expect(screen.getByTestId('choice-researched-0')).toBeInTheDocument();
+  });
+
+  it('suggests Again when everything is wrong', async () => {
+    setupQuiz();
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('choice-input-0-b'));
+    fireEvent.click(screen.getByTestId('choice-input-1-c'));
+    fireEvent.click(screen.getByTestId('show-quiz-answers-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('quiz-score')).toBeInTheDocument());
+    expect(screen.getByTestId('quiz-score')).toHaveTextContent('0 / 2 correct');
+    expect(screen.getByTestId('quality-1')).toHaveAttribute('data-suggested', 'true');
+  });
+
+  it('shows no score or suggestion for a free-text-only set', async () => {
+    setupQuiz([MC_QUESTIONS[2]]);
+    await enterQuiz();
+
+    fireEvent.click(screen.getByTestId('show-quiz-answers-btn'));
+    await waitFor(() => expect(screen.getByTestId('quality-buttons')).toBeInTheDocument());
+
+    expect(screen.queryByTestId('quiz-score')).not.toBeInTheDocument();
+    expect(screen.getByTestId('quality-5')).not.toHaveAttribute('data-suggested');
+  });
+
+  it('renders a choice-typed question with no options as free text', async () => {
+    setupQuiz([{ ...MC_QUESTIONS[0], choices: [] }]);
+    await enterQuiz();
+
+    expect(screen.queryByTestId('choice-question-0')).not.toBeInTheDocument();
+    expect(screen.getByTestId('user-answer-0')).toBeInTheDocument();
   });
 });
