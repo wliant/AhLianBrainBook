@@ -395,6 +395,7 @@ export const handlers = [
         hasQuestions: false,
         quizEligible: false,
         quizEnabled: true,
+        choiceQuestionsEnabled: true,
       },
       { status: 201 }
     )
@@ -407,6 +408,9 @@ export const handlers = [
   ),
   http.post(`${API_BASE}/api/spaced-repetition/items/:itemId/questions/regenerate`, () =>
     new HttpResponse(null, { status: 202 })
+  ),
+  http.patch(`${API_BASE}/api/spaced-repetition/items/:itemId/choice-questions-enabled`, () =>
+    new HttpResponse(null, { status: 200 })
   ),
 
   // Reminders (global)

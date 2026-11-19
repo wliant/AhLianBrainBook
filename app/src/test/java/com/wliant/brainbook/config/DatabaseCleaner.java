@@ -32,8 +32,14 @@ public class DatabaseCleaner {
         jdbcTemplate.execute("TRUNCATE TABLE tags CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE templates CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE thoughts CASCADE");
-        // Reset app_settings singleton to defaults (do NOT truncate — seeded by Flyway)
-        jdbcTemplate.execute("UPDATE app_settings SET display_name = 'user', max_reminders_per_neuron = 10, timezone = 'Asia/Singapore', ai_tools_enabled = false");
+        // app_settings is seeded by Flyway (V11), but it holds an FK to clusters
+        // (default_share_cluster_id, V36), so "TRUNCATE brains CASCADE" above now wipes it
+        // transitively. Re-seed it when that happens before resetting the defaults.
+        Integer settingsRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM app_settings", Integer.class);
+        if (settingsRows == null || settingsRows == 0) {
+            jdbcTemplate.execute("INSERT INTO app_settings (display_name) VALUES ('user')");
+        }
+        jdbcTemplate.execute("UPDATE app_settings SET display_name = 'user', max_reminders_per_neuron = 10, timezone = 'Asia/Singapore', ai_tools_enabled = false, default_share_cluster_id = NULL");
     }
 
     public void drainAsyncTasks() {

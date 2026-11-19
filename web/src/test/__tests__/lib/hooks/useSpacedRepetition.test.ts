@@ -26,6 +26,7 @@ const makeSRItem = (overrides: Partial<SpacedRepetitionItem> = {}): SpacedRepeti
   hasQuestions: false,
   quizEligible: false,
   quizEnabled: true,
+  choiceQuestionsEnabled: true,
   ...overrides,
 });
 

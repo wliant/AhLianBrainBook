@@ -403,6 +403,17 @@ export interface SpacedRepetitionItem {
   hasQuestions: boolean;
   quizEligible: boolean;
   quizEnabled: boolean;
+  choiceQuestionsEnabled: boolean;
+}
+
+export type ReviewQuestionType = "FREE_TEXT" | "SINGLE_CHOICE" | "MULTI_CHOICE";
+
+export interface ReviewChoice {
+  id: string;
+  text: string;
+  correct: boolean;
+  rationale?: string | null;
+  sourceUrl?: string | null;
 }
 
 export interface ReviewQuestion {
@@ -410,6 +421,11 @@ export interface ReviewQuestion {
   questionText: string;
   answerText: string;
   questionOrder: number;
+  // Optional so pre-choices payloads still satisfy the type.
+  questionType?: ReviewQuestionType;
+  choices?: ReviewChoice[] | null;
+  explanation?: string | null;
+  researched?: boolean;
 }
 
 export interface BrainExport {

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     temperature_topic_generator: float = 0.4
     temperature_topic_scorer: float = 0.1
     temperature_bullet_expander: float = 0.4
+    temperature_review_qa: float = 0.4
+    temperature_review_qa_choices: float = 0.3
 
     # Per-agent max tokens. Raised for adaptive thinking, which shares this budget
     # with the answer.
@@ -33,11 +35,15 @@ class Settings(BaseSettings):
     max_tokens_topic_generator: int = 16000
     max_tokens_topic_scorer: int = 8192
     max_tokens_bullet_expander: int = 8192
+    # 10 questions x 5 options x rationale, plus thinking, overflows the default.
+    max_tokens_review_qa: int = 16000
 
     # Reasoning effort on models that support it (low/medium/high/xhigh/max). This is the
     # cost lever that replaces temperature on Claude 5; "high" is the API default.
     effort_goal_generator: str = "low"
     effort_topic_scorer: str = "low"
+    effort_review_qa: str = "medium"
+    effort_review_qa_choices: str = "high"
 
 
 settings = Settings()

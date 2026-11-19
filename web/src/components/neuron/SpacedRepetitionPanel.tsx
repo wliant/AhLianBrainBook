@@ -28,6 +28,8 @@ export function SpacedRepetitionPanel({
   const [updatingCount, setUpdatingCount] = useState(false);
   const [quizEnabled, setQuizEnabled] = useState(true);
   const [updatingQuizEnabled, setUpdatingQuizEnabled] = useState(false);
+  const [choiceQuestionsEnabled, setChoiceQuestionsEnabled] = useState(true);
+  const [updatingChoiceQuestions, setUpdatingChoiceQuestions] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +43,7 @@ export function SpacedRepetitionPanel({
           setItem(data);
           setQuestionCount(data.questionCount);
           setQuizEnabled(data.quizEnabled);
+          setChoiceQuestionsEnabled(data.choiceQuestionsEnabled);
         }
       })
       .catch(() => {
@@ -181,6 +184,31 @@ export function SpacedRepetitionPanel({
                     </select>
                     {updatingCount && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Multiple choice</span>
+                    <button
+                      onClick={async () => {
+                        const newVal = !choiceQuestionsEnabled;
+                        setChoiceQuestionsEnabled(newVal);
+                        setUpdatingChoiceQuestions(true);
+                        try {
+                          const updated = await api.spacedRepetition.updateChoiceQuestionsEnabled(item.id, newVal);
+                          setItem(updated);
+                        } catch { setChoiceQuestionsEnabled(!newVal); }
+                        finally { setUpdatingChoiceQuestions(false); }
+                      }}
+                      disabled={updatingChoiceQuestions}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${choiceQuestionsEnabled ? "bg-purple-500" : "bg-muted"}`}
+                      data-testid="choice-questions-toggle"
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${choiceQuestionsEnabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {choiceQuestionsEnabled
+                      ? "Questions may be single- or multi-select, with researched wrong answers"
+                      : "Free-text recall only"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {item.hasQuestions ? "Questions ready for review" : item.quizEligible ? "Questions will be generated before next review" : "Content too short for quiz mode"}
                   </p>

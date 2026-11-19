@@ -460,6 +460,9 @@ Finds all references to the symbol at the given line/column.
 | TEMPERATURE_BULLET_EXPANDER | No                      | 0.4                        | LLM temperature for bullet expander   |
 | MAX_TOKENS_GOAL_GENERATOR | No                        | 4096                       | Max tokens for goal generator         |
 | MAX_TOKENS_TOPIC_GENERATOR | No                       | 16000                      | Max tokens for topic generator        |
+| MAX_TOKENS_REVIEW_QA      | No                        | 16000                      | Max tokens for review Q&A generator   |
+| EFFORT_REVIEW_QA          | No                        | medium                     | Effort for review question drafting   |
+| EFFORT_REVIEW_QA_CHOICES  | No                        | high                       | Effort for choice assembly            |
 | MAX_TOKENS_TOPIC_SCORER   | No                        | 4096                       | Max tokens for topic scorer           |
 | MAX_TOKENS_BULLET_EXPANDER | No                       | 2048                       | Max tokens for bullet expander        |
 

@@ -14,6 +14,9 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.wliant.brainbook.config.TimeProvider;
 
 import java.time.LocalDateTime;
@@ -50,6 +53,18 @@ public class ReviewQuestion {
 
     @Column(name = "question_order", nullable = false)
     private int questionOrder = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "question_type", nullable = false, length = 20)
+    private ReviewQuestionType questionType = ReviewQuestionType.FREE_TEXT;
+
+    /** Choice payload: {"version":1,"options":[{id,text,correct,rationale,sourceUrl}]}. Null for FREE_TEXT. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "choices", columnDefinition = "jsonb")
+    private String choices;
+
+    @Column(name = "explanation", columnDefinition = "TEXT")
+    private String explanation;
 
     @Column(name = "content_hash", length = 64)
     private String contentHash;
@@ -90,6 +105,12 @@ public class ReviewQuestion {
     public void setAnswerText(String answerText) { this.answerText = answerText; }
     public int getQuestionOrder() { return questionOrder; }
     public void setQuestionOrder(int questionOrder) { this.questionOrder = questionOrder; }
+    public ReviewQuestionType getQuestionType() { return questionType; }
+    public void setQuestionType(ReviewQuestionType questionType) { this.questionType = questionType; }
+    public String getChoices() { return choices; }
+    public void setChoices(String choices) { this.choices = choices; }
+    public String getExplanation() { return explanation; }
+    public void setExplanation(String explanation) { this.explanation = explanation; }
     public String getContentHash() { return contentHash; }
     public void setContentHash(String contentHash) { this.contentHash = contentHash; }
     public ReviewQuestionStatus getStatus() { return status; }

@@ -394,14 +394,18 @@ public class IntelligenceService {
     }
 
     public Map<String, Object> generateReviewQA(String neuronTitle, String contentText,
-                                                int questionCount, String brainName, List<String> tags) {
-        Map<String, Object> request = Map.of(
-                "neuron_title", neuronTitle != null ? neuronTitle : "Untitled",
-                "content_text", contentText != null ? contentText : "",
-                "question_count", questionCount,
-                "brain_name", brainName != null ? brainName : "",
-                "tags", tags != null ? tags : List.of()
-        );
+                                                int questionCount, String brainName, List<String> tags,
+                                                boolean allowChoiceQuestions) {
+        Map<String, Object> request = new HashMap<>();
+        request.put("neuron_title", neuronTitle != null ? neuronTitle : "Untitled");
+        request.put("content_text", contentText != null ? contentText : "");
+        request.put("question_count", questionCount);
+        request.put("brain_name", brainName != null ? brainName : "");
+        request.put("tags", tags != null ? tags : List.of());
+        request.put("allow_choice_questions", allowChoiceQuestions);
+        // Distractor research needs web search, which is gated by the same global toggle
+        // the section author uses. Off means LLM-only (easier, unverified) choices.
+        request.put("tools_enabled", settingsService.isAiToolsEnabled());
         return callAgent("/api/agents/review-qa-generator", request);
     }
 
