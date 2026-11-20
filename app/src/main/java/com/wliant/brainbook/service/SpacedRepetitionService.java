@@ -1,5 +1,6 @@
 package com.wliant.brainbook.service;
 
+import com.wliant.brainbook.config.TimeProvider;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Neuron;
@@ -142,18 +143,14 @@ public class SpacedRepetitionService {
     }
 
     public void updateQuizEnabled(UUID itemId, boolean quizEnabled) {
-        SpacedRepetitionItem item = srRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
-        item.setQuizEnabled(quizEnabled);
-        srRepository.save(item);
+        requireItem(itemId);
+        srRepository.updateQuizEnabled(itemId, quizEnabled, TimeProvider.now());
         log.info("Updated quiz enabled to {} for SR item {}", quizEnabled, itemId);
     }
 
     public void updateQuestionMode(UUID itemId, ReviewQuestionMode questionMode) {
-        SpacedRepetitionItem item = srRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
-        item.setQuestionMode(questionMode);
-        srRepository.save(item);
+        requireItem(itemId);
+        srRepository.updateQuestionMode(itemId, questionMode, TimeProvider.now());
         log.info("Updated question mode to {} for SR item {}", questionMode, itemId);
     }
 
@@ -162,11 +159,16 @@ public class SpacedRepetitionService {
             throw new IllegalArgumentException(
                     "Question count must be one of " + ALLOWED_QUESTION_COUNTS + ", got " + questionCount);
         }
-        SpacedRepetitionItem item = srRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
-        item.setQuestionCount(questionCount);
-        srRepository.save(item);
+        requireItem(itemId);
+        srRepository.updateQuestionCount(itemId, questionCount, TimeProvider.now());
         log.info("Updated question count to {} for SR item {}", questionCount, itemId);
+    }
+
+    /** Each quiz setting writes only its own column, so the 404 needs its own lookup. */
+    private void requireItem(UUID itemId) {
+        if (!srRepository.existsById(itemId)) {
+            throw new ResourceNotFoundException("Spaced repetition item not found");
+        }
     }
 
     private SpacedRepetitionItemResponse toResponse(SpacedRepetitionItem item) {

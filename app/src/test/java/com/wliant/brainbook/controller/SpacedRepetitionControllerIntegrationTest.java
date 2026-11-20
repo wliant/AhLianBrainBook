@@ -8,12 +8,13 @@ import com.wliant.brainbook.dto.CreateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
-import com.wliant.brainbook.dto.QuestionModeRequest;
-import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.dto.QuestionCountRequest;
+import com.wliant.brainbook.dto.QuestionModeRequest;
+import com.wliant.brainbook.dto.QuizEnabledRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionReviewRequest;
+import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.model.ReviewQuestionType;
 import com.wliant.brainbook.service.ReviewQuestionAsyncService;
 import io.minio.MinioClient;
@@ -373,6 +374,33 @@ class SpacedRepetitionControllerIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().questionMode()).isEqualTo(ReviewQuestionMode.CHOICE_ONLY);
+    }
+
+    @Test
+    void quizSettings_doNotOverwriteEachOther() {
+        // The panel fires these two PATCHes back to back. Writing the whole row back would
+        // make the second request restore the first's pre-change value.
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/question-mode", HttpMethod.PATCH,
+                new HttpEntity<>(new QuestionModeRequest(ReviewQuestionMode.CHOICE_ONLY)),
+                SpacedRepetitionItemResponse.class, item.id());
+        restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/question-count", HttpMethod.PATCH,
+                new HttpEntity<>(new QuestionCountRequest(20)),
+                SpacedRepetitionItemResponse.class, item.id());
+        restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/quiz-enabled", HttpMethod.PATCH,
+                new HttpEntity<>(new QuizEnabledRequest(false)),
+                SpacedRepetitionItemResponse.class, item.id());
+
+        ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.getForEntity(
+                "/api/spaced-repetition/items/{neuronId}", SpacedRepetitionItemResponse.class, neuronId);
+
+        assertThat(response.getBody().questionMode()).isEqualTo(ReviewQuestionMode.CHOICE_ONLY);
+        assertThat(response.getBody().questionCount()).isEqualTo(20);
+        assertThat(response.getBody().quizEnabled()).isFalse();
     }
 
     @Test

@@ -209,12 +209,15 @@ class TestSpacedRepetitionBrowser:
         page.get_by_test_id("question-count-select").select_option("20")
 
         # The backend is the source of truth, so confirm there before reloading.
-        def saved() -> bool:
+        # Both selects PATCH independently, so poll rather than assume one deadline.
+        stored = None
+        for _ in range(20):
             stored = api.get_sr_item(neuron["id"])
-            return stored["questionMode"] == "CHOICE_ONLY" and stored["questionCount"] == 20
-
-        page.wait_for_timeout(1000)
-        assert saved(), "quiz settings were not persisted"
+            if stored["questionMode"] == "CHOICE_ONLY" and stored["questionCount"] == 20:
+                break
+            page.wait_for_timeout(500)
+        assert stored["questionMode"] == "CHOICE_ONLY", stored
+        assert stored["questionCount"] == 20, stored
 
         navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
         open_sr_panel(page)
