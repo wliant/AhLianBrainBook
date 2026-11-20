@@ -463,6 +463,23 @@ class BrainBookAPI:
         r.raise_for_status()
         return r.json()
 
+    def set_sr_question_mode(self, item_id: str, question_mode: str) -> dict:
+        """question_mode is FREE_TEXT, MIXED or CHOICE_ONLY."""
+        r = self.client.patch(
+            f"/api/spaced-repetition/items/{item_id}/question-mode",
+            json={"questionMode": question_mode},
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def set_sr_question_count(self, item_id: str, question_count: int) -> dict:
+        r = self.client.patch(
+            f"/api/spaced-repetition/items/{item_id}/question-count",
+            json={"questionCount": question_count},
+        )
+        r.raise_for_status()
+        return r.json()
+
     def submit_sr_review(self, item_id: str, quality: int) -> dict:
         r = self.client.post(
             f"/api/spaced-repetition/items/{item_id}/review",

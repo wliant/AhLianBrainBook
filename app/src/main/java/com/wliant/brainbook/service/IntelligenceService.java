@@ -8,6 +8,7 @@ import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Brain;
 import com.wliant.brainbook.model.Cluster;
 import com.wliant.brainbook.model.Neuron;
+import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.repository.BrainRepository;
 import com.wliant.brainbook.repository.ClusterRepository;
 import com.wliant.brainbook.repository.NeuronRepository;
@@ -395,14 +396,14 @@ public class IntelligenceService {
 
     public Map<String, Object> generateReviewQA(String neuronTitle, String contentText,
                                                 int questionCount, String brainName, List<String> tags,
-                                                boolean allowChoiceQuestions) {
+                                                ReviewQuestionMode questionMode) {
         Map<String, Object> request = new HashMap<>();
         request.put("neuron_title", neuronTitle != null ? neuronTitle : "Untitled");
         request.put("content_text", contentText != null ? contentText : "");
         request.put("question_count", questionCount);
         request.put("brain_name", brainName != null ? brainName : "");
         request.put("tags", tags != null ? tags : List.of());
-        request.put("allow_choice_questions", allowChoiceQuestions);
+        request.put("question_mode", questionMode.name().toLowerCase(java.util.Locale.ROOT));
         // Distractor research needs web search, which is gated by the same global toggle
         // the section author uses. Off means LLM-only (easier, unverified) choices.
         request.put("tools_enabled", settingsService.isAiToolsEnabled());

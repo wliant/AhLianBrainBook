@@ -9,6 +9,7 @@ import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.config.TestDataFactory;
 import com.wliant.brainbook.model.Neuron;
+import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.model.ReviewQuestionType;
 import com.wliant.brainbook.repository.NeuronRepository;
 import io.minio.MinioClient;
@@ -27,7 +28,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -137,7 +137,7 @@ class ReviewQuestionServiceTest {
 
     @Test
     void generateQuestionsForItem_createsQuestions() {
-        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), anyBoolean()))
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), any()))
                 .thenReturn(Map.of(
                         "items", List.of(
                                 Map.of("question", "What is DI?", "answer", "Dependency injection is..."),
@@ -175,7 +175,7 @@ class ReviewQuestionServiceTest {
 
     @Test
     void hasReadyQuestions_returnsTrueAfterGeneration() {
-        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), anyBoolean()))
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), any()))
                 .thenReturn(Map.of(
                         "items", List.of(
                                 Map.of("question", "Q1?", "answer", "A1")
@@ -225,7 +225,7 @@ class ReviewQuestionServiceTest {
     }
 
     private void stub(List<Map<String, Object>> items) {
-        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), anyBoolean()))
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), any()))
                 .thenReturn(Map.of("items", items));
     }
 
@@ -401,20 +401,47 @@ class ReviewQuestionServiceTest {
     }
 
     @Test
-    void generateQuestionsForItem_forwardsTheChoiceQuestionsFlag() {
+    void generateQuestionsForItem_forwardsTheQuestionMode() {
         stub(List.of(choiceItem("single_choice", fourOptions())));
         SpacedRepetitionItemResponse srItem = srService.addItem(neuronId);
-        srService.updateChoiceQuestionsEnabled(srItem.id(), false);
+        srService.updateQuestionMode(srItem.id(), ReviewQuestionMode.FREE_TEXT);
 
         reviewQuestionService.generateQuestionsForItem(srItem.id());
 
         verify(intelligenceService).generateReviewQA(
-                anyString(), anyString(), anyInt(), anyString(), any(), eq(false));
+                anyString(), anyString(), anyInt(), anyString(), any(),
+                eq(ReviewQuestionMode.FREE_TEXT));
+    }
+
+    @Test
+    void generateQuestionsForItem_dropsFreeTextInChoiceOnlyMode() {
+        stub(List.of(
+                choiceItem("single_choice", fourOptions()),
+                Map.of("question", "Why non-negative?", "answer", "The greedy choice must stay valid.")));
+        SpacedRepetitionItemResponse srItem = srService.addItem(neuronId);
+        srService.updateQuestionMode(srItem.id(), ReviewQuestionMode.CHOICE_ONLY);
+
+        reviewQuestionService.generateQuestionsForItem(srItem.id());
+
+        assertThat(reviewQuestionService.getQuestionsForItem(srItem.id()))
+                .extracting(ReviewQuestionResponse::questionType)
+                .containsExactly(ReviewQuestionType.SINGLE_CHOICE);
+    }
+
+    @Test
+    void generateQuestionsForItem_storesNothingWhenChoiceOnlyLeavesNoQuestions() {
+        stub(List.of(Map.of("question", "Why non-negative?", "answer", "Greedy choice.")));
+        SpacedRepetitionItemResponse srItem = srService.addItem(neuronId);
+        srService.updateQuestionMode(srItem.id(), ReviewQuestionMode.CHOICE_ONLY);
+
+        reviewQuestionService.generateQuestionsForItem(srItem.id());
+
+        assertThat(reviewQuestionService.hasReadyQuestions(srItem.id())).isFalse();
     }
 
     @Test
     void markStaleByNeuron_marksQuestionsAsStale() {
-        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), anyBoolean()))
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), any()))
                 .thenReturn(Map.of(
                         "items", List.of(
                                 Map.of("question", "Q1?", "answer", "A1")
@@ -435,7 +462,7 @@ class ReviewQuestionServiceTest {
 
     @Test
     void generateQuestionsForItem_skipsWhenContentUnchangedAndReadyExists() {
-        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), anyBoolean()))
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), any()))
                 .thenReturn(Map.of("items", List.of(Map.of("question", "Original Q?", "answer", "Original A"))))
                 .thenReturn(Map.of("items", List.of(Map.of("question", "Fresh Q?", "answer", "Fresh A"))));
 
@@ -452,7 +479,7 @@ class ReviewQuestionServiceTest {
 
     @Test
     void regenerate_replacesQuestionsEvenWhenContentUnchanged() {
-        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), anyBoolean()))
+        when(intelligenceService.generateReviewQA(anyString(), anyString(), anyInt(), anyString(), any(), any()))
                 .thenReturn(Map.of("items", List.of(Map.of("question", "Original Q?", "answer", "Original A"))))
                 .thenReturn(Map.of("items", List.of(
                         Map.of("question", "Fresh Q1?", "answer", "Fresh A1"),

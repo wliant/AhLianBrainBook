@@ -403,8 +403,14 @@ export interface SpacedRepetitionItem {
   hasQuestions: boolean;
   quizEligible: boolean;
   quizEnabled: boolean;
-  choiceQuestionsEnabled: boolean;
+  questionMode: ReviewQuestionMode;
 }
+
+/** Which question formats a quiz may contain. */
+export type ReviewQuestionMode = "FREE_TEXT" | "MIXED" | "CHOICE_ONLY";
+
+/** The question counts the review settings offer. */
+export const QUESTION_COUNT_OPTIONS = [5, 10, 20, 50] as const;
 
 export type ReviewQuestionType = "FREE_TEXT" | "SINGLE_CHOICE" | "MULTI_CHOICE";
 

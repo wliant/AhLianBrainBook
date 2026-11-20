@@ -347,10 +347,10 @@ export const api = {
         method: "PATCH",
         body: { quizEnabled },
       }),
-    updateChoiceQuestionsEnabled: (itemId: string, choiceQuestionsEnabled: boolean) =>
-      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${itemId}/choice-questions-enabled`, {
+    updateQuestionMode: (itemId: string, questionMode: import("@/types").ReviewQuestionMode) =>
+      request<import("@/types").SpacedRepetitionItem>(`/api/spaced-repetition/items/${itemId}/question-mode`, {
         method: "PATCH",
-        body: { choiceQuestionsEnabled },
+        body: { questionMode },
       }),
   },
 

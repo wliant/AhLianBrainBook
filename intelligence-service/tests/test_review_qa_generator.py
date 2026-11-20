@@ -124,7 +124,7 @@ MOCK_CHOICE_RESPONSE = ReviewQAResponse(
 
 
 def test_request_defaults_for_choice_fields(client):
-    """Callers that omit the new fields get choices on and research off."""
+    """Callers that omit the new fields get mixed formats and research off."""
     with patch(
         "src.agents.review_qa_generator.invoke_review_qa_generator",
         new_callable=AsyncMock,
@@ -138,7 +138,7 @@ def test_request_defaults_for_choice_fields(client):
 
     assert response.status_code == 200
     request_arg = mock_fn.call_args[0][0]
-    assert request_arg.allow_choice_questions is True
+    assert request_arg.question_mode == "mixed"
     assert request_arg.tools_enabled is False
     assert request_arg.question_count == 5
 
@@ -155,7 +155,7 @@ def test_choice_fields_are_forwarded(client):
                 json={
                     "neuron_title": "DI",
                     "content_text": "...",
-                    "allow_choice_questions": True,
+                    "question_mode": "choice_only",
                     "tools_enabled": True,
                 },
             )
@@ -163,6 +163,7 @@ def test_choice_fields_are_forwarded(client):
     assert response.status_code == 200
     request_arg = mock_fn.call_args[0][0]
     assert request_arg.tools_enabled is True
+    assert request_arg.question_mode == "choice_only"
 
 
 def test_choice_question_serializes_nested_options(client):

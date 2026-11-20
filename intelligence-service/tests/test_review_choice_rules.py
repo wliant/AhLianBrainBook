@@ -192,3 +192,20 @@ class TestFinalizeItems:
             for item in result
         }
         assert len(positions) > 1
+
+
+class TestChoiceOnlyMode:
+    def test_drops_items_that_downgrade_to_free_text(self):
+        items = [_item(_good_single()), {"question": "Why?", "answer": "Because.",
+                                          "question_type": "free_text"}]
+        result = finalize_items(items, 5, random.Random(7), choice_only=True)
+        assert [r["question_type"] for r in result] == ["single_choice"]
+
+    def test_drops_a_choice_item_that_fails_validation(self):
+        bad = _item(_good_single())
+        bad["choices"] = bad["choices"][:1]  # too few options to validate
+        assert finalize_items([bad], 5, random.Random(7), choice_only=True) == []
+
+    def test_keeps_free_text_when_not_choice_only(self):
+        items = [{"question": "Why?", "answer": "Because.", "question_type": "free_text"}]
+        assert len(finalize_items(items, 5, random.Random(7))) == 1

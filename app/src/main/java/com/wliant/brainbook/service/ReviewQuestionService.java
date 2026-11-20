@@ -9,6 +9,7 @@ import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Neuron;
 import com.wliant.brainbook.model.ReviewQuestion;
+import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.model.ReviewQuestionStatus;
 import com.wliant.brainbook.model.ReviewQuestionType;
 import com.wliant.brainbook.model.SpacedRepetitionItem;
@@ -78,7 +79,7 @@ public class ReviewQuestionService {
     private record GenerationContext(
             UUID srItemId, UUID neuronId, String neuronTitle, String contentText,
             int questionCount, String brainName, List<String> tags, String contentHash,
-            boolean choiceQuestionsEnabled) {}
+            ReviewQuestionMode questionMode) {}
 
     /** A generated question after type/choice normalization, ready to persist. */
     private record NormalizedQuestion(
@@ -117,7 +118,7 @@ public class ReviewQuestionService {
             return new GenerationContext(
                     item.getId(), neuron.getId(), neuron.getTitle(), neuron.getContentText(),
                     item.getQuestionCount(), brainName, tags, contentHash,
-                    item.isChoiceQuestionsEnabled());
+                    item.getQuestionMode());
         });
 
         if (ctx == null) return;
@@ -127,7 +128,7 @@ public class ReviewQuestionService {
         try {
             response = intelligenceService.generateReviewQA(
                     ctx.neuronTitle(), ctx.contentText(), ctx.questionCount(), ctx.brainName(), ctx.tags(),
-                    ctx.choiceQuestionsEnabled());
+                    ctx.questionMode());
         } catch (Exception e) {
             log.error("Failed to generate review Q&A for neuron {}: {}", ctx.neuronId(), e.getMessage());
             return;
@@ -151,9 +152,14 @@ public class ReviewQuestionService {
             return;
         }
 
+        // CHOICE_ONLY asked for multiple choice and nothing else. The agent already drops
+        // what it cannot turn into options; this is the backstop that makes the stored set
+        // match the mode even when a question degrades during normalization.
         List<NormalizedQuestion> normalized = items.stream()
                 .map(this::normalizeGeneratedItem)
                 .filter(Objects::nonNull)
+                .filter(q -> ctx.questionMode() != ReviewQuestionMode.CHOICE_ONLY
+                        || q.questionType() != ReviewQuestionType.FREE_TEXT)
                 .toList();
         if (normalized.isEmpty()) {
             log.warn("No usable questions generated for neuron {}", ctx.neuronId());

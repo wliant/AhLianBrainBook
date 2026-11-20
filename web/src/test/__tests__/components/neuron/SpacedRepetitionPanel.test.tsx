@@ -24,6 +24,7 @@ const makeSRItem = (overrides: Record<string, unknown> = {}) => ({
   hasQuestions: false,
   quizEligible: false,
   quizEnabled: true,
+  questionMode: 'MIXED',
   ...overrides,
 });
 
@@ -164,6 +165,46 @@ describe('SpacedRepetitionPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Now')).toBeInTheDocument();
     });
+  });
+
+  it('offers the three question formats and persists a change', async () => {
+    const patched: string[] = [];
+    server.use(
+      http.get(`${API_BASE}/api/spaced-repetition/items/:neuronId`, () =>
+        HttpResponse.json(makeSRItem())
+      ),
+      http.patch(`${API_BASE}/api/spaced-repetition/items/:itemId/question-mode`, async ({ request }) => {
+        const body = (await request.json()) as { questionMode: string };
+        patched.push(body.questionMode);
+        return HttpResponse.json(makeSRItem({ questionMode: body.questionMode }));
+      })
+    );
+
+    render(<SpacedRepetitionPanel {...defaultProps} />);
+
+    const select = await screen.findByTestId('question-mode-select');
+    expect((select as HTMLSelectElement).value).toBe('MIXED');
+    expect(screen.getByRole('option', { name: 'Multiple choice only' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Free text only' })).toBeInTheDocument();
+
+    await userEvent.selectOptions(select, 'CHOICE_ONLY');
+
+    await waitFor(() => expect(patched).toEqual(['CHOICE_ONLY']));
+    expect(screen.getByText(/Every question is single- or multi-select/)).toBeInTheDocument();
+  });
+
+  it('offers only 5, 10, 20 and 50 questions', async () => {
+    server.use(
+      http.get(`${API_BASE}/api/spaced-repetition/items/:neuronId`, () =>
+        HttpResponse.json(makeSRItem())
+      )
+    );
+
+    render(<SpacedRepetitionPanel {...defaultProps} />);
+
+    const select = await screen.findByTestId('question-count-select');
+    const values = Array.from(select.querySelectorAll('option')).map((o) => o.value);
+    expect(values).toEqual(['5', '10', '20', '50']);
   });
 
   it('shows "Never" when lastReviewedAt is null', async () => {
