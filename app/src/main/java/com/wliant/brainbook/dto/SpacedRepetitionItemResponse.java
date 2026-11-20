@@ -1,5 +1,7 @@
 package com.wliant.brainbook.dto;
 
+import com.wliant.brainbook.model.ReviewQuestionMode;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -19,6 +21,6 @@ public record SpacedRepetitionItemResponse(
         boolean hasQuestions,
         boolean quizEligible,
         boolean quizEnabled,
-        boolean choiceQuestionsEnabled
+        ReviewQuestionMode questionMode
 ) {
 }

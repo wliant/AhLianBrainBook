@@ -3,6 +3,7 @@ package com.wliant.brainbook.service;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
 import com.wliant.brainbook.exception.ResourceNotFoundException;
 import com.wliant.brainbook.model.Neuron;
+import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.model.SpacedRepetitionItem;
 import com.wliant.brainbook.repository.NeuronRepository;
 import com.wliant.brainbook.repository.SpacedRepetitionRepository;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -21,6 +23,8 @@ import java.util.UUID;
 public class SpacedRepetitionService {
 
     private static final Logger log = LoggerFactory.getLogger(SpacedRepetitionService.class);
+    /** The counts the UI offers. Anything else is a client bug, not a user choice. */
+    static final Set<Integer> ALLOWED_QUESTION_COUNTS = Set.of(5, 10, 20, 50);
 
     private final SpacedRepetitionRepository srRepository;
     private final NeuronRepository neuronRepository;
@@ -145,15 +149,19 @@ public class SpacedRepetitionService {
         log.info("Updated quiz enabled to {} for SR item {}", quizEnabled, itemId);
     }
 
-    public void updateChoiceQuestionsEnabled(UUID itemId, boolean choiceQuestionsEnabled) {
+    public void updateQuestionMode(UUID itemId, ReviewQuestionMode questionMode) {
         SpacedRepetitionItem item = srRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
-        item.setChoiceQuestionsEnabled(choiceQuestionsEnabled);
+        item.setQuestionMode(questionMode);
         srRepository.save(item);
-        log.info("Updated choice questions enabled to {} for SR item {}", choiceQuestionsEnabled, itemId);
+        log.info("Updated question mode to {} for SR item {}", questionMode, itemId);
     }
 
     public void updateQuestionCount(UUID itemId, int questionCount) {
+        if (!ALLOWED_QUESTION_COUNTS.contains(questionCount)) {
+            throw new IllegalArgumentException(
+                    "Question count must be one of " + ALLOWED_QUESTION_COUNTS + ", got " + questionCount);
+        }
         SpacedRepetitionItem item = srRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Spaced repetition item not found"));
         item.setQuestionCount(questionCount);
@@ -180,7 +188,7 @@ public class SpacedRepetitionService {
                 hasQuestions,
                 quizEligible,
                 item.isQuizEnabled(),
-                item.isChoiceQuestionsEnabled()
+                item.getQuestionMode()
         );
     }
 }

@@ -95,12 +95,16 @@ def reset_graph_cache():
     _reset_graphs()
 
 
+def _free_text(question):
+    return {"question": question, "answer": "A", "question_type": "free_text",
+            "choices": [], "explanation": "", "researched": False}
+
+
 def _request(**kw):
     return ReviewQARequest(
         neuron_title="Shortest paths",
         content_text="Dijkstra's algorithm computes single-source shortest paths. " * 5,
-        question_count=5,
-        **kw,
+        **{"question_count": 5, **kw},
     )
 
 
@@ -210,14 +214,207 @@ class TestChoicesDisabled:
         ]}
         llm = _llm_returning(legacy)
         with patch.object(agent, "get_llm", return_value=llm):
+            # question_count matches the stub's output so no top-up round is triggered.
             result = await agent.invoke_review_qa_generator(
-                _request(tools_enabled=True, allow_choice_questions=False))
+                _request(tools_enabled=True, question_mode="free_text", question_count=2))
 
         assert result.error is None
         assert all(i.question_type == "free_text" for i in result.items)
         assert all(i.choices == [] for i in result.items)
         # Only the draft call happened — no assembly round trip.
         assert llm.invoke.call_count == 1
+
+
+class TestChoiceOnly:
+    """question_mode="choice_only" — free-text questions must not survive."""
+
+    @pytest.mark.asyncio
+    async def test_drops_free_text_from_the_assembled_set(self):
+        # ASSEMBLED carries one choice question and one free-text question.
+        with patch.object(agent, "get_llm", return_value=_llm_returning(DRAFT, ASSEMBLED)):
+            result = await agent.invoke_review_qa_generator(
+                _request(tools_enabled=False, question_mode="choice_only"))
+
+        assert result.error is None
+        assert [i.question_type for i in result.items] == ["single_choice"]
+
+    @pytest.mark.asyncio
+    async def test_draft_prompt_over_generates_and_forbids_free_text(self):
+        llm = _llm_returning(DRAFT, ASSEMBLED)
+        with patch.object(agent, "get_llm", return_value=llm):
+            await agent.invoke_review_qa_generator(
+                _request(tools_enabled=False, question_mode="choice_only"))
+
+        prompt = llm.invoke.call_args_list[0][0][0][0].content
+        # 5 requested, over-drafted by CHOICE_ONLY_OVERDRAFT to absorb rejections.
+        assert "Number of questions to generate: 7" in prompt
+        assert "Do NOT use free_text" in prompt
+
+    @pytest.mark.asyncio
+    async def test_assembly_failure_yields_nothing_rather_than_free_text(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            MagicMock(content=json.dumps(DRAFT)),
+            MagicMock(content="garbage"),
+        ]
+        with patch.object(agent, "get_llm", return_value=llm):
+            result = await agent.invoke_review_qa_generator(
+                _request(question_mode="choice_only"))
+
+        assert result.items == []
+        assert result.error
+
+
+class TestBatching:
+    @pytest.mark.asyncio
+    async def test_counts_up_to_a_batch_run_once(self):
+        llm = _llm_returning(DRAFT, ASSEMBLED)
+        with patch.object(agent, "get_llm", return_value=llm):
+            # The stub yields 2 questions; asking for 2 keeps this to a single round.
+            result = await agent.invoke_review_qa_generator(_request(question_count=2))
+
+        assert result.error is None
+        # Draft + assemble, once — no batching overhead for small counts.
+        assert llm.invoke.call_count == 2
+
+    def test_split_batches_spreads_evenly(self):
+        assert agent._split_batches(5) == [5]
+        assert agent._split_batches(10) == [10]
+        assert agent._split_batches(20) == [10, 10]
+        assert agent._split_batches(50) == [10, 10, 10, 10, 10]
+        # 25 would otherwise leave a 5-question runt.
+        assert agent._split_batches(25) == [9, 8, 8]
+
+    @pytest.mark.asyncio
+    async def test_large_count_runs_one_graph_pass_per_batch(self):
+        calls = []
+
+        async def fake_ainvoke(state):
+            calls.append(state)
+            index = state["batch_index"]
+            return {"items": [
+                {"question": f"Q{index}-{n}", "answer": "A",
+                 "question_type": "free_text", "choices": [], "explanation": "",
+                 "researched": False}
+                for n in range(state["question_count"])
+            ], "error": None}
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        with patch.object(agent, "_get_graph", return_value=graph):
+            result = await agent.invoke_review_qa_generator(_request(question_count=20))
+
+        assert [c["batch_index"] for c in calls] == [0, 1]
+        assert all(c["batch_total"] == 2 for c in calls)
+        assert len(result.items) == 20
+
+    @pytest.mark.asyncio
+    async def test_merge_drops_questions_repeated_across_batches(self):
+        async def fake_ainvoke(state):
+            # Both batches return the same two questions.
+            return {"items": [
+                {"question": "What is Dijkstra for?", "answer": "Shortest paths",
+                 "question_type": "free_text", "choices": [], "explanation": "",
+                 "researched": False},
+                {"question": "What is Dijkstra for?!", "answer": "Shortest paths",
+                 "question_type": "free_text", "choices": [], "explanation": "",
+                 "researched": False},
+            ], "error": None}
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        with patch.object(agent, "_get_graph", return_value=graph):
+            result = await agent.invoke_review_qa_generator(_request(question_count=20))
+
+        # Punctuation-only variants normalize to the same key.
+        assert len(result.items) == 1
+
+    @pytest.mark.asyncio
+    async def test_one_failed_batch_still_returns_the_others(self):
+        async def fake_ainvoke(state):
+            if state["batch_index"] == 0:
+                raise RuntimeError("provider exploded")
+            return {"items": [
+                {"question": "Survivor", "answer": "A", "question_type": "free_text",
+                 "choices": [], "explanation": "", "researched": False}
+            ], "error": None}
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        with patch.object(agent, "_get_graph", return_value=graph):
+            result = await agent.invoke_review_qa_generator(_request(question_count=20))
+
+        assert result.error is None
+        assert [i.question for i in result.items] == ["Survivor"]
+
+    @pytest.mark.asyncio
+    async def test_all_batches_failing_is_an_error(self):
+        async def fake_ainvoke(state):
+            raise RuntimeError("provider exploded")
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        with patch.object(agent, "_get_graph", return_value=graph):
+            result = await agent.invoke_review_qa_generator(_request(question_count=20))
+
+        assert result.items == []
+        assert "provider exploded" in result.error
+
+
+class TestTopUp:
+    """A short round is refilled once, with the questions already held excluded."""
+
+    @pytest.mark.asyncio
+    async def test_refills_a_shortfall_and_passes_an_avoid_list(self):
+        rounds = []
+
+        async def fake_ainvoke(state):
+            rounds.append(state)
+            # First round yields 6 of the 10 asked for; the top-up supplies the rest.
+            if not state["avoid_questions"]:
+                return {"items": [_free_text(f"First {n}") for n in range(3)], "error": None}
+            return {"items": [_free_text(f"Second {n}") for n in range(2)], "error": None}
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        with patch.object(agent, "_get_graph", return_value=graph):
+            result = await agent.invoke_review_qa_generator(_request(question_count=10))
+
+        assert len(rounds) == 2
+        assert sorted(rounds[1]["avoid_questions"]) == ["First 0", "First 1", "First 2"]
+        assert len(result.items) == 5
+
+    @pytest.mark.asyncio
+    async def test_does_not_top_up_when_only_one_question_is_missing(self):
+        async def fake_ainvoke(state):
+            return {"items": [_free_text(f"Q{n}") for n in range(9)], "error": None}
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        calls = []
+        with patch.object(agent, "_get_graph", return_value=graph):
+            graph.ainvoke = lambda state: (calls.append(state), fake_ainvoke(state))[1]
+            result = await agent.invoke_review_qa_generator(_request(question_count=10))
+
+        assert len(calls) == 1
+        assert len(result.items) == 9
+
+    @pytest.mark.asyncio
+    async def test_tops_up_only_once(self):
+        calls = []
+
+        async def fake_ainvoke(state):
+            calls.append(state)
+            return {"items": [_free_text("Only one")], "error": None}
+
+        graph = MagicMock()
+        graph.ainvoke = fake_ainvoke
+        with patch.object(agent, "_get_graph", return_value=graph):
+            result = await agent.invoke_review_qa_generator(_request(question_count=10))
+
+        # One initial round plus exactly one top-up, despite still being short.
+        assert len(calls) == 2
+        assert len(result.items) == 1
 
 
 class TestFailureModes:

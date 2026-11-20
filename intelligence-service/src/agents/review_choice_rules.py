@@ -23,6 +23,13 @@ SIMILARITY_LIMIT = 0.9
 LENGTH_SPREAD_LIMIT = 2.5
 # The classic giveaway: the correct option is the most elaborate one.
 CORRECT_LENGTH_LIMIT = 1.4
+# Length and containment cues only mean something for prose options. Terse ones —
+# complexity classes, dates, version numbers, bare names — legitimately share tokens
+# ("O(V log V)" inside "O(E + V log V)") and vary in length without giving anything away,
+# so those two checks are skipped once every option is this short.
+TERSE_OPTION_LIMIT = 40
+# Below this many words an option is a term or formula, not a paraphrase of another.
+CONTAINMENT_MIN_WORDS = 4
 
 BANNED_PATTERNS = [
     re.compile(r"\ball\s+of\s+the\s+above\b", re.I),
@@ -62,19 +69,23 @@ def _option_problems(options: list[dict]) -> str | None:
             if pattern.search(t):
                 return "banned phrase"
 
+    lengths = [len(t) for t in texts]
+    terse = max(lengths) < TERSE_OPTION_LIMIT
+
     normalized = [normalize(t) for t in texts]
     for i in range(len(normalized)):
         for j in range(i + 1, len(normalized)):
             a, b = normalized[i], normalized[j]
             if a == b:
                 return "duplicate options"
-            if a and b and (a in b or b in a):
-                return "option contains another"
+            if a and b and (a in b or b in a) and not terse:
+                shorter = min(len(a.split()), len(b.split()))
+                if shorter >= CONTAINMENT_MIN_WORDS:
+                    return "option contains another"
             if difflib.SequenceMatcher(None, a, b).ratio() > SIMILARITY_LIMIT:
                 return "near-duplicate options"
 
-    lengths = [len(t) for t in texts]
-    if min(lengths) > 0 and max(lengths) / min(lengths) > LENGTH_SPREAD_LIMIT:
+    if not terse and min(lengths) > 0 and max(lengths) / min(lengths) > LENGTH_SPREAD_LIMIT:
         return "option lengths too uneven"
 
     correct_lengths = [len(t) for t, o in zip(texts, options) if o.get("correct")]
@@ -158,14 +169,28 @@ def validate_item(item: dict, rng: random.Random) -> dict:
     }
 
 
-def finalize_items(items: list, question_count: int, rng: random.Random | None = None) -> list[dict]:
-    """Validate, shuffle and truncate a batch of generated items."""
+def finalize_items(
+    items: list,
+    question_count: int,
+    rng: random.Random | None = None,
+    choice_only: bool = False,
+) -> list[dict]:
+    """Validate, shuffle and truncate a batch of generated items.
+
+    ``choice_only`` inverts the module's downgrade-never-drop rule: the caller asked for
+    multiple choice and nothing else, so an item that validation downgrades to free text
+    is dropped instead. Callers over-generate to absorb that loss.
+    """
     rng = rng or random.Random()
     validated = []
     for item in items:
         if not isinstance(item, dict):
             continue
         result = validate_item(item, rng)
-        if result:
-            validated.append(result)
+        if not result:
+            continue
+        if choice_only and result["question_type"] not in CHOICE_TYPES:
+            _reject("free text in choice-only mode", result["question"])
+            continue
+        validated.append(result)
     return validated[:question_count]

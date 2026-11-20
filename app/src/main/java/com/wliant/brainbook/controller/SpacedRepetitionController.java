@@ -1,7 +1,7 @@
 package com.wliant.brainbook.controller;
 
-import com.wliant.brainbook.dto.ChoiceQuestionsEnabledRequest;
 import com.wliant.brainbook.dto.QuestionCountRequest;
+import com.wliant.brainbook.dto.QuestionModeRequest;
 import com.wliant.brainbook.dto.QuizEnabledRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
@@ -94,11 +94,11 @@ public class SpacedRepetitionController {
         return ResponseEntity.ok(spacedRepetitionService.getItemById(itemId));
     }
 
-    @PatchMapping("/items/{itemId}/choice-questions-enabled")
-    public ResponseEntity<SpacedRepetitionItemResponse> updateChoiceQuestionsEnabled(
+    @PatchMapping("/items/{itemId}/question-mode")
+    public ResponseEntity<SpacedRepetitionItemResponse> updateQuestionMode(
             @PathVariable UUID itemId,
-            @Valid @RequestBody ChoiceQuestionsEnabledRequest request) {
-        spacedRepetitionService.updateChoiceQuestionsEnabled(itemId, request.choiceQuestionsEnabled());
+            @Valid @RequestBody QuestionModeRequest request) {
+        spacedRepetitionService.updateQuestionMode(itemId, request.questionMode());
         return ResponseEntity.ok(spacedRepetitionService.getItemById(itemId));
     }
 

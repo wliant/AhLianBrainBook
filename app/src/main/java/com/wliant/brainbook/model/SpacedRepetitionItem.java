@@ -2,6 +2,8 @@ package com.wliant.brainbook.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -48,8 +50,9 @@ public class SpacedRepetitionItem {
     @Column(name = "quiz_enabled", nullable = false)
     private boolean quizEnabled = true;
 
-    @Column(name = "choice_questions_enabled", nullable = false)
-    private boolean choiceQuestionsEnabled = true;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "question_mode", nullable = false)
+    private ReviewQuestionMode questionMode = ReviewQuestionMode.MIXED;
 
     @Column(name = "next_review_at", nullable = false)
     private LocalDateTime nextReviewAt;
@@ -95,7 +98,7 @@ public class SpacedRepetitionItem {
     public void setQuestionCount(int questionCount) { this.questionCount = questionCount; }
     public boolean isQuizEnabled() { return quizEnabled; }
     public void setQuizEnabled(boolean quizEnabled) { this.quizEnabled = quizEnabled; }
-    public boolean isChoiceQuestionsEnabled() { return choiceQuestionsEnabled; }
-    public void setChoiceQuestionsEnabled(boolean choiceQuestionsEnabled) { this.choiceQuestionsEnabled = choiceQuestionsEnabled; }
+    public ReviewQuestionMode getQuestionMode() { return questionMode; }
+    public void setQuestionMode(ReviewQuestionMode questionMode) { this.questionMode = questionMode; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

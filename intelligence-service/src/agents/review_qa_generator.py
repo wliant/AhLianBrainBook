@@ -1,11 +1,12 @@
 import asyncio
 import json
 import logging
+import math
 from typing import TypedDict
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from src.agents.review_choice_rules import finalize_items
+from src.agents.review_choice_rules import finalize_items, normalize
 from src.config import settings
 from src.utils import extract_text, strip_code_fences
 from langgraph.graph import StateGraph
@@ -24,6 +25,23 @@ RESEARCH_RECURSION_LIMIT = 12
 # stage needs its own ceiling. Blowing it degrades to LLM-only distractors.
 RESEARCH_TIMEOUT_SECONDS = 120
 
+# A request for many questions is split into batches: one graph run cannot fit 50
+# researched choice questions inside max_tokens_review_qa, and a single huge draft
+# degrades in quality long before it hits the limit.
+QUESTIONS_PER_BATCH = 10
+# Each batch spends its own MAX_SEARCHES/MAX_FETCHES budget, so batches run a few at a
+# time rather than all at once.
+MAX_CONCURRENT_BATCHES = 3
+# Choice-only mode drops questions that fail option validation instead of downgrading
+# them, so the draft asks for more than the caller wants.
+CHOICE_ONLY_OVERDRAFT = 1.4
+# Validation can still reject more than the over-draft covers, so one extra round refills
+# the shortfall. Bounded at one so a note that simply cannot carry the asked-for count
+# costs a fixed amount rather than looping.
+MAX_TOPUP_ROUNDS = 1
+# Not worth a round trip for the last question or two.
+MIN_TOPUP_SHORTFALL = 2
+
 
 class QAState(TypedDict):
     neuron_title: str
@@ -31,7 +49,10 @@ class QAState(TypedDict):
     question_count: int
     brain_name: str
     tags: list[str]
-    allow_choice_questions: bool
+    question_mode: str
+    batch_index: int
+    batch_total: int
+    avoid_questions: list[str]
     tools_enabled: bool
     draft: list[dict]
     research_brief: dict
@@ -71,7 +92,10 @@ def build_prompt(state: dict) -> dict:
         "question_count": state.get("question_count", 5),
         "brain_name": state.get("brain_name", ""),
         "tags": state.get("tags", []),
-        "allow_choice_questions": state.get("allow_choice_questions", True),
+        "question_mode": state.get("question_mode", "mixed"),
+        "batch_index": state.get("batch_index", 0),
+        "batch_total": state.get("batch_total", 1),
+        "avoid_questions": state.get("avoid_questions", []),
         "tools_enabled": state.get("tools_enabled", False),
         "draft": [],
         "research_brief": {},
@@ -83,16 +107,42 @@ def build_prompt(state: dict) -> dict:
 
 def _note_header(state: dict) -> str:
     tags = state.get("tags") or []
-    return (
+    header = (
         f"Brain/domain: {state.get('brain_name') or 'General'}\n"
         f"Tags: {', '.join(tags) if tags else 'none'}\n"
         f"Note title: {state.get('neuron_title', 'Untitled')}\n"
     )
+    total = state.get("batch_total", 1)
+    if total > 1:
+        index = state.get("batch_index", 0)
+        header += (
+            f"You are writing segment {index + 1} of {total} of a larger quiz on this note. "
+            f"Draw your questions from the portion of the note roughly {index + 1}/{total} of the "
+            "way through it, and cover material the other segments would not — the segments are "
+            "merged and near-duplicate questions are discarded.\n"
+        )
+    avoid = state.get("avoid_questions") or []
+    if avoid:
+        joined = "\n".join(f"  - {q}" for q in avoid)
+        header += (
+            "These questions already exist and must NOT be asked again, in any wording:\n"
+            f"{joined}\n"
+        )
+    return header
+
+
+def _draft_target(state: dict) -> int:
+    """How many questions the draft stage aims for — more than asked in choice-only mode."""
+    count = state.get("question_count", 5)
+    if state.get("question_mode") == "choice_only":
+        return math.ceil(count * CHOICE_ONLY_OVERDRAFT)
+    return count
 
 
 def _draft_prompt(state: dict) -> str:
     count = state.get("question_count", 5)
-    if not state.get("allow_choice_questions", True):
+    mode = state.get("question_mode", "mixed")
+    if mode == "free_text":
         return (
             "You are a study quiz generator. Given a knowledge note, generate question-answer "
             "pairs that test recall and understanding of the key concepts.\n\n"
@@ -105,6 +155,38 @@ def _draft_prompt(state: dict) -> str:
             f"Number of questions to generate: {count}\n\n"
             "Respond with ONLY valid JSON in this exact format:\n"
             '{"questions": [{"question": "...", "answer": "..."}, ...]}\n'
+        )
+
+    confusables = (
+        "For every question also list 2-4 'confusables': the specific sibling concepts, "
+        "adjacent versions, or competing tools a learner would most plausibly mix this up with. "
+        "Add one focused web search query that would turn up facts about those confusables.\n\n"
+    )
+    if mode == "choice_only":
+        # Over-draft (see _draft_target): validation drops, rather than downgrades,
+        # anything that cannot carry a defensible option set.
+        return (
+            "You are a study quiz generator. Given a knowledge note, plan a set of MULTIPLE "
+            "CHOICE questions that test recall and understanding of its key concepts.\n\n"
+            "Every question must be one of:\n"
+            "- single_choice: one correct option. Best for concrete, checkable facts (names, "
+            "numbers, dates, API names, taxonomies) that have confusable neighbours.\n"
+            "- multi_choice: several correct options. Best when a concept has a set of "
+            "properties, steps, or members.\n"
+            "Do NOT use free_text — a question you cannot pose as choices is discarded, not "
+            "converted. Turn 'why'/'how' material into a choice question by asking which "
+            "explanation, cause, or ordering is correct.\n\n"
+            + confusables
+            + "Guidelines:\n"
+            "- Focus on important concepts, not trivial details\n"
+            "- The 'answer' field holds the correct answer in plain words\n"
+            "- Questions should be self-contained and understandable without seeing the note\n\n"
+            f"{_note_header(state)}"
+            f"Number of questions to generate: {_draft_target(state)}\n\n"
+            "Respond with ONLY valid JSON in this exact format:\n"
+            '{"questions": [{"question": "...", "answer": "...", '
+            '"question_type": "single_choice|multi_choice", '
+            '"confusables": ["..."], "research_query": "..."}, ...]}\n'
         )
 
     return (
@@ -165,7 +247,7 @@ def draft_questions(state: dict) -> dict:
     if not draft:
         return {**state, "draft": [], "error": "No valid question-answer pairs in LLM response"}
 
-    return {**state, "draft": draft[: state["question_count"]], "raw_response": raw, "error": None}
+    return {**state, "draft": draft[: _draft_target(state)], "raw_response": raw, "error": None}
 
 
 def _get_tools() -> list:
@@ -199,7 +281,7 @@ async def research_distractors(state: dict) -> dict:
     """
     if state.get("error") or not state.get("draft"):
         return state
-    if not state.get("allow_choice_questions", True):
+    if state.get("question_mode") == "free_text":
         return state
 
     request_block = _research_request(state)
@@ -248,6 +330,18 @@ async def research_distractors(state: dict) -> dict:
         return {**state, "research_brief": {}}
 
 
+def _keep_policy(state: dict) -> str:
+    if state.get("question_mode") == "choice_only":
+        return (
+            "Every question must come back as single_choice or multi_choice. If you cannot "
+            "build a defensible option set for one, OMIT it entirely — do not emit free_text."
+        )
+    return (
+        "Keep free_text questions as they are (empty choices). Keep every drafted question — "
+        "if you cannot build good options for one, emit it as free_text instead."
+    )
+
+
 def _assemble_prompt(state: dict, has_brief: bool) -> str:
     source = (
         "Use the research brief below as your source of distractors. Attach the source_url of "
@@ -261,8 +355,7 @@ def _assemble_prompt(state: dict, has_brief: bool) -> str:
         "You are finalizing a study quiz. Turn the drafted questions into their final form.\n\n"
         f"{source}\n"
         f"{_CHOICE_POLICY}\n"
-        "Keep free_text questions as they are (empty choices). Keep every drafted question — "
-        "if you cannot build good options for one, emit it as free_text instead.\n\n"
+        f"{_keep_policy(state)}\n\n"
         "Respond with ONLY valid JSON in this exact format:\n"
         '{"questions": [{"question": "...", "answer": "...", '
         '"question_type": "single_choice|multi_choice|free_text", '
@@ -276,7 +369,7 @@ def assemble_choices(state: dict) -> dict:
         return state
 
     # Free-text-only mode: the draft is already the final shape.
-    if not state.get("allow_choice_questions", True):
+    if state.get("question_mode") == "free_text":
         return {**state, "items": [
             {"question": q["question"], "answer": q["answer"], "question_type": "free_text"}
             for q in state["draft"]
@@ -308,6 +401,10 @@ def assemble_choices(state: dict) -> dict:
             raise ValueError("no questions in assemble output")
         return {**state, "items": questions, "raw_response": raw, "error": None}
     except Exception as e:
+        if state.get("question_mode") == "choice_only":
+            # Free text is not an acceptable substitute here, so this batch yields nothing.
+            logger.warning("Failed to assemble choices in choice-only mode: %s", e)
+            return {**state, "items": []}
         # Fall back to the draft as plain free-text questions rather than losing the quiz.
         logger.warning("Failed to assemble choices, falling back to free text: %s", e)
         return {**state, "items": [
@@ -320,7 +417,11 @@ def validate_output(state: dict) -> dict:
     if state.get("error"):
         return state
 
-    items = finalize_items(state.get("items") or [], state["question_count"])
+    items = finalize_items(
+        state.get("items") or [],
+        state["question_count"],
+        choice_only=state.get("question_mode") == "choice_only",
+    )
     if not items:
         return {**state, "items": [], "error": "No valid question-answer pairs in LLM response"}
 
@@ -378,37 +479,120 @@ def _get_graph(tools_enabled: bool = False):
     return _linear_graph
 
 
+def _split_batches(question_count: int) -> list[int]:
+    """Split a requested count into per-run sizes, spread evenly so no batch is a runt."""
+    if question_count <= QUESTIONS_PER_BATCH:
+        return [max(question_count, 1)]
+    batches = math.ceil(question_count / QUESTIONS_PER_BATCH)
+    base, remainder = divmod(question_count, batches)
+    return [base + (1 if i < remainder else 0) for i in range(batches)]
+
+
+def _merge_batches(results: list[list[dict]], question_count: int) -> list[dict]:
+    """Concatenate batch outputs, dropping questions that repeat one already taken."""
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for items in results:
+        for item in items:
+            key = normalize(item.get("question", ""))
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+    return merged[:question_count]
+
+
 async def invoke_review_qa_generator(
     request: ReviewQARequest,
 ) -> ReviewQAResponse:
     # Research only helps if choice questions are wanted at all.
-    use_tools = request.tools_enabled and request.allow_choice_questions
+    use_tools = request.tools_enabled and request.question_mode != "free_text"
     graph = _get_graph(use_tools)
 
-    initial_state = {
-        "neuron_title": request.neuron_title,
-        "content_text": request.content_text,
-        "question_count": request.question_count,
-        "brain_name": request.brain_name,
-        "tags": request.tags,
-        "allow_choice_questions": request.allow_choice_questions,
-        "tools_enabled": use_tools,
-        "draft": [],
-        "research_brief": {},
-        "raw_response": "",
-        "items": [],
-        "error": None,
-    }
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_BATCHES)
+    errors: list[str] = []
+    collected: list[list[dict]] = []
+    merged: list[dict] = []
+
+    def initial_state(index: int, size: int, total: int, avoid: list[str]) -> dict:
+        return {
+            "neuron_title": request.neuron_title,
+            "content_text": request.content_text,
+            "question_count": size,
+            "brain_name": request.brain_name,
+            "tags": request.tags,
+            "question_mode": request.question_mode,
+            "batch_index": index,
+            "batch_total": total,
+            "avoid_questions": avoid,
+            "tools_enabled": use_tools,
+            "draft": [],
+            "research_brief": {},
+            "raw_response": "",
+            "items": [],
+            "error": None,
+        }
+
+    async def run_round(sizes: list[int], avoid: list[str]) -> list:
+        async def run_batch(index: int, size: int) -> dict:
+            async with semaphore:
+                return await graph.ainvoke(initial_state(index, size, len(sizes), avoid))
+
+        return await asyncio.gather(
+            *(run_batch(i, size) for i, size in enumerate(sizes)),
+            return_exceptions=True,
+        )
+
+    def absorb(results: list) -> None:
+        """Collect one round's output. A failed batch is logged, not fatal."""
+        for index, result in enumerate(results):
+            if isinstance(result, BaseException):
+                logger.warning("Review Q&A batch %d failed: %s", index, result)
+                errors.append(str(result))
+                continue
+            if result.get("error"):
+                logger.warning("Review Q&A batch %d returned error: %s", index, result["error"])
+                errors.append(result["error"])
+            collected.append(result.get("items") or [])
 
     try:
-        result = await asyncio.wait_for(
-            graph.ainvoke(initial_state), timeout=settings.agent_timeout)
-        items = [ReviewQAItem(**item) for item in result.get("items", [])]
-        return ReviewQAResponse(items=items, error=result.get("error"))
+        sizes = _split_batches(request.question_count)
+        absorb(await asyncio.wait_for(run_round(sizes, []), timeout=settings.agent_timeout))
+        merged = _merge_batches(collected, request.question_count)
+
+        # Validation rejects rather than downgrades in choice-only mode, and duplicates are
+        # dropped when batches merge, so a round can come back short of what was asked.
+        for _ in range(MAX_TOPUP_ROUNDS):
+            shortfall = request.question_count - len(merged)
+            if shortfall < MIN_TOPUP_SHORTFALL:
+                break
+            logger.info("topping up %d missing questions", shortfall)
+            absorb(await asyncio.wait_for(
+                run_round(_split_batches(shortfall), [i["question"] for i in merged]),
+                timeout=settings.agent_timeout,
+            ))
+            merged = _merge_batches(collected, request.question_count)
     except TimeoutError:
         logger.error("Timeout generating review Q&A for '%s'", request.neuron_title)
-        return ReviewQAResponse(error="Timeout generating questions")
+        if not merged:
+            return ReviewQAResponse(error="Timeout generating questions")
     except Exception as e:
         provider = get_provider_name()
         logger.error("Error generating review Q&A with %s: %s", provider, e)
+        if not merged:
+            return ReviewQAResponse(error=f"Failed to generate questions: {e}")
+
+    if not merged:
+        return ReviewQAResponse(error=errors[0] if errors else "No questions generated")
+
+    if len(merged) < request.question_count:
+        # Visible rather than silent: the caller asked for more than the note could carry.
+        logger.info(
+            "returning %d of %d requested questions", len(merged), request.question_count)
+
+    try:
+        items = [ReviewQAItem(**item) for item in merged]
+    except Exception as e:
+        logger.error("Invalid review Q&A item: %s", e)
         return ReviewQAResponse(error=f"Failed to generate questions: {e}")
+    return ReviewQAResponse(items=items, error=None)

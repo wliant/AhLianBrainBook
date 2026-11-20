@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { formatRelativeFuture, formatRelativeTime } from "@/lib/datetime";
-import type { SpacedRepetitionItem } from "@/types";
+import { QUESTION_COUNT_OPTIONS, type ReviewQuestionMode, type SpacedRepetitionItem } from "@/types";
 import { Loader2, AlertCircle, X, GraduationCap, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -28,8 +28,8 @@ export function SpacedRepetitionPanel({
   const [updatingCount, setUpdatingCount] = useState(false);
   const [quizEnabled, setQuizEnabled] = useState(true);
   const [updatingQuizEnabled, setUpdatingQuizEnabled] = useState(false);
-  const [choiceQuestionsEnabled, setChoiceQuestionsEnabled] = useState(true);
-  const [updatingChoiceQuestions, setUpdatingChoiceQuestions] = useState(false);
+  const [questionMode, setQuestionMode] = useState<ReviewQuestionMode>("MIXED");
+  const [updatingQuestionMode, setUpdatingQuestionMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +43,7 @@ export function SpacedRepetitionPanel({
           setItem(data);
           setQuestionCount(data.questionCount);
           setQuizEnabled(data.quizEnabled);
-          setChoiceQuestionsEnabled(data.choiceQuestionsEnabled);
+          setQuestionMode(data.questionMode);
         }
       })
       .catch(() => {
@@ -178,36 +178,51 @@ export function SpacedRepetitionPanel({
                       className="h-7 rounded-md border bg-background px-2 text-xs"
                       data-testid="question-count-select"
                     >
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      {QUESTION_COUNT_OPTIONS.map((n) => (
                         <option key={n} value={n}>{n}</option>
                       ))}
                     </select>
                     {updatingCount && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Multiple choice</span>
-                    <button
-                      onClick={async () => {
-                        const newVal = !choiceQuestionsEnabled;
-                        setChoiceQuestionsEnabled(newVal);
-                        setUpdatingChoiceQuestions(true);
+                  {questionCount >= 20 && (
+                    <p className="text-xs text-muted-foreground">
+                      {questionCount} questions are generated in batches and take noticeably longer
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground" htmlFor="question-mode">
+                      Question format
+                    </label>
+                    <select
+                      id="question-mode"
+                      value={questionMode}
+                      onChange={async (e) => {
+                        const prev = questionMode;
+                        const val = e.target.value as ReviewQuestionMode;
+                        setQuestionMode(val);
+                        setUpdatingQuestionMode(true);
                         try {
-                          const updated = await api.spacedRepetition.updateChoiceQuestionsEnabled(item.id, newVal);
+                          const updated = await api.spacedRepetition.updateQuestionMode(item.id, val);
                           setItem(updated);
-                        } catch { setChoiceQuestionsEnabled(!newVal); }
-                        finally { setUpdatingChoiceQuestions(false); }
+                        } catch { setQuestionMode(prev); }
+                        finally { setUpdatingQuestionMode(false); }
                       }}
-                      disabled={updatingChoiceQuestions}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${choiceQuestionsEnabled ? "bg-purple-500" : "bg-muted"}`}
-                      data-testid="choice-questions-toggle"
+                      disabled={updatingQuestionMode}
+                      className="h-7 rounded-md border bg-background px-2 text-xs"
+                      data-testid="question-mode-select"
                     >
-                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${choiceQuestionsEnabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                    </button>
+                      <option value="FREE_TEXT">Free text only</option>
+                      <option value="MIXED">Mixed</option>
+                      <option value="CHOICE_ONLY">Multiple choice only</option>
+                    </select>
+                    {updatingQuestionMode && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {choiceQuestionsEnabled
-                      ? "Questions may be single- or multi-select, with researched wrong answers"
-                      : "Free-text recall only"}
+                    {questionMode === "FREE_TEXT"
+                      ? "Free-text recall only"
+                      : questionMode === "CHOICE_ONLY"
+                        ? "Every question is single- or multi-select, with researched wrong answers"
+                        : "Questions may be single- or multi-select, with researched wrong answers"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {item.hasQuestions ? "Questions ready for review" : item.quizEligible ? "Questions will be generated before next review" : "Content too short for quiz mode"}

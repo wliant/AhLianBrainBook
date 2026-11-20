@@ -100,6 +100,43 @@ class TestSpacedRepetitionAPI:
             api.remove_sr_item(neuron["id"])
 
 
+    def test_question_mode_defaults_to_mixed_and_round_trips(
+        self, api: BrainBookAPI, neuron_in_cluster
+    ):
+        _, _, neuron = neuron_in_cluster
+        try:
+            item = api.add_sr_item(neuron["id"])
+            assert item["questionMode"] == "MIXED"
+
+            updated = api.set_sr_question_mode(item["id"], "CHOICE_ONLY")
+            assert updated["questionMode"] == "CHOICE_ONLY"
+            assert api.get_sr_item(neuron["id"])["questionMode"] == "CHOICE_ONLY"
+        finally:
+            api.remove_sr_item(neuron["id"])
+
+    @pytest.mark.parametrize("count", [5, 10, 20, 50])
+    def test_question_count_accepts_each_offered_value(
+        self, api: BrainBookAPI, neuron_in_cluster, count
+    ):
+        _, _, neuron = neuron_in_cluster
+        try:
+            item = api.add_sr_item(neuron["id"])
+            assert api.set_sr_question_count(item["id"], count)["questionCount"] == count
+        finally:
+            api.remove_sr_item(neuron["id"])
+
+    def test_question_count_rejects_a_value_not_offered(
+        self, api: BrainBookAPI, neuron_in_cluster
+    ):
+        _, _, neuron = neuron_in_cluster
+        try:
+            item = api.add_sr_item(neuron["id"])
+            with pytest.raises(Exception):
+                api.set_sr_question_count(item["id"], 7)
+        finally:
+            api.remove_sr_item(neuron["id"])
+
+
 class TestSpacedRepetitionBrowser:
     """Browser-level tests for the spaced repetition panel."""
 
@@ -137,6 +174,54 @@ class TestSpacedRepetitionBrowser:
         open_sr_panel(page)
 
         expect(page.get_by_text("Now", exact=True)).to_be_visible(timeout=5000)
+
+    def test_quiz_settings_offer_the_modes_and_counts(
+        self, page: Page, api: BrainBookAPI, neuron_in_cluster
+    ):
+        brain, cluster, neuron = neuron_in_cluster
+        api.add_sr_item(neuron["id"])
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
+        open_sr_panel(page)
+
+        mode_select = page.get_by_test_id("question-mode-select")
+        expect(mode_select).to_be_visible(timeout=5000)
+        assert mode_select.locator("option").all_inner_texts() == [
+            "Free text only",
+            "Mixed",
+            "Multiple choice only",
+        ]
+
+        count_select = page.get_by_test_id("question-count-select")
+        assert count_select.locator("option").all_inner_texts() == ["5", "10", "20", "50"]
+
+    def test_quiz_settings_persist_across_a_reload(
+        self, page: Page, api: BrainBookAPI, neuron_in_cluster
+    ):
+        brain, cluster, neuron = neuron_in_cluster
+        item = api.add_sr_item(neuron["id"])
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
+        open_sr_panel(page)
+
+        page.get_by_test_id("question-mode-select").select_option("CHOICE_ONLY")
+        expect(
+            page.get_by_text("Every question is single- or multi-select", exact=False)
+        ).to_be_visible(timeout=5000)
+        page.get_by_test_id("question-count-select").select_option("20")
+
+        # The backend is the source of truth, so confirm there before reloading.
+        def saved() -> bool:
+            stored = api.get_sr_item(neuron["id"])
+            return stored["questionMode"] == "CHOICE_ONLY" and stored["questionCount"] == 20
+
+        page.wait_for_timeout(1000)
+        assert saved(), "quiz settings were not persisted"
+
+        navigate_to_neuron(page, brain["id"], cluster["id"], neuron["id"])
+        open_sr_panel(page)
+        expect(page.get_by_test_id("question-mode-select")).to_have_value(
+            "CHOICE_ONLY", timeout=5000
+        )
+        expect(page.get_by_test_id("question-count-select")).to_have_value("20")
 
     def test_sr_panel_mutual_exclusivity_with_history(self, neuron_on_page):
         page, brain, cluster, neuron = neuron_on_page

@@ -30,7 +30,7 @@ const makeSRItem = (overrides: Partial<SpacedRepetitionItem> = {}): SpacedRepeti
   hasQuestions: true,
   quizEligible: true,
   quizEnabled: true,
-  choiceQuestionsEnabled: true,
+  questionMode: "MIXED",
   ...overrides,
 });
 

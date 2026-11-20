@@ -8,7 +8,8 @@ import com.wliant.brainbook.dto.CreateClusterRequest;
 import com.wliant.brainbook.dto.ClusterResponse;
 import com.wliant.brainbook.dto.NeuronRequest;
 import com.wliant.brainbook.dto.NeuronResponse;
-import com.wliant.brainbook.dto.ChoiceQuestionsEnabledRequest;
+import com.wliant.brainbook.dto.QuestionModeRequest;
+import com.wliant.brainbook.model.ReviewQuestionMode;
 import com.wliant.brainbook.dto.QuestionCountRequest;
 import com.wliant.brainbook.dto.ReviewQuestionResponse;
 import com.wliant.brainbook.dto.SpacedRepetitionItemResponse;
@@ -358,52 +359,63 @@ class SpacedRepetitionControllerIntegrationTest {
     }
 
 
-    // ── updateChoiceQuestionsEnabled ──
+    // ── updateQuestionMode ──
 
     @Test
-    void updateChoiceQuestionsEnabled_returns200AndTogglesTheFlag() {
+    void updateQuestionMode_returns200AndStoresTheMode() {
         SpacedRepetitionItemResponse item = addToSR(neuronId);
-        assertThat(item.choiceQuestionsEnabled()).isTrue();
+        assertThat(item.questionMode()).isEqualTo(ReviewQuestionMode.MIXED);
 
         ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.exchange(
-                "/api/spaced-repetition/items/{itemId}/choice-questions-enabled", HttpMethod.PATCH,
-                new HttpEntity<>(new ChoiceQuestionsEnabledRequest(false)),
+                "/api/spaced-repetition/items/{itemId}/question-mode", HttpMethod.PATCH,
+                new HttpEntity<>(new QuestionModeRequest(ReviewQuestionMode.CHOICE_ONLY)),
                 SpacedRepetitionItemResponse.class, item.id());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().choiceQuestionsEnabled()).isFalse();
+        assertThat(response.getBody().questionMode()).isEqualTo(ReviewQuestionMode.CHOICE_ONLY);
     }
 
     @Test
-    void updateChoiceQuestionsEnabled_returns400ForNullValue() {
+    void updateQuestionMode_returns400ForNullValue() {
         SpacedRepetitionItemResponse item = addToSR(neuronId);
 
         ResponseEntity<Void> response = restTemplate.exchange(
-                "/api/spaced-repetition/items/{itemId}/choice-questions-enabled", HttpMethod.PATCH,
+                "/api/spaced-repetition/items/{itemId}/question-mode", HttpMethod.PATCH,
                 new HttpEntity<>(Map.of()), Void.class, item.id());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
-    void updateChoiceQuestionsEnabled_returns404ForUnknownItem() {
+    void updateQuestionMode_returns400ForUnknownMode() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
         ResponseEntity<Void> response = restTemplate.exchange(
-                "/api/spaced-repetition/items/{itemId}/choice-questions-enabled", HttpMethod.PATCH,
-                new HttpEntity<>(new ChoiceQuestionsEnabledRequest(false)),
+                "/api/spaced-repetition/items/{itemId}/question-mode", HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("questionMode", "SOMETIMES")), Void.class, item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void updateQuestionMode_returns404ForUnknownItem() {
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/question-mode", HttpMethod.PATCH,
+                new HttpEntity<>(new QuestionModeRequest(ReviewQuestionMode.FREE_TEXT)),
                 Void.class, UUID.randomUUID());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void getItem_exposesChoiceQuestionsEnabledByDefault() {
+    void getItem_exposesMixedQuestionModeByDefault() {
         addToSR(neuronId);
 
         ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.getForEntity(
                 "/api/spaced-repetition/items/{neuronId}", SpacedRepetitionItemResponse.class, neuronId);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().choiceQuestionsEnabled()).isTrue();
+        assertThat(response.getBody().questionMode()).isEqualTo(ReviewQuestionMode.MIXED);
     }
 
     @Test
@@ -470,12 +482,27 @@ class SpacedRepetitionControllerIntegrationTest {
         ResponseEntity<SpacedRepetitionItemResponse> response = restTemplate.exchange(
                 "/api/spaced-repetition/items/{itemId}/question-count",
                 HttpMethod.PATCH,
-                new HttpEntity<>(new QuestionCountRequest(3)),
+                new HttpEntity<>(new QuestionCountRequest(50)),
                 SpacedRepetitionItemResponse.class,
                 item.id());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().questionCount()).isEqualTo(3);
+        assertThat(response.getBody().questionCount()).isEqualTo(50);
+    }
+
+    @Test
+    void updateQuestionCount_returns400ForCountOutsideTheOfferedSet() {
+        SpacedRepetitionItemResponse item = addToSR(neuronId);
+
+        // 7 is within the DTO's 5..50 bounds but is not one of {5, 10, 20, 50}.
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/spaced-repetition/items/{itemId}/question-count",
+                HttpMethod.PATCH,
+                new HttpEntity<>(new QuestionCountRequest(7)),
+                Void.class,
+                item.id());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test

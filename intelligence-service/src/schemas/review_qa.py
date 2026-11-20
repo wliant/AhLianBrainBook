@@ -4,6 +4,12 @@ from pydantic import BaseModel
 
 QuestionType = Literal["free_text", "single_choice", "multi_choice"]
 
+# What formats a quiz may contain:
+#   free_text   — recall only, no choice questions
+#   mixed       — the agent picks a format per question
+#   choice_only — every question must be single_choice or multi_choice
+QuestionMode = Literal["free_text", "mixed", "choice_only"]
+
 
 class ReviewQARequest(BaseModel):
     neuron_title: str
@@ -11,9 +17,8 @@ class ReviewQARequest(BaseModel):
     question_count: int = 5
     brain_name: str = ""
     tags: list[str] = []
-    # Whether the caller wants multiple-choice questions at all. False means
-    # free-text recall only.
-    allow_choice_questions: bool = True
+    # Which question formats the quiz may contain.
+    question_mode: QuestionMode = "mixed"
     # Gates web search. Off means LLM-only distractors, which are easier and unverified.
     tools_enabled: bool = False
 
