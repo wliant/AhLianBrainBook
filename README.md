@@ -39,44 +39,57 @@
 ### Knowledge Management
 - **Brains → Clusters → Neurons** — hierarchical organisation with tags, colours, and icons
 - **Rich multi-section editor** — mix rich text, code (with syntax highlighting), tables, callouts, diagrams, math, images, and audio in a single note
-- **Wiki-style neuron links** — manually link neurons with typed relationships (references, related-to, depends-on, …)
-- **Revision history** — every save is tracked; restore any previous version instantly
+- **Wiki-style neuron links** — link notes with typed relationships (references, related-to, depends-on, …), by dialog or `[[` autocomplete in the editor
+- **Slash commands** — type `/` to insert any section type without leaving the keyboard
+- **Revision history** — snapshots are taken automatically once a note goes idle, or on demand; the ten most recent are kept and any of them can be restored
+- **Templates** — save a note's structure as a reusable template and start new notes from it
+- **Attachments** — upload files to any note, stored in object storage alongside it
 - **Favorites, pinning, and soft delete** — keep important notes surfaced; recover deleted notes from trash
 
 ### AI-Powered Writing & Research
 - **Inline AI Assist** — open an AI panel on any section to generate, rewrite, or extend content with a natural-language prompt
 - **AI Research Clusters** — set a learning goal and let AI generate a structured research topic tree with sub-topics and completeness indicators
-- **AI Quiz Generation** — automatically generate quiz questions from neuron content for active recall practice
+- **AI Quiz Generation** — turn a note into free-text, single-select, or multi-select recall questions; with web search enabled, multiple-choice distractors are built from researched facts about neighbouring concepts rather than obvious filler
+- **AI link suggestions** — notes are embedded as vectors and related ones are surfaced automatically, catching connections no manual link was made for
+
+### Reminders & Notifications
+- **Reminders** — one-off or recurring reminders on any note, due in your configured timezone
+- **Notification center** — an in-app inbox that updates live as reminders fire
 
 ### Spaced Repetition & Active Learning
 - **SM-2 algorithm** — the same scheduling algorithm used by Anki
 - **Review queue** — see what's due today across all neurons
 - **Quality ratings** — rate each review as Again / Hard / Good / Easy to adapt the schedule
-- **Per-neuron configuration** — enable/disable quiz mode and set question count per neuron
+- **Per-neuron quiz settings** — turn quiz mode on or off, choose the question format (free text only, mixed, or multiple choice only), and generate 5, 10, 20, or 50 questions
+- **Automatic scoring** — multiple-choice answers are graded on an exact match of the selected set; free-text answers are self-assessed when the answer is revealed
 
 ### Project Clusters (Code-Anchored Notes)
 - **File tree browser** — explore any GitHub repository with syntax-highlighted code viewing and color-coded file-type icons
 - **Image & Markdown preview** — images render inline; Markdown files show a rendered/source toggle
 - **Anchor neurons to code** — link a note to a specific file, line range, or folder; anchors track drift across commits
 - **Sandbox mode** — provision a server-side git clone for full IDE-level navigation: branch switching, blame, diff, commit log, and tree-sitter code intelligence
-- **Private repository support** — configure a GitHub Personal Access Token to browse and clone private repos
+- **Private repository support** — give the sandbox service a GitHub Personal Access Token to browse and clone private repos
 
 ### Task Management (Todo Clusters)
 - **Quick-add task bar** — create tasks inline without leaving the view
 - **Priority levels** — mark tasks as Critical, Important, or Normal
 - **Due dates & completion** — track deadlines with visual badges; toggle completion inline
-- **Auto-recurring reminders** — overdue tasks automatically generate a daily reminder at 7 pm local time until resolved
+- **Effort estimates** — size a task from 15 minutes to 8 hours
+- **Cross-brain task list** — one page collecting open tasks from every brain, ordered by due date, priority, then effort
+- **Auto-recurring reminders** — a task with a due date gets a daily 7 pm reminder in your configured timezone, which stops once the task is completed
 
 ### Discovery & Navigation
 - **Interactive knowledge graph** — visualize all neurons and their connections in a zoomable graph, colour-coded by cluster
 - **Full-text search** — search across all neurons with highlighted context snippets
-- **Tag filtering** — filter by brain tags or neuron tags with AND/OR logic
-- **Thoughts** — create dynamic tag-based collections that automatically stay up to date
+- **Tag filtering** — narrow search by brain and neuron tags; every selected tag must match
+- **Thoughts** — dynamic tag-based collections that stay up to date, matching any or all of their tags
+- **Command palette & shortcuts** — jump to any brain, cluster, or note from the keyboard
 
 ### Sharing & Export
-- **Shareable links** — generate expiring public links for individual neurons (no login required for readers)
-- **Markdown & PDF export** — export neurons to `.md` or print to PDF
+- **Shareable links** — generate public links for individual neurons, with an optional expiry (no login required for readers)
+- **Markdown & PDF export** — export neurons to `.md`, or print to PDF with print-tuned styles
 - **Brain backup** — export an entire brain as JSON and re-import it elsewhere
+- **Installable PWA** — install to the home screen or desktop, with offline caching and a share target for sending content in
 
 ---
 
@@ -88,7 +101,7 @@
 | Backend | Spring Boot 3.5, Java 21, Flyway, JPA |
 | Intelligence | FastAPI, LangGraph, Ollama / Anthropic Claude |
 | Sandbox Service | Go, gRPC |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 16 with pgvector |
 | Storage | MinIO (S3-compatible) |
 | Infrastructure | Docker Compose |
 
@@ -121,7 +134,7 @@ curling the API directly while debugging.
 
 See [docs/deployment.md](docs/deployment.md) for deploying to a server.
 
-**LLM configuration:** Set `LLM_PROVIDER=ollama` and point `OLLAMA_BASE_URL` at a running [Ollama](https://ollama.com) instance, or set `LLM_PROVIDER=anthropic` with your `ANTHROPIC_API_KEY`. AI features (writing assist, research clusters, quiz generation) require a working LLM connection.
+**LLM configuration:** Set `LLM_PROVIDER=ollama` and point `OLLAMA_BASE_URL` at a running [Ollama](https://ollama.com) instance, or set `LLM_PROVIDER=anthropic` with your `ANTHROPIC_API_KEY`. AI features (writing assist, research clusters, quiz generation) require a working LLM connection. Embeddings always come from Ollama — `EMBEDDING_OLLAMA_BASE_URL` and `EMBEDDING_OLLAMA_MODEL` must point at a reachable embedding model for link suggestions to work, whichever chat provider is in use.
 
 ---
 
